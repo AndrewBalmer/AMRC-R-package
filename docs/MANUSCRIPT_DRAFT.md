@@ -16,6 +16,11 @@ The manuscript should be a software/application paper centered on one core examp
 That workflow now exists in a user-facing form in the vignette:
 [end-to-end-spneumoniae.Rmd](/Users/ab69/AMRC-R-package/vignettes/end-to-end-spneumoniae.Rmd)
 
+The software version referenced in the manuscript should be frozen at the first
+GitHub Actions `R-CMD-check` green commit that includes the end-to-end vignette
+workflow. Until that green baseline is fixed, keep the manuscript drafting
+centered on the vignette structure rather than on moving notebook details.
+
 ## Draft Abstract
 
 Antimicrobial resistance phenotypes measured by minimum inhibitory concentration (MIC) assays are intrinsically multivariate, but many analysis workflows remain tied to univariate summaries or project-specific scripts. We present `amrcartography`, an R package for reproducible antimicrobial resistance cartography workflows that transform MIC datasets into phenotype maps, integrate genotype-derived distance structures, and support downstream clustering and phenotype-versus-genotype comparison analyses. The package formalizes data preprocessing, multidimensional scaling, map calibration, robustness analyses, and reusable comparison summaries that were previously distributed across notebook-style analysis scripts. We demonstrate the workflow using a packaged *Streptococcus pneumoniae* example and provide bundled examples, regression tests, and a reproducible environment for reuse and extension. `amrcartography` is intended both as a practical toolkit for MIC-based analysis and as a reproducible software companion to AMR cartography studies.
@@ -77,4 +82,4 @@ Antimicrobial resistance phenotypes measured by minimum inhibitory concentration
 - tighten the abstract once the target journal is chosen
 - add references for MDS, MIC analysis, and AMR cartography framing
 - decide whether to position this as a methods/software paper or as a companion software note to the main AMR cartography manuscript
-- add citation/repository/version text once the release commit is fixed
+- add citation/repository/version text once the green release-basis commit is fixed

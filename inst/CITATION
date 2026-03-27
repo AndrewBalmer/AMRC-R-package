@@ -1,0 +1,12 @@
+citHeader("To cite amrcartography in publications use:")
+
+meta <- utils::packageDescription("amrcartography")
+
+bibentry(
+  bibtype = "Manual",
+  title = "amrcartography: Reproducible antimicrobial resistance cartography from MIC data",
+  author = person("Andrew", "Balmer"),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/AndrewBalmer/AMRC-R-package"
+)

@@ -10,12 +10,14 @@ amrc_spneumoniae_example_paths(
 )
 }
 \arguments{
-\item{example}{Which packaged example to locate: \code{generated} for the
-processed example outputs bundled in \code{inst/extdata/generated/spneumoniae},
-or \code{mini_raw} for the tiny raw-input example bundled in
-\code{inst/extdata/examples/spneumoniae-mini/raw}.}
+\item{example}{Which example path set to locate: \code{mini_raw} for the tiny
+bundled raw-input example in \code{inst/extdata/examples/spneumoniae-mini/raw},
+or \code{generated} for the canonical generated-output location used by local
+source checkouts and notebook-scale rebuilds.}
 
-\item{mustWork}{Logical; fail if the packaged example is unavailable.}
+\item{mustWork}{Logical; fail if the requested example path set is
+unavailable. Keep \code{TRUE} when you need real bundled files; use \code{FALSE} when
+you only want the conventional generated-output location.}
 }
 \value{
 A named list of file paths.

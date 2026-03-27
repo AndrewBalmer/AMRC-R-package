@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 This vignette shows a small end-to-end workflow with `amrcartography`: start from bundled example inputs, preprocess phenotype and genotype data, fit phenotype and genotype maps, and build comparison summaries from the fitted maps.
 
-The runnable example uses a tiny bundled raw-input example so the vignette stays fast and deterministic. A second non-evaluated chunk shows how to run the same workflow on the larger packaged *S. pneumoniae* example data.
+The runnable example uses a tiny bundled raw-input example so the vignette stays fast and deterministic. A second non-evaluated chunk shows how to scale the same workflow up to the larger notebook-style *S. pneumoniae* example data in a local source checkout.
 
 ## Load the package and locate the example inputs
 
@@ -143,12 +143,12 @@ amrc_plot_reference_distance_relationship(
 )
 ```
 
-## Running the larger packaged example
+## Scaling up to the notebook-scale example
 
-The package also bundles processed example outputs and prebuilt canonical maps for the larger *S. pneumoniae* example used throughout this repository.
+The larger generated outputs used by the legacy notebooks are intentionally not bundled in the installed package because they are much larger than the fast vignette example. Instead, the package exposes the canonical local generated-output location and the build helpers needed to recreate it in a source checkout.
 
-```{r}
-generated_paths <- amrc_spneumoniae_example_paths("generated")
+```{r, eval = FALSE}
+generated_paths <- amrc_spneumoniae_example_paths("generated", mustWork = FALSE)
 
 generated_paths[c(
   "mic_csv",
@@ -159,7 +159,7 @@ generated_paths[c(
 )]
 ```
 
-If you want to rebuild those larger example outputs from the raw example inputs, use the package pipeline helpers:
+To rebuild those larger example outputs from the raw example inputs, use the package pipeline helpers:
 
 ```{r, eval = FALSE}
 out_dir <- tempfile("amrc-spneumoniae-generated-")

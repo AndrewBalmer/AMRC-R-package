@@ -54,11 +54,13 @@ amrc_generated_path <- function(generated_dir, key, must_exist = FALSE, allow_le
 #' Returns the installed-file paths for the packaged S. pneumoniae examples used
 #' in the README and vignette.
 #'
-#' @param example Which packaged example to locate: `generated` for the
-#'   processed example outputs bundled in `inst/extdata/generated/spneumoniae`,
-#'   or `mini_raw` for the tiny raw-input example bundled in
-#'   `inst/extdata/examples/spneumoniae-mini/raw`.
-#' @param mustWork Logical; fail if the packaged example is unavailable.
+#' @param example Which example path set to locate: `mini_raw` for the tiny
+#'   bundled raw-input example in `inst/extdata/examples/spneumoniae-mini/raw`,
+#'   or `generated` for the canonical generated-output location used by local
+#'   source checkouts and notebook-scale rebuilds.
+#' @param mustWork Logical; fail if the requested example path set is
+#'   unavailable. Keep `TRUE` when you need real bundled files; use `FALSE` when
+#'   you only want the conventional generated-output location.
 #'
 #' @return A named list of file paths.
 #' @export

@@ -6,4 +6,7 @@
 ^renv$
 ^renv\.lock$
 ^\.github$
+^inst/extdata/generated$
+^inst/extdata/examples/spneumoniae-mini/generated$
+^CITATION\.cff$
 ^.*\.Rproj$

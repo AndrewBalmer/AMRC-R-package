@@ -15,5 +15,7 @@ inst/extdata/generated/
 *_cache/
 *_files/
 *.html
+end-to-end-spneumoniae.R
 *.tar.gz
 *.Rcheck/
+inst/extdata/examples/spneumoniae-mini/generated/

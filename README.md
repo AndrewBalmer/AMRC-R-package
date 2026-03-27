@@ -14,7 +14,7 @@ The package is now at the point where it has:
 
 ## Status
 
-This is still a development release rather than a CRAN release. The exported API is now usable, but some manuscript-era notebooks are still being migrated and the external-variable notebook still depends on metadata that are not yet in the repository.
+This is still a development release rather than a CRAN release. The exported API is now usable, but some manuscript-era notebooks are still being migrated and the external-variable notebook still depends on metadata that are not yet in the repository. Any interactive app remains explicitly deferred until the manuscript workflow and exported API stop moving.
 
 ## Installation
 
@@ -46,10 +46,9 @@ You can also locate the bundled example files directly:
 library(amrcartography)
 
 amrc_spneumoniae_example_paths("mini_raw")
-amrc_spneumoniae_example_paths("generated")
 ```
 
-The `mini_raw` example is a tiny raw-input workflow intended for quick learning and CI. The `generated` example points to the larger processed *S. pneumoniae* example outputs and prebuilt canonical maps bundled with the package.
+The `mini_raw` example is a tiny raw-input workflow intended for quick learning and CI. The larger notebook-scale generated outputs are not bundled in the installed package; build them locally when you need the full repository workflow.
 
 ## Example Workflow
 
@@ -76,11 +75,16 @@ amrc_build_spneumoniae_example_outputs(
 amrc_build_spneumoniae_example_maps(generated_dir = out_dir)
 ```
 
+If you are working in a source checkout and want the conventional local generated-output location used by the legacy notebooks, you can inspect it with:
+
+```r
+amrc_spneumoniae_example_paths("generated", mustWork = FALSE)
+```
+
 ## Expected Runtime
 
 - The bundled `mini_raw` vignette workflow should run in seconds.
-- Loading the bundled generated example outputs is also quick.
-- Rebuilding the full packaged *S. pneumoniae* outputs and maps from raw example inputs can take several minutes, especially on a laptop.
+- Rebuilding the full notebook-scale *S. pneumoniae* outputs and maps from raw example inputs can take several minutes, especially on a laptop.
 - Full notebook-style robustness and manuscript analyses are slower again and should be treated as heavier workflows.
 
 ## Data Provenance
@@ -96,7 +100,7 @@ The package now separates what ships in the repository from what is downloaded o
 
 ## How To Cite
 
-The repository now includes a software citation file at [CITATION.cff](CITATION.cff). For now, cite the package/software record; once the package manuscript is finalized, the README and citation text should be updated to cite both the software and the paper.
+The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For now, cite the package/software record; once the package manuscript is finalized, the README and citation text should be updated to cite both the software and the paper.
 
 ## Repository Layout
 

@@ -42,3 +42,4 @@ First usable package-development release of `amrcartography`.
 - Rewrote the README around installation, examples, runtime expectations, provenance, and release-facing guidance.
 - Added the user-facing end-to-end vignette `end-to-end-spneumoniae`.
 - Added manuscript planning and release-checklist documents.
+- Added `CITATION.cff`, a standard `inst/CITATION`, and README citation guidance.

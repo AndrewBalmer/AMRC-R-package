@@ -7,6 +7,7 @@ This checklist is for the first usable public release of `amrcartography` and fo
 - Confirm the exported API still matches the workflow described in the vignette and README.
 - Confirm the current scope still excludes the deferred external-variable notebook.
 - Check that all generated example files referenced in the package are present and use the short portable filenames.
+- Keep the interactive app out of scope unless the manuscript workflow and exported API have clearly stabilised.
 - Review open issues and decide whether anything must land before release.
 
 ## Version Bump
@@ -33,8 +34,7 @@ This checklist is for the first usable public release of `amrcartography` and fo
 
 ## Citation Text
 
-- Decide whether to ship a package citation file before release or at the same time as the manuscript.
-- If yes, add/update `inst/CITATION` or `CITATION.cff`.
+- Update `CITATION.cff` and/or `inst/CITATION` so the citation text matches the release being tagged.
 - Make sure the citation text matches the maintainer name, package title, version, GitHub URL, and manuscript status.
 - Add a short “How to cite” section to the README once the citation text is stable.
 
