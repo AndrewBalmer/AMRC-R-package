@@ -55,7 +55,7 @@ amrc_notebook_setup <- function(
       c(
         "MIC_table_Spneumoniae.csv",
         "meta_data_Spneumoniae.csv",
-        "tablemic_pneumo_3628_meta_gen_distance_matrix.RData"
+        amrc_spneumoniae_generated_filenames()$genotype_distance_rdata
       )
     )
 

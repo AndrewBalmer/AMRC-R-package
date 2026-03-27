@@ -41,7 +41,7 @@ test_that("amrc_build_spneumoniae_example_maps builds and reloads canonical metr
     file = file.path(generated_dir, "MIC_table_Spneumoniae.csv"),
     row.names = FALSE
   )
-  save(pbp_dist, file = file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix.RData"))
+  save(pbp_dist, file = amrc_generated_path(generated_dir, "genotype_distance_rdata"))
 
   first_build <- amrc_build_spneumoniae_example_maps(
     generated_dir = generated_dir,
@@ -160,4 +160,61 @@ test_that("robustness study helpers return canonical structures on toy data", {
     "metric_weight_comparison"
   ) %in% names(threshold_study)))
   expect_s3_class(threshold_study$metric_weight_comparison$summary, "data.frame")
+})
+
+test_that("comparison and clustering helpers return reusable canonical tables", {
+  skip_if_not_installed("smacof")
+
+  tablemic <- toy_amrc_table()
+  meta <- toy_amrc_meta(tablemic)
+  phenotype_fit <- amrc_compute_mds(stats::dist(tablemic), itmax = 50, eps = 1e-04)
+  genotype_fit <- amrc_compute_mds(stats::dist(tablemic), itmax = 50, eps = 1e-04)
+
+  comparison_bundle <- amrc_prepare_spneumoniae_map_data(
+    tablemic_meta = meta,
+    phenotype_mds = phenotype_fit,
+    genotype_mds = genotype_fit,
+    exclude_labids = character()
+  )
+
+  expect_true(all(c("D1", "D2", "G1", "G2", "PBP_type", "x_centroid", "y_centroid") %in% names(comparison_bundle$data)))
+  expect_equal(nrow(comparison_bundle$pbp_data), nrow(meta))
+
+  cluster_fit <- amrc_cluster_map(
+    data = comparison_bundle$pbp_data,
+    coord_cols = c("G1", "G2"),
+    n_clusters = 3,
+    distinct_col = "PBP_type",
+    max_k = 4
+  )
+
+  expect_true(all(c("PBP_type", "cluster") %in% names(cluster_fit$assignments)))
+  expect_equal(nrow(cluster_fit$scree), 4L)
+
+  clustered <- amrc_add_cluster_assignments(
+    data = comparison_bundle$data,
+    assignments = cluster_fit$assignments,
+    key_col = "PBP_type",
+    cluster_col = "gen_cluster"
+  )
+  separation <- amrc_summarise_cluster_separation(
+    data = clustered,
+    coord_cols = c("D1", "D2"),
+    cluster_col = "gen_cluster"
+  )
+
+  expect_true(all(c("DistanceType", "Distance") %in% names(separation$hist_data)))
+
+  ref_distance <- amrc_compute_reference_distance_table(
+    data = clustered,
+    reference_pbp_type = clustered$PBP_type[[1]],
+    cluster_col = "gen_cluster"
+  )
+  ref_summary <- amrc_summarise_reference_distance_table(
+    distance_table = ref_distance,
+    cluster_col = "gen_cluster"
+  )
+
+  expect_true(all(c("phen_distance", "gen_distance") %in% names(ref_distance)))
+  expect_true(all(c("cluster", "mean_phenotypic_distance", "mean_genetic_distance") %in% names(ref_summary$summary)))
 })

@@ -1,0 +1,176 @@
+---
+title: "End-to-End S. pneumoniae Example Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{End-to-End S. pneumoniae Example Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette shows a small end-to-end workflow with `amrcartography`: start from bundled example inputs, preprocess phenotype and genotype data, fit phenotype and genotype maps, and build comparison summaries from the fitted maps.
+
+The runnable example uses a tiny bundled raw-input example so the vignette stays fast and deterministic. A second non-evaluated chunk shows how to run the same workflow on the larger packaged *S. pneumoniae* example data.
+
+## Load the package and locate the example inputs
+
+```{r}
+library(amrcartography)
+
+mini_paths <- amrc_spneumoniae_example_paths("mini_raw")
+mini_paths
+```
+
+## Preprocess phenotype and genotype inputs
+
+```{r}
+phenotype <- amrc_process_spneumoniae_phenotype(
+  input_dir = mini_paths$root,
+  save_outputs = FALSE
+)
+
+genotype <- amrc_process_spneumoniae_genotype(
+  input_dir = mini_paths$root,
+  metadata = phenotype$metadata,
+  save_outputs = FALSE
+)
+
+phenotype$metadata
+phenotype$mic
+```
+
+## Fit phenotype and genotype maps
+
+```{r}
+phenotype_fit <- amrc_compute_mds(
+  phenotype$distance,
+  itmax = 100,
+  eps = 1e-06
+)
+
+genotype_fit <- amrc_compute_mds(
+  genotype$distance,
+  itmax = 100,
+  eps = 1e-06
+)
+
+c(
+  phenotype_stress = phenotype_fit$stress,
+  genotype_stress = genotype_fit$stress
+)
+```
+
+## Build a phenotype/genotype comparison table
+
+```{r}
+comparison_bundle <- amrc_prepare_spneumoniae_map_data(
+  tablemic_meta = phenotype$metadata,
+  phenotype_mds = phenotype_fit,
+  genotype_mds = genotype_fit,
+  phenotype_rotation_degrees = NULL,
+  exclude_labids = character()
+)
+
+head(comparison_bundle$data)
+```
+
+## Cluster the genotype map and attach the cluster labels
+
+```{r}
+cluster_fit <- amrc_cluster_map(
+  data = comparison_bundle$pbp_data,
+  coord_cols = c("G1", "G2"),
+  n_clusters = 2,
+  distinct_col = "PBP_type",
+  max_k = 3
+)
+
+comparison_data <- amrc_add_cluster_assignments(
+  data = comparison_bundle$data,
+  assignments = cluster_fit$assignments,
+  key_col = "PBP_type",
+  cluster_col = "gen_cluster"
+)
+
+cluster_fit$scree
+comparison_data[, c("LABID", "PBP_type", "gen_cluster", "D1", "D2", "G1", "G2")]
+```
+
+```{r}
+amrc_plot_cluster_elbow(cluster_fit$scree, highlight_cluster = 2, x_limits = c(1, 3))
+```
+
+```{r}
+amrc_plot_cluster_map(
+  data = comparison_data,
+  x = "G1",
+  y = "G2",
+  cluster_col = "gen_cluster",
+  point_size = 4,
+  show_legend = TRUE
+)
+```
+
+## Summarise phenotype vs genotype distance from a reference PBP type
+
+```{r}
+reference_distances <- amrc_compute_reference_distance_table(
+  data = comparison_data,
+  reference_pbp_type = comparison_data$PBP_type[[1]],
+  cluster_col = "gen_cluster"
+)
+
+reference_summary <- amrc_summarise_reference_distance_table(
+  distance_table = reference_distances,
+  cluster_col = "gen_cluster"
+)
+
+reference_summary$summary_with_overall
+```
+
+```{r}
+amrc_plot_reference_distance_relationship(
+  reference_distances,
+  cluster_col = "gen_cluster",
+  xlab = "Genetic distance",
+  ylab = "Phenotypic distance"
+)
+```
+
+## Running the larger packaged example
+
+The package also bundles processed example outputs and prebuilt canonical maps for the larger *S. pneumoniae* example used throughout this repository.
+
+```{r}
+generated_paths <- amrc_spneumoniae_example_paths("generated")
+
+generated_paths[c(
+  "mic_csv",
+  "metadata_csv",
+  "genotype_distance_rdata",
+  "phenotype_map_metric",
+  "genotype_map_metric"
+)]
+```
+
+If you want to rebuild those larger example outputs from the raw example inputs, use the package pipeline helpers:
+
+```{r, eval = FALSE}
+out_dir <- tempfile("amrc-spneumoniae-generated-")
+
+amrc_build_spneumoniae_example_outputs(
+  raw_dir = tempfile("amrc-spneumoniae-raw-"),
+  out_dir = out_dir,
+  download_missing = TRUE
+)
+
+amrc_build_spneumoniae_example_maps(generated_dir = out_dir)
+```
+
+That larger workflow is the right starting point for reproducing the repository notebooks. The smaller workflow above is the better starting point for learning the package API.

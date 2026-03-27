@@ -1,0 +1,4 @@
+LABID,PT,Penicillin,Amoxicillin,Meropenem,Cefotaxime,Ceftriaxone,Cefuroxime,S1,S2,S3
+L1,30-38,1,2,4,4,8,16,A,T,G
+L2,2-0-2,0.5,1,2,2,4,8,A,T,A
+L3,7,1,1,2,2,4,4,G,T,A

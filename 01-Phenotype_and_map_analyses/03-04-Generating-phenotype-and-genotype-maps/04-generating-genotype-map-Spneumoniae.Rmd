@@ -22,13 +22,13 @@ analysis_paths <- amrc_notebook_setup()
 generated_dir <- analysis_paths$generated_dir
 
 # Here we just use a small subsample of the full dataset for illustration purposes
-#amrc_load_rdata(file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix_200_subsample.RData"))
+#amrc_load_rdata(file.path(generated_dir, "spneumo_gen_dist_sub200.RData"))
 
 # Rename for script
 #pbp_dist <- pbp_dist_200
 
 # Read in genetic distance matrix for the full dataset
-amrc_load_rdata(file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix.RData"))
+amrc_load_rdata(file.path(generated_dir, "spneumo_gen_dist.RData"))
 
 ```
 
@@ -308,6 +308,5 @@ plot(torg_met, plot.type = "stressplot", label.conf = list(label = FALSE))
 par(op)
 
 ```
-
 
 

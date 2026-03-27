@@ -152,14 +152,14 @@ amrc_process_spneumoniae_genotype <- function(
       if (!is.null(pbp_dist)) {
         save(
           pbp_dist,
-          file = file.path(out_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix.RData")
+          file = amrc_generated_path(out_dir, "genotype_distance_rdata")
         )
       }
 
       if (!is.null(pbp_dist_200)) {
         save(
           pbp_dist_200,
-          file = file.path(out_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix_200_subsample.RData")
+          file = amrc_generated_path(out_dir, "genotype_distance_subsample_rdata")
         )
       }
     }

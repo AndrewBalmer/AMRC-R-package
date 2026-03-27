@@ -87,7 +87,7 @@ amrc_build_spneumoniae_example_maps <- function(
   mds_args = list()
 ) {
   phenotype_path <- file.path(generated_dir, "MIC_table_Spneumoniae.csv")
-  genotype_path <- file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix.RData")
+  genotype_path <- amrc_generated_path(generated_dir, "genotype_distance_rdata", must_exist = TRUE)
   amrc_check_files_exist(c(phenotype_path, genotype_path))
   dir.create(generated_dir, recursive = TRUE, showWarnings = FALSE)
 

@@ -6,482 +6,154 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-
-# Clear the workspace
 remove(list = ls())
-
-# Load required packages
-library(tidyverse)     # For data manipulation and visualization
-library(smacof)        # For multidimensional scaling
-library(RColorBrewer)  # For color palettes
-library(calibrate)     # For calibration
-library(matrixStats)   
-library(ggExtra)       # For marginal histograms
-library(ggdensity)     # For density distrbutions
-library(foreach)
-library(doParallel)
-
-# Set the working directory
-setwd("/Users/ajb306/AMR-cartography/analysis/01-Phenotype_and_map_analyses/13-Dimensionality-tests/")
-
-# Read the MIC table data
-tablemic <- read.csv("/Users/ajb306/AMR-cartography-results/data/MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-# Read in the relevant meta data
-tablemic_meta <- read.csv("/Users/ajb306/AMR-cartography-results/data/meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-# Specify the full path to the data file
-phen_map <- "/Users/ajb306/AMR-cartography-results/data/Spneumo_3628_PCA_start_2D_METRIC.RData"
-
-# Load the pre-computed PCA start 2D metric data
-load(phen_map)
-
-# Transform the data so that it is easier to work with noise added values later - the relative euclidean distances between the points will remain the same
-for (i in 1:ncol(tablemic)) {
-  tablemic[,i] <- (tablemic[,i] + (-(min(tablemic[,i], na.rm = TRUE))))+1
-}
-
 set.seed(123)
 
+library(ggplot2)
+library(tidyverse)
 
+source(file.path("..", "..", "tools", "notebook_helpers.R"))
+analysis_paths <- amrc_notebook_setup(ensure_maps = TRUE)
+generated_dir <- analysis_paths$generated_dir
+
+tablemic <- read.csv(
+  file.path(generated_dir, "MIC_table_Spneumoniae.csv"),
+  header = TRUE,
+  sep = ","
+)
+tablemic_meta <- read.csv(
+  file.path(generated_dir, "meta_data_Spneumoniae.csv"),
+  header = TRUE,
+  sep = ","
+)
+
+phen_env <- new.env(parent = emptyenv())
+amrc_load_rdata(file.path(generated_dir, "Spneumo_3628_PCA_start_2D_METRIC.RData"), envir = phen_env)
+torg_met <- phen_env$torg_met
+
+shift_positive <- function(df) {
+  out <- df
+  for (i in seq_len(ncol(out))) {
+    out[, i] <- out[, i] + (-(min(out[, i], na.rm = TRUE))) + 1
+  }
+  out
+}
+
+tablemic_shifted <- shift_positive(tablemic)
+
+single_column_permutation <- amrc_single_column_permutation_study(
+  reference_fit = torg_met,
+  tablemic = tablemic_shifted,
+  nrep = 100,
+  seed = 123
+)
+
+one_dimensional_noise <- amrc_one_dimensional_noise_study(
+  tablemic = tablemic_shifted,
+  nrep = 100,
+  noise_pct = 10,
+  seed = 123,
+  mds_args = list(modulus = 1, itmax = 1000, eps = 1e-06)
+)
+
+one_vs_two_dimensional <- amrc_compare_one_and_two_dimensional_maps(
+  one_dim_fit = one_dimensional_noise$observed_fit,
+  two_dim_fit = torg_met,
+  lab_ids = tablemic_meta$LABID,
+  rotation_degrees = 326
+)
 ```
 
 ## Phenotypic covariation in beta-lactam MIC is low, but not one-dimensional
 
-It is only possible to make phenotype maps because of the strong patterns of covariation between drugs. However, one possibility is this covariation could also be observed under a random permutation of values. If so, the maps might not be capturing a real biological signal. Another possibility is the data could in fact be one-dimensional, and it is simply experimental noise which is being represented in the second dimension on the maps. To test these hypotheses, I generated 100 duplicate datasets for each species and subjected them to different permutation schemes. I then generated a map for each permuted dataset and compared them to maps made with observed data. In this first section I tried 
+The original notebook tested two related hypotheses:
 
+1. Could the apparent MIC covariation arise under random permutation of the observed values?
+2. Could the phenotype map be mostly one-dimensional, with the second dimension mainly reflecting assay noise?
+
+Those analyses are now implemented with package functions, so this notebook mostly just runs them and plots the results.
 
 ### Permuting a single column at a time
 
-For each dataset, I randomly  permuted the MIC values, while keeping the relative frequencies of MIC values the same. This allowed me to test whether the observed covariances could likely have arisen under a random process. 
+For each dataset, the MIC values are permuted while preserving the marginal value distribution. If the observed map stress were typical under those permutations, that would suggest the map structure could arise by chance.
 
-```{r, echo = F}
-# Load libraries
-library(smacof)
-library(doParallel)
-library(doRNG)      # << NEW: Ensures unique RNG state per worker
-library(tidyverse)
-
-# Parameters
-no_permutations <- 100   # Total number of permutations
-batch_size <- 10         # Permutations per batch
-num_cores <- 2           # Adjust for your system
-
-# Create list to collect stress vectors
-all_stressvec <- list()
-
-# Run in batches
-for (start in seq(1, no_permutations, by = batch_size)) {
-  
-  end <- min(start + batch_size - 1, no_permutations)
-  this_batch_nrep <- end - start + 1
-  cat("Running permtest batch", start, "to", end, "\n")
-  
-  registerDoParallel(cores = num_cores)
-  
-  # Ensures each permutation is unique (and reproducible if needed)
-  stress_batch <- foreach(i = 1:this_batch_nrep, .packages = "smacof") %dorng% {
-    result <- permtest(torg_met, data = t(tablemic), method.dat = "euclidean", nrep = 1, verbose = FALSE)
-    result$stressvec
-  }
-  
-  stopImplicitCluster()
-  
-  all_stressvec <- c(all_stressvec, stress_batch)
-  gc()
-}
-
-# Combine into final stress vector
-stress_combined <- unlist(all_stressvec)
-
-# Construct object to match original permtest structure
-single_col_perm <- list(
-  stressvec = stress_combined,
-  call = match.call(),
-  nrep = no_permutations
-)
-
-# Save result
-saveRDS(single_col_perm, file = "single_col_perm_spneumo.rds")
-
-# Restore the object
-single_col_perm <- readRDS(file = "single_col_perm_spneumo.rds")
-
-stressvec <- as_tibble(single_col_perm$stressvec) %>%
-  mutate(dimension= 2)
-
-mu_2 <- stressvec %>%
-    group_by(dimension) %>%
-    rename(stress = value) %>%
-    summarize(sd = sd(stress),
-               Mean = mean(stress),
-               Median = median(stress))
-
-#mu_2 <- bind_rows(mu,mu_2)
-
-ggplot(filter(stressvec), aes(x=value)) + 
-  geom_histogram(position="identity", alpha = 0.6, fill = "#E41A1C", color = "black", bins = 50) +
-  theme_bw() + 
-  geom_vline(data=mu_2, aes(xintercept=Mean), color = "#E41A1C", size = 1,
-             linetype="solid") +
-  geom_vline(aes(xintercept=torg_met$stress), color = "black", size = 1,
-             linetype="solid") +
-  # geom_vline(aes(xintercept=1), color = "black", size = 1,
-  #          linetype="solid") +
-  #scale_x_continuous(breaks=seq(0, torg_met_dimensions[[2]]$stress, .005)) +
-  labs(x = "Stress", y = "Frequency") +
-  coord_fixed(ratio=0.0005)+
-    theme(axis.text=element_text(size=16), 
-        axis.title=element_text(size=16))
-
-
-
-ggsave("Spneumo_phen_single_column_permutation.jpg")
-
-mu_2 <- stressvec %>%
-  group_by(dimension) %>%
-  rename(stress = value) %>%
-  summarize(
-    sd = round(sd(stress), 3),
-    Mean = round(mean(stress), 3),
-    Median = round(median(stress), 3),
-    Mean_percent_increase = round(((mean(stress) - torg_met$stress) / torg_met$stress) * 100, 3)
+```{r, echo = FALSE}
+amrc_plot_histogram_with_reference(
+  values = single_column_permutation$stress,
+  xlab = "Stress",
+  fill = "#E41A1C",
+  bins = 50,
+  mean_line = TRUE,
+  reference_line = torg_met$stress
+) +
+  coord_fixed(ratio = 0.0005) +
+  theme(
+    axis.text = element_text(size = 16),
+    axis.title = element_text(size = 16)
   )
-
-
-mu_2
-
 ```
 
-
+```{r, echo = FALSE}
+single_column_permutation$summary %>%
+  mutate(across(everything(), round, 3))
+```
 
 ## One-dimensional data with added noise
 
-For each dataset, I then generated a series of one-dimensional data with experimental error added. To do this, I took the observed values for a single drug from the dataset (selected at random for each permutation) and used this for each of the columns representing the ‘different’ drugs (6 for S. pneumoniae and 4 for S. suis). I then added noise (+1/-1 log2 dilution) to 10% of the values and tested how well the data could be represented in a single dimension, comparing their stress to a 1-dimensional map made with the observed data.
+The second analysis creates synthetic one-dimensional MIC tables by copying one drug column across all drugs and perturbing 10% of the values by one log2 dilution in either direction. The stress of those synthetic one-dimensional datasets is then compared with the stress of a one-dimensional map fitted to the observed data.
 
-
-```{r, echo = F}
-
-### testing 1-dimensional maps
-## generate fake data
-no_permutations <- 100
-one_dimensional_samples <- NULL
-one_dimensional_samples <- list()
-col_number <- sample(seq(1, 6, by = 1), no_permutations, replace = T)
-head(col_number)
-
-for(i in 1:no_permutations) {
-  
-  drug_col <- tablemic[,col_number[i]]
-  
-  tablemic_samp_pen <- as.data.frame(cbind(drug_col,
-                                           drug_col,
-                                           drug_col,
-                                           drug_col,
-                                           drug_col,
-                                           drug_col))
-  
-  
-  one_dimensional_samples[[i]] <- tablemic_samp_pen
-  
-}
-
-head(one_dimensional_samples[[1]])
-
-noise <- list()
-sample <- NULL
-
-for (i in 1:no_permutations) {
-  for (f in 1:ncol(tablemic_samp_pen)) {
-    sample <- cbind(sample, sample(c(-1,1), nrow(tablemic_samp_pen), replace = TRUE))
-    sample <- as.data.frame(sample)
-  }
-  
-  
-  noise[[i]] <- sample
-  sample <- NULL
-  
-}
-
-#randomly delete proportion of data
-for(i in 1:no_permutations) {
-  while(sum(is.na(noise[[i]]) == TRUE) < (nrow(noise[[i]]) * ncol(noise[[i]]) * 90/100)){
-    noise[[i]][sample(nrow(noise[[i]]),1), sample(ncol(noise[[i]]),1)] <- NA
-  }
-}
-
-for (i in 1:no_permutations) {
-  one_dimensional_samples[[i]] <- one_dimensional_samples[[i]] %>% dplyr::na_if(1)
-}
-
-test <- list()
-
-for (i in 1:no_permutations) {
-  test[[i]] <- one_dimensional_samples[[i]] + noise[[i]]
-}
-
-for (i in 1:no_permutations) {
-  noise[[i]][is.na( noise[[i]])] <- 0
-}
-
-for (i in 1:no_permutations) {
-  one_dimensional_samples[[i]][is.na( one_dimensional_samples[[i]])] <- -1
-}
-
-
-
-for (i in 1:no_permutations) {
-  one_dimensional_samples[[i]] <- noise[[i]] + one_dimensional_samples[[i]]
-}
-
-
-library(naniar)
-
-for (i in 1:no_permutations){
-  one_dimensional_samples[[i]] <- one_dimensional_samples[[i]] %>% dplyr::na_if(0)
-  one_dimensional_samples[[i]] <- one_dimensional_samples[[i]] %>% dplyr::na_if(-1)
-  one_dimensional_samples[[i]] <- one_dimensional_samples[[i]] %>% dplyr::na_if(-2)
-  one_dimensional_samples[[i]][is.na( one_dimensional_samples[[i]])] <- 1
-}
-
-
-for (i in 1:no_permutations) {
-  colnames(  one_dimensional_samples[[i]]) <- colnames(tablemic_samp_pen)
-}
-
-one_dimensional_samples_dists <- list()
-
-for (i in 1:no_permutations) {
-  one_dimensional_samples_dists[[i]] <- dist(one_dimensional_samples[[i]])
-}
-
-
-one_dim_permutation <- list()
-
-for (i in 1:no_permutations){
-  one_dim_permutation[[i]] <- list()
-}
-
-library(doParallel)
-library(smacof)
-
-batch_size <- 10
-num_cores <- 2
-
-# Prepare distance matrices (already defined earlier)
-# one_dimensional_samples_dists must already exist
-
-one_dim_permutation_stress <- vector("list", no_permutations)
-
-for (start in seq(1, no_permutations, by = batch_size)) {
-  end <- min(start + batch_size - 1, no_permutations)
-  cat("Running 1D MDS batch", start, "to", end, "\n")
-  
-  registerDoParallel(cores = num_cores)
-  
-  stress_batch <- foreach(i = start:end, .packages = "smacof") %dopar% {
-    mds(one_dimensional_samples_dists[[i]],
-        ndim = 1,
-        type = "ratio",
-        init = "torgerson",
-        modulus = 1,
-        itmax = 1000,
-        eps = 1e-06)$stress
-  }
-  
-  stopImplicitCluster()
-  
-  one_dim_permutation_stress[start:end] <- stress_batch
-  saveRDS(stress_batch, paste0("one_dim_mds_stress_batch_", start, "_to_", end, ".rds"))
-  gc()
-}
-
-# Save full vector
-saveRDS(one_dim_permutation_stress, "one_dim_permutation_stress_all.rds")
-one_dim_permutation_stress <- readRDS(file = "one_dim_permutation_stress_all.rds")
-
-# Downstream analysis (same as before)
-one_dim_permutation_mds_stress <- as_tibble(unlist(one_dim_permutation_stress)) %>%
-  rename(stress = value) %>%
-  mutate(data = "one dimensional data")
-
-mu <- one_dim_permutation_mds_stress %>%
-  summarize(sd = sd(stress),
-            Mean = mean(stress),
-            Median = median(stress))
-
-torg_met_1D <- mds(dist(tablemic), ndim = 1, type = "ratio", init = "torgerson", modulus = 1, itmax = 1000, eps = 1e-06)
-
-ggplot(one_dim_permutation_mds_stress, aes(x = stress)) + 
-  geom_histogram(position = "identity", alpha = 0.6, fill = "#E41A1C", color = "black", bins = 25) +
-  theme_bw() +
-  geom_vline(data = mu, aes(xintercept = Mean), color = "#E41A1C", size = 1, linetype = "solid") +
-  geom_vline(aes(xintercept = torg_met_1D$stress), color = "black", size = 1, linetype = "solid") +
-  labs(x = "Stress", y = "Frequency")+
-    theme(axis.text=element_text(size=16), 
-        axis.title=element_text(size=16))
-
-ggsave("Spneumo_phen_1D_permutation.jpg")
-
-mu_2 <- one_dim_permutation_mds_stress %>%
-  mutate(perc_diff = round((torg_met_1D$stress - stress) / torg_met_1D$stress * 100, 3)) %>%
-  summarize(
-    sd = round(sd(stress), 3),
-    Mean = round(mean(stress), 3),
-    Median = round(median(stress), 3),
-    Mean_perc_diff = round(mean(perc_diff), 3)
-  )
-
-mu_2
-
-```
-
-
-
-### Visualising one and two dimensional maps together
-
-I then further compared the one and two dimensional maps made with real data. Here, I have plotted the oone and two dimensional maps together on the same map. Here, the isolate positions are those of the two dimensional map, however the one dimensional map is superimposed as a thick black line. The optimal rotation and dilation of the line was found using Procrustes analysis. To do this, I needed to create a second axis for the one dimensional map (I simply used a vector of zeros). This allows the two maps to be rotated and dilated to the same orientation. The thin black lines connect the isolates position on the 2D map to their position on the 1D map. The size of the points on the 2D map reflects their stress contribution on the 1D map (% of total stress). The larger points are therefore fit more poorly when using a single dimension. As expected, the points further from the line have higher stress, particularly those in the top left of the map. These points are poorly fit when using a single dimension. There are also many points in the middle right of the map which are not well fit.
-
-
-```{r, echo = F}
-# --- One vs Two dimensional maps: compute projection error once per phenotype ---
-
-torg_met_2D <- torg_met
-one_dim_map <- as_tibble(torg_met_1D$conf)
-two_dim_map <- as_tibble(torg_met_2D$conf)
-
-# Dilation from your previous fit
-slope <- 0.1842996
-dilation <- 1 / slope
-colnames(two_dim_map) <- c("D1","D2")
-
-for (i in 1:ncol(two_dim_map)) {
-  two_dim_map[, i] <- two_dim_map[, i] * dilation
-}
-
-one_dim_map$D2 <- 0
-colnames(one_dim_map) <- c("D1","D2")
-
-# Procrustes to align 2D map and the padded 1D map
-one_and_two_dim_map_comp <- smacof::Procrustes(as.matrix(two_dim_map), as.matrix(one_dim_map))
-one_and_two_dim_map_comp_congcoef <- one_and_two_dim_map_comp$congcoef
-
-pairwise_df <- as_tibble(cbind(one_and_two_dim_map_comp$X, one_and_two_dim_map_comp$Yhat))
-colnames(pairwise_df) <- c("X_axis_2D_map","Y_axis_2D_map","X_axis_1D_map","Y_axis_1D_map")
-
-one_and_two_dim_map_comp_pairwise_dist <- pairwise_df %>%
-  mutate(dist_phen = sqrt((X_axis_2D_map - X_axis_1D_map)^2 + (Y_axis_2D_map - Y_axis_1D_map)^2),
-         LABID = tablemic_meta$LABID)
-
-# Add stress-per-point
-spp <- as_tibble(cbind(tablemic_meta$LABID, torg_met_2D$spp))
-colnames(spp) <- c("LABID", "spp_2D")
-
-one_and_two_dim_map_comp_pairwise_dist <- left_join(one_and_two_dim_map_comp_pairwise_dist, spp, by = "LABID")
-
-torg_met_conf_1D <- as_tibble(cbind(tablemic_meta$LABID, torg_met_1D$spp))
-colnames(torg_met_conf_1D) <- c("LABID", "spp_1D")
-
-one_two_dim_comp <- left_join(one_and_two_dim_map_comp_pairwise_dist, torg_met_conf_1D, by = "LABID") %>%
-  as_tibble()
-one_two_dim_comp$spp_1D <- as.numeric(one_two_dim_comp$spp_1D)
-
-# Rotate both 2D and 1D coordinates (as you do elsewhere)
-theta <- 326 * pi / 180
-rot <- matrix(c(cos(theta), sin(theta), -sin(theta), cos(theta)), ncol = 2)
-one_two_dim_comp[, 1:2] <- as.matrix(one_two_dim_comp[, 1:2]) %*% rot
-one_two_dim_comp[, 3:4] <- as.matrix(one_two_dim_comp[, 3:4]) %*% rot
-
-# ------------------ KEY CHANGE: deduplicate by 2D phenotype (unique positions) ------------------
-# Match your first script approach: round, group_by rounded coords, slice one row
-pheno_unique <- one_two_dim_comp %>%
-  mutate(
-    X2D_r = round(X_axis_2D_map, 10),
-    Y2D_r = round(Y_axis_2D_map, 10)
-  ) %>%
-  group_by(X2D_r, Y2D_r) %>%
-  slice(1) %>%         # pick one representative per phenotype (exactly like your first script)
-  ungroup()
-
-# Use only unique phenotypes going forward
-range_x <- c(pheno_unique$X_axis_1D_map, pheno_unique$X_axis_2D_map)
-range_y <- c(pheno_unique$Y_axis_1D_map, pheno_unique$Y_axis_2D_map)
-
-library(ggplot2)
-
-# Plot A: 2D points + 1D line + connectors (unique phenotypes only)
-A <- ggplot(pheno_unique, aes(x = X_axis_2D_map, y = Y_axis_2D_map, size = spp_1D)) +
-  geom_segment(
-    aes(x = min(X_axis_1D_map), y = min(Y_axis_1D_map),
-        xend = max(X_axis_1D_map), yend = max(Y_axis_1D_map)),
-    size = 1, colour = "black"
-  ) +
-  geom_segment(aes(xend = X_axis_1D_map, yend = Y_axis_1D_map),
-               size = .3, colour = "black") +
-  geom_point(shape = 21, fill = "#E41A1C", colour = "white") +
-  theme_bw() +
-  scale_x_continuous(limits = c(min(range_x, na.rm = TRUE), max(range_x, na.rm = TRUE) + .5),
-                     breaks = seq(min(range_x, na.rm = TRUE), max(range_x, na.rm = TRUE) + 1, 1)) +
-  scale_y_continuous(limits = c(min(range_y, na.rm = TRUE), max(range_y, na.rm = TRUE) + .5),
-                     breaks = seq(min(range_y, na.rm = TRUE), max(range_y, na.rm = TRUE) + 1, 1)) +
-  labs(title = "", x = "MDR distance", y = "MDR distance") +
-  guides(size = "none") +
+```{r, echo = FALSE}
+amrc_plot_histogram_with_reference(
+  values = one_dimensional_noise$stress,
+  xlab = "Stress",
+  fill = "#E41A1C",
+  bins = 25,
+  mean_line = TRUE,
+  reference_line = one_dimensional_noise$observed_fit$stress
+) +
   theme(
     axis.text = element_text(size = 16),
-    axis.title = element_text(size = 16),
-    panel.grid.major = element_line(colour = "grey", size = 0.3),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_blank(),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    strip.text.x = element_text(size = 14)
-  ) +
-  coord_fixed()
-
-A
-ggsave("Spneumo_phen_1D_procrustes_projection.jpg", A, width = 7, height = 5, dpi = 300)
-
-# Histogram B: stress (1D spp) per unique phenotype
-muB <- pheno_unique %>%
-  summarise(sd = sd(spp_1D, na.rm = TRUE),
-            Mean = mean(spp_1D, na.rm = TRUE))
-
-B <- ggplot(pheno_unique, aes(x = spp_1D)) +
-  geom_histogram(position = "identity", alpha = 0.6, fill = "#E41A1C",
-                 color = "black", bins = 25) +
-  theme_bw() +
-  geom_vline(data = muB, aes(xintercept = Mean),
-             color = "#E41A1C", size = 1, linetype = "solid") +
-  scale_x_continuous(breaks = seq(0, max(pheno_unique$spp_1D, na.rm = TRUE) + .5, .5)) +
-  labs(x = "Stress per phenotype in 1D (%)", y = "Frequency")
-
-# Histogram C: projection error per unique phenotype (this is the key match to script 1)
-muC <- pheno_unique %>%
-  summarise(sd = sd(dist_phen, na.rm = TRUE),
-            Mean = mean(dist_phen, na.rm = TRUE))
-
-C <- ggplot(pheno_unique, aes(x = dist_phen)) +
-  geom_histogram(position = "identity", alpha = 0.6, fill = "#E41A1C",
-                 color = "black", bins = 25) +
-  theme_bw() +
-  geom_vline(data = muC, aes(xintercept = Mean),
-             color = "#E41A1C", size = 1, linetype = "solid") +
-  scale_x_continuous(breaks = seq(0, max(pheno_unique$dist_phen, na.rm = TRUE) + .5, 1)) +
-  labs(x = "Distance to position on 1D map", y = "Frequency") +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 16))
-
-A; B; C
-ggsave("Spneumo_phen_1D_procrustes_projection_distances.jpg", C, width = 7, height = 5, dpi = 300)
-
-
+    axis.title = element_text(size = 16)
+  )
 ```
 
-```{r,echo = F}
-
-
+```{r, echo = FALSE}
+one_dimensional_noise$summary %>%
+  mutate(across(everything(), round, 3))
 ```
 
+### Visualising one- and two-dimensional maps together
+
+This final section compares the observed one-dimensional and two-dimensional phenotype maps directly. The one-dimensional solution is padded with a second zero axis, aligned to the 2D map by Procrustes analysis, and then plotted over the 2D configuration.
+
+```{r, echo = FALSE}
+projection_plot <- amrc_plot_one_vs_two_dimensional_projection(
+  one_vs_two_dimensional$unique_phenotypes
+)
+
+projection_plot
+```
+
+```{r, echo = FALSE}
+amrc_plot_histogram_with_reference(
+  values = one_vs_two_dimensional$unique_phenotypes$spp_1D,
+  xlab = "Stress per phenotype in 1D (%)",
+  fill = "#E41A1C",
+  bins = 25,
+  mean_line = TRUE
+)
+```
+
+```{r, echo = FALSE}
+amrc_plot_histogram_with_reference(
+  values = one_vs_two_dimensional$unique_phenotypes$dist_phen,
+  xlab = "Distance to position on 1D map",
+  fill = "#E41A1C",
+  bins = 25,
+  mean_line = TRUE
+) +
+  theme(
+    axis.text = element_text(size = 16),
+    axis.title = element_text(size = 16)
+  )
+```

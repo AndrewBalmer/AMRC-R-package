@@ -1,70 +1,107 @@
 # amrcartography
 
-`amrcartography` is the start of a reproducible R package for the AMR cartography project. The long-term goal is to turn the current analysis scripts into a reusable toolkit for importing MIC data, building phenotype and genotype distance structures, generating AMR cartography maps, and reproducing the core analyses behind the project manuscript.
+[![R-CMD-check](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml)
 
-The repository currently contains two things in parallel:
+`amrcartography` is an R package for reproducible AMR cartography workflows. It is being extracted from the legacy AMR cartography analysis repository so that other users can preprocess MIC data, build phenotype and genotype maps, and reproduce the comparison analyses without relying on project-specific paths or manually created `.RData` files.
 
-- the original legacy analysis scripts in `01-Phenotype_and_map_analyses/`
-- a new package-oriented scaffold that makes the project easier to install, document, test, and extend
+The package is now at the point where it has:
 
-## Current status
+- a locked package identity and reproducible environment setup
+- canonical phenotype and genotype preprocessing functions
+- reusable MDS, robustness, clustering, and comparison helpers
+- package-backed versions of the main phenotype/genotype notebooks
+- deterministic and fixture-based regression tests
 
-This repository is now set up as an R package development project, but it is not yet a complete replacement for every legacy notebook. The package scaffold, environment scripts, migration roadmap, and initial reusable functions are in place. The existing scripts remain the source of truth for the published workflow and should be treated as legacy references while we extract stable functions into `R/`.
+## Status
 
-## Package identity
+This is still a development release rather than a CRAN release. The exported API is now usable, but some manuscript-era notebooks are still being migrated and the external-variable notebook still depends on metadata that are not yet in the repository.
 
-- Package name: `amrcartography`
-- Maintainer: Andrew Balmer
-- Maintainer email: `ab69@sanger.ac.uk`
-- License: MIT
+## Installation
 
-## What is in the repo
+For day-to-day package use, install from GitHub:
 
-- `R/`: early package functions for data download, phenotype preprocessing, genotype preprocessing, and MDS helpers
-- `docs/ROADMAP.md`: ordered package-conversion to-do list
-- `docs/ROADMAP.pdf`: shareable PDF version of the roadmap
-- `docs/SCRIPT_AUDIT.md`: script-by-script migration audit
-- `docs/PACKAGE_IDENTITY.md`: frozen package identity decisions
-- `docs/DATA_PROVENANCE.md`: provenance rules for what ships with the repo and what stays external
-- `tools/check_environment.R`: checks whether the local R environment has the packages needed for package work and legacy script execution
-- `tools/install_packages.R`: installs the package-development and legacy-analysis dependencies used in this repository
-- `tools/bootstrap_renv.R`: creates or refreshes a project-local `renv` environment and lockfile
-- `tools/build_spneumoniae_example_data.R`: reproducible helper script for downloading and processing the example S. pneumoniae source files
-- `inst/extdata/spneumoniae_source_manifest.csv`: manifest of the external example data files referenced by the legacy scripts
-- `data-raw/data-provenance.csv`: frozen manifest of external and generated data assets referenced in the workflow
-- `01-Phenotype_and_map_analyses/`: original scripts and notebooks, preserved for migration
-- `Previous_AMRC_manuscript/`: previous manuscript artefacts and supporting files
+```r
+install.packages("remotes")
+remotes::install_github("AndrewBalmer/AMRC-R-package")
+```
 
-## Key reproducibility issues found in the legacy workflow
+For repository development and exact dependency capture, use the project-local `renv` environment instead:
 
-- most scripts use hard-coded absolute paths under `/Users/ajb306/...`
-- intermediate outputs are written outside the repository
-- the analysis depends on many packages, but the environment was not previously captured
-- several scripts assume prior `.RData` objects already exist
-- script `08-Mapping-external-variables.Rmd` references additional metadata files that are not present in the repository
-- several notebooks mix reusable transformations with figure-specific code, making them hard to package directly
+```r
+source("renv/activate.R")
+renv::restore()
+```
 
-## Quick start
+## Quick Start
 
-1. Open the project in R from the repository root.
-2. Run `Rscript tools/check_environment.R` to see what is already installed.
-3. For a project-local reproducible environment, run `Rscript tools/bootstrap_renv.R`.
-4. Once `renv.lock` exists, collaborators can restore the same environment with `Rscript -e 'renv::restore()'`.
-5. If you prefer to install into your usual R library instead, run `Rscript tools/install_packages.R`.
-6. Use `Rscript tools/build_spneumoniae_example_data.R` to download and process the bundled example source data into a reproducible local folder structure.
-7. Treat the files in `R/` as the package API under active development, and the files in `01-Phenotype_and_map_analyses/` as migration references.
+The fastest way to see the API is the end-to-end vignette:
 
-## Recommended migration strategy
+```r
+vignette("end-to-end-spneumoniae", package = "amrcartography")
+```
 
-- freeze the legacy scripts as historical inputs
-- extract repeated transformations into tested functions
-- replace all `setwd()` usage with explicit paths and function arguments
-- standardise data objects and file formats
-- reproduce each analysis figure from package functions before retiring the corresponding notebook
+You can also locate the bundled example files directly:
 
-The detailed ordered plan lives in [docs/ROADMAP.md](docs/ROADMAP.md), and the script-by-script breakdown lives in [docs/SCRIPT_AUDIT.md](docs/SCRIPT_AUDIT.md).
+```r
+library(amrcartography)
 
-## Notes
+amrc_spneumoniae_example_paths("mini_raw")
+amrc_spneumoniae_example_paths("generated")
+```
 
-- The interactive app idea is intentionally deferred until the package API and reproducible data flow are stable.
-- The notebook that depends on the missing extra metadata files has been deferred for now and is explicitly called out in the provenance documentation.
+The `mini_raw` example is a tiny raw-input workflow intended for quick learning and CI. The `generated` example points to the larger processed *S. pneumoniae* example outputs and prebuilt canonical maps bundled with the package.
+
+## Example Workflow
+
+This is the typical package workflow:
+
+1. Preprocess phenotype inputs with `amrc_process_spneumoniae_phenotype()`.
+2. Preprocess genotype inputs with `amrc_process_spneumoniae_genotype()`.
+3. Fit phenotype and genotype maps with `amrc_compute_mds()`.
+4. Build a shared phenotype/genotype comparison table with `amrc_prepare_spneumoniae_map_data()`.
+5. Cluster the genotype map with `amrc_cluster_map()` and attach cluster labels with `amrc_add_cluster_assignments()`.
+6. Summarise phenotype-vs-genotype relationships with `amrc_compute_reference_distance_table()` and `amrc_summarise_reference_distance_table()`.
+
+If you want to reconstruct the larger packaged example outputs from the raw example inputs, use:
+
+```r
+out_dir <- tempfile("amrc-spneumoniae-generated-")
+
+amrc_build_spneumoniae_example_outputs(
+  raw_dir = tempfile("amrc-spneumoniae-raw-"),
+  out_dir = out_dir,
+  download_missing = TRUE
+)
+
+amrc_build_spneumoniae_example_maps(generated_dir = out_dir)
+```
+
+## Expected Runtime
+
+- The bundled `mini_raw` vignette workflow should run in seconds.
+- Loading the bundled generated example outputs is also quick.
+- Rebuilding the full packaged *S. pneumoniae* outputs and maps from raw example inputs can take several minutes, especially on a laptop.
+- Full notebook-style robustness and manuscript analyses are slower again and should be treated as heavier workflows.
+
+## Data Provenance
+
+The package now separates what ships in the repository from what is downloaded or generated locally.
+
+- Narrative provenance policy: [docs/DATA_PROVENANCE.md](docs/DATA_PROVENANCE.md)
+- Machine-readable provenance manifest: [data-raw/data-provenance.csv](data-raw/data-provenance.csv)
+- Package conversion roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- Script-by-script migration audit: [docs/SCRIPT_AUDIT.md](docs/SCRIPT_AUDIT.md)
+- Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
+- Manuscript scaffold: [docs/MANUSCRIPT_DRAFT.md](docs/MANUSCRIPT_DRAFT.md)
+
+## Repository Layout
+
+- `R/`: package functions
+- `vignettes/`: user-facing worked examples
+- `tests/testthat/`: deterministic and fixture-based regression tests
+- `tools/`: environment/bootstrap/build helpers
+- `01-Phenotype_and_map_analyses/`: legacy notebooks being migrated onto the package API
+
+## Current Caveat
+
+`08-Mapping-external-variables.Rmd` still depends on metadata files that are not currently in the repository, so full manuscript-level reproducibility still requires either recovering those files or rewriting that section around available inputs.
