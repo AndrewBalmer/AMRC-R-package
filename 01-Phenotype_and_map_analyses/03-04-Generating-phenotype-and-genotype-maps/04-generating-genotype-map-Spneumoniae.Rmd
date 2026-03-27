@@ -1,0 +1,313 @@
+---
+title: "S. pneumoniae genotype map - Generating map testing start conditions"
+author: "Andrew Balmer"
+date: "04/12/2023"
+output: html_document
+---
+
+### ==== Aims and objectives of this Rmarkdown
+The aim of this notebook is to generate an genetic map for the S. pneumoniae beta-lactam dataset. As described in the paper, ‘genetic maps’ are a visualisation of the amino acid Hamming distance matrix calculated from the concatenated amino acid substitutions, which in this case was the transpeptidase regions of three PBP proteins (PBP1A,PBP2B, and PBP2X). The maps use a Hamming distance matrix and the MDS algorithm to position the isolates on the 'genetic' map.
+ 
+As MDS is an iterative method with a range of different options, is important to ensure MDS solutions represent the data accurately, and are stable to variation in the method and starting conditions used. Here, I have compared several methods to generate For this and the subsequent markdown documents, I have used the 3628 of the 4309 isolates of S. pneumoniae for 6 beta-lactam antibiotics from the CDC dataset. All isolates had all MICs measured for all 6 drugs. This analysis did not include the isolates which had missing values in either the phenotypic or genetic map analysis. I also excluded 8 isolates which had an insertion substitution close to the beginning of protein PBP2b in the final map. These 8 isolates may need to be analysed separately as it meant the aligned proteins had very different 2b proteins compared to the rest of the isolates in the collection. Genetic maps made which include these isolates result in  broadly the same patterns as shown below, albeit with those 8 isolates showing as highly divergent. These isolates were therefore assessed independently in the genotype-phenotype analyses.
+
+```{r setup, include=FALSE}
+remove(list = ls())
+
+# load packages
+library(tidyverse)
+library(smacof)
+
+source(file.path("..", "..", "tools", "notebook_helpers.R"))
+analysis_paths <- amrc_notebook_setup()
+generated_dir <- analysis_paths$generated_dir
+
+# Here we just use a small subsample of the full dataset for illustration purposes
+#amrc_load_rdata(file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix_200_subsample.RData"))
+
+# Rename for script
+#pbp_dist <- pbp_dist_200
+
+# Read in genetic distance matrix for the full dataset
+amrc_load_rdata(file.path(generated_dir, "tablemic_pneumo_3628_meta_gen_distance_matrix.RData"))
+
+```
+
+
+## Scree plot - testing dimensionality to use
+To identify the number of dimensions which accurately capture the variation in the data, I have used the MDS algorithm to generate maps with several different dimensionalities and compared their relative 'stress'. Stress in this context is the sum of the squared residuals between points in the map compared to measured distances in the table. This provides a measure of how well fit the data is on a given representation. The lower the stress, the better the map fits the data.
+
+2 dimensions captures the majority of amino acid variation across the three proteins and so I have used 2 dimensions for the following analysis. However, 3 dimensions does offer a slightly better representation. For the manuscript, I found that adding a third dimension did not alter the results of the genotype to phenotype analyses. Since a two dimensional map is easier to visualise and work with, a two dimensional map was used for further analyses. Further goodness-of fit testing will be completed in a later script to test how well 2/3 dimensions capture the variation in the dataset.
+
+
+```{r, echo=FALSE}
+
+# Scree plot to identify the number of dimensions
+
+# Metric MDS with different dimensions
+stress_sweep <- amrc_run_dimensionality_sweep(pbp_dist, dimensions = 1:10)
+stressvec <- stress_sweep %>%
+  filter(method == "metric") %>%
+  pull(stress)
+save(stressvec, file="Dimensionality_test_Spneumo_3628_metric_genetic.RData")
+
+# Ordinal MDS with different dimensions
+stressvec <- stress_sweep %>%
+  filter(method == "ordinal") %>%
+  pull(stress)
+save(stressvec, file="Dimensionality_test_Spneumo_3628_ordinal_genetic.RData")
+
+# Interval MDS with different dimensions
+stressvec <- stress_sweep %>%
+  filter(method == "interval") %>%
+  pull(stress)
+save(stressvec, file="Dimensionality_test_Spneumo_3628_interval_genetic.RData")
+
+# Load and process the results for ordinal MDS
+stressvec_ordinal <- as_tibble(stressvec) %>%
+  mutate(dimension = seq(1, 10, by = 1),
+         method = "ordinal") %>%
+  rename(stress = value)
+
+# Load and process the results for interval MDS
+stressvec_interval <- as_tibble(stressvec) %>%
+  mutate(dimension = seq(1, 10, by = 1),
+         method = "interval") %>%
+  rename(stress = value) 
+
+# Load and process the results for metric MDS
+stressvec <- as_tibble(stressvec) %>%
+  mutate(dimension = seq(1, 10, by = 1),
+         method = "metric") %>%
+  rename(stress = value) 
+
+# Combine the results for plotting
+stressvec <- bind_rows(stressvec, stressvec_ordinal, stressvec_interval)
+stress_summary <- amrc_summarise_dimension_sweep(as.data.frame(stressvec))
+stressvec <- as_tibble(stress_summary$long)
+
+# Plotting the scree plot
+ggplot(filter(stressvec, method != "interval"), aes(x = dimension, y = stress, colour = method, shape = method, fill = "white")) + 
+  geom_line() +
+  geom_point(size = 3)+
+  theme_bw() +
+  labs(x = "Dimension", y = "Stress") +
+  scale_x_continuous(breaks = c(seq(1, 10, by = 1))) + 
+  scale_shape_manual(values = c(16, 21)) + 
+  scale_color_manual(values = c("#E41A1C", "#E41A1C", "#E41A1C")) + 
+  scale_fill_manual(values = c("white")) +
+  theme(legend.position = "none")
+
+# Select and print the resulting dataframe
+as_tibble(stress_summary$summary) %>%
+  select(method, starts_with("drop_"))
+
+
+```
+
+
+## Testing effect of different transformation assumptions
+The SMACOF algorithm offers the potential to use linear transformation of the metric distances, or use rank of measurements so the metric values do not translate directly into distances. The ordinal method may be useful where disc diffusion data included, as it only preserves the rank distances, rather than the metric values. A third option is to use a interval transformation. All three methods are plotted here and compared. Typically the metric MDS has a higher stress value because it is a more strict assumption. However, provided stress is still acceptable, metric MDS is usually preferred so that the distances between isolates are directly preserved on the map. 
+
+
+```{r, echo = FALSE}
+
+# Multidimensional Scaling (MDS) with different types and dimensions (Torgerson start)
+mds_suite <- amrc_fit_mds_transformations(pbp_dist, ndim = 2)
+torg_met <- mds_suite$metric
+torg_ord <- mds_suite$ordinal
+torg_int <- mds_suite$interval
+
+# Save the results into separate RData files
+save(torg_met, file=file.path(generated_dir, "Spneumo_3628_PCA_start_2D_METRIC_genetic.RData"))
+save(torg_ord, file=file.path(generated_dir, "Spneumo_3628_PCA_start_2D_ORDINAL_genetic.RData"))
+save(torg_int, file=file.path(generated_dir, "Spneumo_3628_PCA_start_2D_INTERVAL_genetic.RData"))
+
+```
+
+
+###  Stress values for: metric, ordinal, and interval transformations respectively
+
+In all cases, stress is low, meaning the maps fit the data well. Here, the ordinal MDS has the lowest stress, but the metric MDS only has a slightly higher stress value. I have therefore used metric MDS for the remaining analyses as it is more directly interpretable, i.e. the precise genetic distances between isolates are more directly preserved on the map. 
+
+```{r}
+torg_met$stress
+torg_ord$stress
+torg_int$stress
+```
+
+Below are the maps produced by the different methods. Despite the differences in stress, the three methods produce very similar results. 
+
+```{r, echo = FALSE}
+
+op <- par(mfrow = c(2,2))
+plot(torg_met, main = "PCA start metric", label.conf = list(label = FALSE))
+plot(torg_ord, main = "PCA start ordinal", label.conf = list(label = FALSE))
+plot(torg_int, main = "PCA start interval", label.conf = list(label = FALSE))
+par(op)
+
+```
+
+
+## Comparison of optimisation methods 
+The algorithm operates by iteratively shifting the positions of points to reduce 'stress' - i.e. the sum of the squared residuals between points in the map compared to points in the table. Different starting positions of the points can affect the final positions of the points. Typically, one of two strategies are used to account for this. Firstly, this can be done by using the output of a classical MDS (i.e. non-iterative PCA) as the starting positions before shifting points, or by using random positions. Typically, when using random positions, many repeats are needed (i.e. ~100 or more typically) to find the best possible representation. Here, I have compared the two methods, using 100 runs to find a reasonable representation.
+
+```{r,echo = F}
+### Multiple random starts
+random_search <- amrc_run_random_start_search(
+  pbp_dist,
+  nrep = 100,
+  ndim = 2,
+  type = "ratio",
+  return_all = TRUE
+)
+optimised <- random_search$best_fit
+
+# Sort the sppwen variable in decreasing order
+sppwen <- sort(optimised$spp, decreasing = TRUE)
+
+# Testing the effect of different random starting positions
+optimisation_effects <- random_search$exploration
+
+# Save the results for further analysis
+save(optimised, file="Spneumoniae_gen_metric_random_start_100.RData")
+save(optimisation_effects, file="Spneumoniae_gen_metric_random_start_100_optimisation_effects.RData")
+
+
+```
+
+### Stress comparison of PCA start, random start with the lowest stress, and optimised PCA start
+```{r}
+
+torg_met$stress
+optimised$stress
+
+```
+
+### Plot results of comparison
+The solutions are very similar, but typically the classical MDS (PCA) start has the lowest stress and generates the best representation for this map. 
+
+```{r, echo = F}
+op <- par(mfrow = c(1,2))
+plot(torg_met, main = "PCA MDS start", label.conf = list(label = FALSE))
+plot(optimised, main = "Random start (100 runs)", label.conf = list(label = FALSE))
+par(op)
+
+```
+
+
+# Comparing the effect of different random starting conditions
+As mentioned, running the algorithm using different random starting positions can result in different solutions. Typically the algorithm is repeated many times (typically ~100 or more) to find a solution with the lowest stress. Ideally, most of the solutions come up with similar representations. Comparing the different solutions is typically recommended to ensure the final representation is stable. Often very different solutions will be found from different starting coordinates, but those with the lowest stress are usually those used for subsequent analysis.
+
+The method used here was to take all the maps produced using random starting conditions and compare the relative positions of the isolates between each map. I was able to gain measure of similarity between each map by correlating the distances between points for each axis. This measure was used to make a distance matrix. Maps were rotated/dilated in this analysis to superimpose the points over one another to make this comparisons meaningful. I plotted the matrix as a dendrogram and used hierarchical clustering to split the possible solutions into 6 clusters. I have then plotted the lowest stress solution of each cluster to show the differences based on different starting conditions. The output of these maps is not rotated/dilated, but the comparison stage where the maps were compared to generate the distance matrix were.
+
+```{r,echo=F}
+# Plot dendrogram of differences between solutions
+# Load necessary library for hierarchical clustering
+library(ape)
+
+restart_analysis <- amrc_cluster_restart_solutions(optimisation_effects, n_clusters = 4)
+hc <- restart_analysis$hclust
+
+# Define colors for the clusters
+colors <- c("red", "blue", "green", "black", "cyan", "purple", "brown")
+
+clus4 <- restart_analysis$clusters
+
+# Plot the dendrogram as a phylogenetic tree
+plot(as.phylo(hc), tip.color = colors[clus4],
+     label.offset = 1, cex = 0.7)
+
+
+```
+
+# Plotting the different possible solutions
+Here I have plotted the lowest stress solution from each hierarchical cluster. For subsequent analysis (including that shown in the manuscript), I have used the classical PCA start instead of the random start because it found a better representation. 
+
+```{r,echo=F}
+multiple_restarts <- as_tibble(restart_analysis$selected)
+restart_options <- restart_analysis$representative_fits
+
+# Set up a multi-panel plot with 2 rows and 3 columns
+op <- par(mfrow = c(2, 3))
+
+# Plot each selected solution with different colors
+for (i in 1:nrow(multiple_restarts)) {
+  plot(restart_options[[i]], label.conf = list(label = FALSE), col = colors[i])
+}
+
+# Reset plotting parameters
+par(op)
+
+```
+
+
+## Weighting of isolate points
+Isolate points can be weighted more or less strongly depending on confidence in their relative position. 
+
+Another use of weighting is where the most common values affect the representation of the map. This is because they are perfectly 'fit' before positioning other, less common points. Fitting the less common isolates is restricted by the more common ones, and this restriction can affect where the other points are located. Weighting the more common points less strongly is one possible solution for large datasets with many sensitive isolates. This is analagous to fitting a linear model and weighting outlier points less strongly. One advantage of using multiple starts of the algorithm is that is can better represent distances between isolates while considering complex weighting structures. 
+
+
+```{r, echo = F}
+
+weighted_search <- amrc_run_weighted_mds_search(
+  pbp_dist,
+  nrep = 100,
+  ndim = 2,
+  type = "ratio",
+  weight_type = "unif",
+  return_all = TRUE
+)
+optimised_unif <- weighted_search$best_fit
+
+# Sort species weights in descending order
+sppwen <- sort(optimised_unif$spp, decreasing = TRUE)
+
+
+```
+
+### Stress 
+The weighted solution (second value) is higher in this case than the standard MDS (first value) as it has higher stress. In this case the PCA start represents the variation in the data most accurately. However, using a higher number of repeats of the random starts may provide a better representation (i.e. > 100 repeats). 
+
+Despite having lower stress, the weighted PCA map may still offer a better overall representation. This is because the weighting structures can affect the overall values of stress. Additional goodness-of-fit testing will be useful to determine which is the better representation. 
+
+```{r, echo = F}
+
+torg_met$stress
+optimised_unif$stress
+optimised$stress
+
+```
+
+Below I have plotted the different solutions. The standard PCA start generates the lowest stress solution, however as mentioned additional testing will be required. However, the methods do generate broadly similar final solutions. 
+
+```{r, echo = F}
+
+### Plot results of comparison
+op <- par(mfrow = c(2,2))
+plot(torg_met, main = "Classical start", label.conf = list(label = FALSE))
+plot(torg_met, "Shepard")
+plot(optimised_unif, main = "Weighted start (100) resistance", label.conf = list(label = FALSE))
+plot(optimised_unif, "Shepard")
+par(op)
+
+save(optimised_unif, file="Optimised_map_SMACOFB_genetic_S_pneumo.RData")
+
+```
+
+
+## Final output using best method for pneumo map
+Here I have plotted the best representation I have found using 100 iterations. In this case the method using the classical MDS (PCA) start had the lowest stress, and was considered the best representation for the genetic map for S. pneumoniae.  
+
+```{r, echo = F}
+
+op <- par(mfrow = c(2,2))
+plot(torg_met, main = "PCA, classical start", label.conf = list(label = FALSE))
+#plot(optimised_unif, "Shepard")
+plot(torg_met,  main = "Frequency of dissimilarities between isolates", plot.type = "histogram", label.conf = list(label = FALSE))
+plot(torg_met, plot.type = "stressplot", label.conf = list(label = FALSE))
+par(op)
+
+```
+
+
+

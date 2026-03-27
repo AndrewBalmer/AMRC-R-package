@@ -1,0 +1,5 @@
+dataset,filename,url,doi
+phenotype,MIC_pneumo.csv,https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-017-4017-7/MediaObjects/12864_2017_4017_MOESM1_ESM.csv,10.1186/s12864-017-4017-7
+phenotype,MIC_pneumo2.csv,https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-017-4017-7/MediaObjects/12864_2017_4017_MOESM2_ESM.csv,10.1186/s12864-017-4017-7
+genotype,PBP_Sequence_dataset1.csv,https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-017-4017-7/MediaObjects/12864_2017_4017_MOESM4_ESM.csv,10.1186/s12864-017-4017-7
+genotype,PBP_Sequence_dataset2.csv,https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-017-4017-7/MediaObjects/12864_2017_4017_MOESM5_ESM.csv,10.1186/s12864-017-4017-7

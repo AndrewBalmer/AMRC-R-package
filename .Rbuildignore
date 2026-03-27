@@ -1,0 +1,9 @@
+^01-Phenotype_and_map_analyses$
+^Previous_AMRC_manuscript$
+^docs$
+^data-raw$
+^tools$
+^renv$
+^renv\.lock$
+^\.github$
+^.*\.Rproj$

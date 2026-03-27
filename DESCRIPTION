@@ -1,0 +1,27 @@
+Package: amrcartography
+Title: Tools for Antimicrobial Resistance Cartography
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Andrew", "Balmer", email = "ab69@sanger.ac.uk", role = c("aut", "cre")),
+    person("OpenAI", role = "ctb")
+  )
+Description: Infrastructure for turning the AMR cartography analysis workflow
+    into a reproducible R package. The current package provides source-data
+    manifests, example-data download helpers, phenotype and genotype
+    preprocessing helpers for the S. pneumoniae case study, and utilities for
+    multidimensional scaling workflows used in AMR cartography analyses.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.2.0)
+Suggests:
+    ape,
+    ggplot2,
+    knitr,
+    rmarkdown,
+    smacof,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+LazyData: false
