@@ -215,13 +215,19 @@ amrc_plot_cluster_map <- function(
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
 
-  cluster_values <- sort(unique(data[[cluster_col]]))
+  plot_data <- data
+  plot_data[[cluster_col]] <- as.factor(plot_data[[cluster_col]])
+  if (!is.null(background_data) && cluster_col %in% colnames(background_data)) {
+    background_data[[cluster_col]] <- as.factor(background_data[[cluster_col]])
+  }
+
+  cluster_values <- sort(unique(plot_data[[cluster_col]]))
   if (is.null(palette)) {
     palette <- amrc_default_cluster_palette(length(cluster_values))
   }
-  names(palette) <- cluster_values
+  names(palette) <- as.character(cluster_values)
 
-  plot <- ggplot2::ggplot(data, ggplot2::aes_string(x = x, y = y, fill = cluster_col))
+  plot <- ggplot2::ggplot(plot_data, ggplot2::aes_string(x = x, y = y, fill = cluster_col))
 
   if (!is.null(background_data)) {
     plot <- plot + ggplot2::geom_point(
@@ -350,14 +356,17 @@ amrc_plot_reference_distance_relationship <- function(
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
 
-  cluster_values <- sort(unique(distance_table[[cluster_col]]))
+  plot_data <- distance_table
+  plot_data[[cluster_col]] <- as.factor(plot_data[[cluster_col]])
+
+  cluster_values <- sort(unique(plot_data[[cluster_col]]))
   if (is.null(palette)) {
     palette <- amrc_default_cluster_palette(length(cluster_values))
   }
-  names(palette) <- cluster_values
+  names(palette) <- as.character(cluster_values)
 
   plot <- ggplot2::ggplot(
-    distance_table,
+    plot_data,
     ggplot2::aes_string(x = x_col, y = y_col, fill = cluster_col)
   ) +
     ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1) +

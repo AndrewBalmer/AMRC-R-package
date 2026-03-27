@@ -218,3 +218,34 @@ test_that("comparison and clustering helpers return reusable canonical tables", 
   expect_true(all(c("phen_distance", "gen_distance") %in% names(ref_distance)))
   expect_true(all(c("cluster", "mean_phenotypic_distance", "mean_genetic_distance") %in% names(ref_summary$summary)))
 })
+
+test_that("plotting helpers accept numeric cluster identifiers", {
+  skip_if_not_installed("ggplot2")
+
+  plot_data <- data.frame(
+    x = c(0, 1, 2, 3),
+    y = c(0, 1, 0, 1),
+    cluster = c(1, 1, 2, 2)
+  )
+
+  cluster_plot <- amrc_plot_cluster_map(
+    data = plot_data,
+    x = "x",
+    y = "y",
+    cluster_col = "cluster",
+    show_legend = TRUE
+  )
+  expect_s3_class(cluster_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(cluster_plot))
+
+  distance_plot <- amrc_plot_reference_distance_relationship(
+    distance_table = data.frame(
+      gen_distance = c(1, 2, 3, 4),
+      phen_distance = c(2, 3, 4, 5),
+      gen_cluster = c(1, 1, 2, 2)
+    ),
+    cluster_col = "gen_cluster"
+  )
+  expect_s3_class(distance_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(distance_plot))
+})

@@ -94,6 +94,10 @@ The package now separates what ships in the repository from what is downloaded o
 - Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
 - Manuscript scaffold: [docs/MANUSCRIPT_DRAFT.md](docs/MANUSCRIPT_DRAFT.md)
 
+## How To Cite
+
+The repository now includes a software citation file at [CITATION.cff](CITATION.cff). For now, cite the package/software record; once the package manuscript is finalized, the README and citation text should be updated to cite both the software and the paper.
+
 ## Repository Layout
 
 - `R/`: package functions

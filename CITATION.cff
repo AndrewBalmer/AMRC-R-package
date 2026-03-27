@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: amrcartography
+message: "If you use this software, please cite the package and, when available, the accompanying manuscript."
+type: software
+license: MIT
+authors:
+  - family-names: Balmer
+    given-names: Andrew
+    email: ab69@sanger.ac.uk
+repository-code: "https://github.com/AndrewBalmer/AMRC-R-package"
+abstract: "amrcartography is an R package for reproducible antimicrobial resistance cartography workflows, including MIC preprocessing, map fitting, robustness analyses, clustering, and phenotype-versus-genotype comparison."
+version: 0.0.0.9000
