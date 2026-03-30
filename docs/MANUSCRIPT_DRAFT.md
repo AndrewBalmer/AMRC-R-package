@@ -16,10 +16,14 @@ The manuscript should be a software/application paper centered on one core examp
 That workflow now exists in a user-facing form in the vignette:
 [end-to-end-spneumoniae.Rmd](/Users/ab69/AMRC-R-package/vignettes/end-to-end-spneumoniae.Rmd)
 
-The software version referenced in the manuscript should be frozen at the first
-GitHub Actions `R-CMD-check` green commit that includes the end-to-end vignette
-workflow. Until that green baseline is fixed, keep the manuscript drafting
-centered on the vignette structure rather than on moving notebook details.
+The manuscript software baseline is now fixed at:
+
+- commit: `7a96194`
+- package version: `0.0.0.9000`
+- CI validation: GitHub Actions `R-CMD-check` run `23740539045` passed on 2026-03-30
+
+Keep the manuscript drafting centered on the vignette structure, and cite this
+commit/version pair unless a later validated release supersedes it.
 
 ## Draft Abstract
 
@@ -82,4 +86,4 @@ Antimicrobial resistance phenotypes measured by minimum inhibitory concentration
 - tighten the abstract once the target journal is chosen
 - add references for MDS, MIC analysis, and AMR cartography framing
 - decide whether to position this as a methods/software paper or as a companion software note to the main AMR cartography manuscript
-- add citation/repository/version text once the green release-basis commit is fixed
+- add citation/repository/version text for commit `7a96194` / version `0.0.0.9000`
