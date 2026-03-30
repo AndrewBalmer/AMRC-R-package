@@ -55,6 +55,332 @@ amrc_between_group_distances <- function(group_a, group_b) {
   as.vector(distances)
 }
 
+amrc_mds_labels <- function(mds_result) {
+  components <- amrc_mds_components(mds_result)
+  labels <- amrc_distance_labels(components$delta)
+
+  if (is.null(labels) || length(labels) == 0) {
+    labels <- rownames(components$conf)
+  }
+
+  if (is.null(labels) || length(labels) == 0) {
+    return(NULL)
+  }
+
+  as.character(labels)
+}
+
+amrc_prepare_configuration_table <- function(
+  mds_result,
+  coord_names,
+  rotation_degrees = NULL,
+  label_col = ".amrc_id"
+) {
+  calibration <- amrc_calibrate_mds(
+    mds_result,
+    rotation_degrees = rotation_degrees
+  )
+
+  configuration <- as.data.frame(calibration$configuration)
+  if (length(coord_names) != ncol(configuration)) {
+    stop(
+      "coord_names must have length ",
+      ncol(configuration),
+      " to match the map dimensionality.",
+      call. = FALSE
+    )
+  }
+
+  colnames(configuration) <- coord_names
+
+  labels <- amrc_mds_labels(mds_result)
+  if (!is.null(labels)) {
+    if (length(labels) != nrow(configuration)) {
+      stop("Could not align MDS labels to the calibrated configuration.", call. = FALSE)
+    }
+    configuration[[label_col]] <- labels
+  }
+
+  list(
+    data = configuration,
+    calibration = calibration,
+    labels = labels
+  )
+}
+
+amrc_align_rows_by_id <- function(data, id_col, target_ids, data_name = "data") {
+  ids <- as.character(data[[id_col]])
+  if (anyDuplicated(ids) > 0) {
+    stop(
+      data_name,
+      " must contain unique values in column '",
+      id_col,
+      "'.",
+      call. = FALSE
+    )
+  }
+
+  match_index <- match(target_ids, ids)
+  if (anyNA(match_index)) {
+    missing_ids <- unique(target_ids[is.na(match_index)])
+    missing_ids <- missing_ids[seq_len(min(length(missing_ids), 5L))]
+    stop(
+      data_name,
+      " is missing identifiers required by the map data: ",
+      paste(missing_ids, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  aligned <- data[match_index, , drop = FALSE]
+  rownames(aligned) <- NULL
+  aligned
+}
+
+amrc_align_configuration_rows <- function(
+  configuration_data,
+  target_ids,
+  label_col = ".amrc_id",
+  data_name = "configuration_data"
+) {
+  if (!(label_col %in% colnames(configuration_data))) {
+    if (nrow(configuration_data) != length(target_ids)) {
+      stop(
+        data_name,
+        " must either contain explicit labels or match the metadata row count.",
+        call. = FALSE
+      )
+    }
+
+    aligned <- configuration_data
+  } else {
+    aligned <- amrc_align_rows_by_id(
+      data = configuration_data,
+      id_col = label_col,
+      target_ids = target_ids,
+      data_name = data_name
+    )
+    aligned[[label_col]] <- NULL
+  }
+
+  rownames(aligned) <- NULL
+  aligned
+}
+
+amrc_attach_group_centroids <- function(
+  data,
+  group_col,
+  coord_cols,
+  centroid_cols
+) {
+  data$.amrc_row_index <- seq_len(nrow(data))
+
+  centroid_parts <- Map(function(coord_col, centroid_col) {
+    centroid <- stats::aggregate(
+      data[[coord_col]],
+      by = list(data[[group_col]]),
+      FUN = stats::median
+    )
+    colnames(centroid) <- c(group_col, centroid_col)
+    centroid
+  }, coord_cols, centroid_cols)
+
+  centroid_data <- Reduce(function(x, y) {
+    merge(x, y, by = group_col, sort = FALSE)
+  }, centroid_parts)
+
+  merged <- merge(
+    data,
+    centroid_data,
+    by = group_col,
+    all.x = TRUE,
+    sort = FALSE
+  )
+
+  merged <- merged[order(merged$.amrc_row_index), , drop = FALSE]
+  merged$.amrc_row_index <- NULL
+  rownames(merged) <- NULL
+
+  merged
+}
+
+#' Prepare a Generic Phenotype/External Map Comparison Table
+#'
+#' Calibrates one phenotype map and one external map onto interpretable scales,
+#' aligns them to a shared metadata table, and returns a combined comparison
+#' object that downstream clustering, plotting, and summary helpers can reuse.
+#'
+#' This is the generic comparison-preparation entry point. Organism-specific
+#' helpers such as [amrc_prepare_spneumoniae_map_data()] should wrap this
+#' function rather than reimplementing the join logic themselves.
+#'
+#' @param metadata A metadata `data.frame` containing at least the isolate ID
+#'   column and any optional grouping columns.
+#' @param phenotype_mds Phenotype MDS fit.
+#' @param external_mds External MDS fit, for example from a genotype or
+#'   phylogenetic distance structure.
+#' @param id_col Name of the isolate identifier column in `metadata`.
+#' @param group_col Optional grouping column used to compute centroid summaries,
+#'   for example lineage or strain type.
+#' @param group_output_col Optional output name for `group_col`. Defaults to the
+#'   same value as `group_col`.
+#' @param phenotype_rotation_degrees Optional rotation applied to the phenotype
+#'   map after calibration.
+#' @param external_rotation_degrees Optional rotation applied to the external
+#'   map after calibration.
+#' @param exclude_ids Optional character vector of isolate identifiers to
+#'   remove after alignment.
+#' @param phenotype_coord_names Output names for the phenotype coordinates.
+#' @param external_coord_names Output names for the external coordinates.
+#' @param centroid_coord_names Output names for group-centroid columns computed
+#'   from the phenotype coordinates. Defaults to `paste0(phenotype_coord_names,
+#'   "_centroid")`.
+#'
+#' @return A list with the combined isolate-level `data`, optional distinct
+#'   `group_data`, and the phenotype/external calibration objects.
+#' @export
+amrc_prepare_map_data <- function(
+  metadata,
+  phenotype_mds,
+  external_mds,
+  id_col,
+  group_col = NULL,
+  group_output_col = group_col,
+  phenotype_rotation_degrees = NULL,
+  external_rotation_degrees = NULL,
+  exclude_ids = NULL,
+  phenotype_coord_names = c("D1", "D2"),
+  external_coord_names = c("E1", "E2"),
+  centroid_coord_names = paste0(phenotype_coord_names, "_centroid")
+) {
+  amrc_assert_is_data_frame(metadata, arg_name = "metadata")
+  amrc_assert_single_column_name(id_col, metadata, arg_name = "id_col")
+
+  if (!is.null(group_col)) {
+    amrc_assert_single_column_name(group_col, metadata, arg_name = "group_col")
+  }
+  if (!is.null(group_output_col) &&
+      (!is.character(group_output_col) ||
+       length(group_output_col) != 1L ||
+       is.na(group_output_col) ||
+       !nzchar(group_output_col))) {
+    stop("group_output_col must be NULL or a single non-empty column name.", call. = FALSE)
+  }
+
+  reserved_cols <- c(
+    phenotype_coord_names,
+    external_coord_names,
+    centroid_coord_names
+  )
+  reserved_overlap <- intersect(colnames(metadata), reserved_cols)
+  if (length(reserved_overlap) > 0) {
+    stop(
+      "metadata contains columns reserved for map outputs: ",
+      paste(reserved_overlap, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  if (!is.null(group_col) &&
+      !identical(group_output_col, group_col) &&
+      group_output_col %in% colnames(metadata)) {
+    stop(
+      "group_output_col already exists in metadata and would overwrite an existing column.",
+      call. = FALSE
+    )
+  }
+
+  if (length(centroid_coord_names) != length(phenotype_coord_names)) {
+    stop(
+      "centroid_coord_names must have the same length as phenotype_coord_names.",
+      call. = FALSE
+    )
+  }
+
+  phenotype_prepared <- amrc_prepare_configuration_table(
+    mds_result = phenotype_mds,
+    coord_names = phenotype_coord_names,
+    rotation_degrees = phenotype_rotation_degrees
+  )
+  external_prepared <- amrc_prepare_configuration_table(
+    mds_result = external_mds,
+    coord_names = external_coord_names,
+    rotation_degrees = external_rotation_degrees
+  )
+
+  target_ids <- phenotype_prepared$labels
+  if (is.null(target_ids)) {
+    target_ids <- external_prepared$labels
+  }
+  if (is.null(target_ids)) {
+    if (nrow(metadata) != nrow(phenotype_prepared$data) ||
+        nrow(metadata) != nrow(external_prepared$data)) {
+      stop(
+        "When the maps do not carry isolate labels, metadata and both map fits must have the same number of rows.",
+        call. = FALSE
+      )
+    }
+    target_ids <- as.character(metadata[[id_col]])
+  }
+
+  metadata_aligned <- amrc_align_rows_by_id(
+    data = metadata,
+    id_col = id_col,
+    target_ids = target_ids,
+    data_name = "metadata"
+  )
+  phenotype_aligned <- amrc_align_configuration_rows(
+    configuration_data = phenotype_prepared$data,
+    target_ids = target_ids,
+    data_name = "phenotype_mds"
+  )
+  external_aligned <- amrc_align_configuration_rows(
+    configuration_data = external_prepared$data,
+    target_ids = target_ids,
+    data_name = "external_mds"
+  )
+
+  comparison_data <- cbind(
+    phenotype_aligned,
+    metadata_aligned,
+    external_aligned
+  )
+  rownames(comparison_data) <- NULL
+
+  if (!is.null(group_col) && !identical(group_output_col, group_col)) {
+    colnames(comparison_data)[colnames(comparison_data) == group_col] <- group_output_col
+    group_col <- group_output_col
+  }
+
+  if (!is.null(exclude_ids) && length(exclude_ids) > 0) {
+    comparison_data <- comparison_data[
+      !(comparison_data[[id_col]] %in% exclude_ids),
+      ,
+      drop = FALSE
+    ]
+  }
+
+  group_data <- NULL
+  if (!is.null(group_col)) {
+    comparison_data <- amrc_attach_group_centroids(
+      data = comparison_data,
+      group_col = group_col,
+      coord_cols = phenotype_coord_names,
+      centroid_cols = centroid_coord_names
+    )
+
+    group_data <- comparison_data[!duplicated(comparison_data[[group_col]]), , drop = FALSE]
+    rownames(group_data) <- NULL
+  }
+
+  list(
+    data = comparison_data,
+    group_data = group_data,
+    phenotype_calibration = phenotype_prepared$calibration,
+    external_calibration = external_prepared$calibration
+  )
+}
+
 #' Prepare the S. pneumoniae Example Phenotype/Genotype Comparison Table
 #'
 #' Builds the combined comparison data frame reused across the clustering and
@@ -94,88 +420,25 @@ amrc_prepare_spneumoniae_map_data <- function(
   phenotype_coord_names = c("D1", "D2"),
   genotype_coord_names = c("G1", "G2")
 ) {
-  if (!("LABID" %in% colnames(tablemic_meta))) {
-    stop("tablemic_meta must contain a LABID column.", call. = FALSE)
-  }
-  if (!(phenotype_pbp_col %in% colnames(tablemic_meta))) {
-    stop(
-      "tablemic_meta must contain the PBP-type column '",
-      phenotype_pbp_col,
-      "'.",
-      call. = FALSE
-    )
-  }
-
-  phenotype_calibration <- amrc_calibrate_mds(
-    phenotype_mds,
-    rotation_degrees = phenotype_rotation_degrees
+  comparison_bundle <- amrc_prepare_map_data(
+    metadata = tablemic_meta,
+    phenotype_mds = phenotype_mds,
+    external_mds = genotype_mds,
+    id_col = "LABID",
+    group_col = phenotype_pbp_col,
+    group_output_col = pbp_col_name,
+    phenotype_rotation_degrees = phenotype_rotation_degrees,
+    exclude_ids = exclude_labids,
+    phenotype_coord_names = phenotype_coord_names,
+    external_coord_names = genotype_coord_names,
+    centroid_coord_names = c("x_centroid", "y_centroid")
   )
-  genotype_calibration <- amrc_calibrate_mds(genotype_mds)
-
-  phenotype_conf <- as.data.frame(phenotype_calibration$configuration)
-  genotype_conf <- as.data.frame(genotype_calibration$configuration)
-
-  if (nrow(phenotype_conf) != nrow(tablemic_meta) ||
-      nrow(genotype_conf) != nrow(tablemic_meta)) {
-    stop(
-      "The metadata, phenotype map, and genotype map must contain the same number of rows.",
-      call. = FALSE
-    )
-  }
-
-  colnames(phenotype_conf) <- phenotype_coord_names
-  colnames(genotype_conf) <- genotype_coord_names
-
-  comparison_data <- cbind(
-    phenotype_conf,
-    tablemic_meta,
-    genotype_conf
-  )
-
-  colnames(comparison_data)[colnames(comparison_data) == phenotype_pbp_col] <- pbp_col_name
-
-  if (!is.null(exclude_labids) && length(exclude_labids) > 0) {
-    comparison_data <- comparison_data[
-      !(comparison_data$LABID %in% exclude_labids),
-      ,
-      drop = FALSE
-    ]
-  }
-
-  centroid_x <- stats::aggregate(
-    comparison_data[[phenotype_coord_names[[1]]]],
-    by = list(comparison_data[[pbp_col_name]]),
-    FUN = stats::median
-  )
-  centroid_y <- stats::aggregate(
-    comparison_data[[phenotype_coord_names[[2]]]],
-    by = list(comparison_data[[pbp_col_name]]),
-    FUN = stats::median
-  )
-
-  colnames(centroid_x) <- c(pbp_col_name, "x_centroid")
-  colnames(centroid_y) <- c(pbp_col_name, "y_centroid")
-
-  comparison_data <- merge(
-    comparison_data,
-    merge(centroid_x, centroid_y, by = pbp_col_name, sort = FALSE),
-    by = pbp_col_name,
-    all.x = TRUE,
-    sort = FALSE
-  )
-
-  original_order <- match(comparison_data$LABID, tablemic_meta$LABID)
-  comparison_data <- comparison_data[order(original_order), , drop = FALSE]
-  rownames(comparison_data) <- NULL
-
-  pbp_data <- comparison_data[!duplicated(comparison_data[[pbp_col_name]]), , drop = FALSE]
-  rownames(pbp_data) <- NULL
 
   list(
-    data = comparison_data,
-    pbp_data = pbp_data,
-    phenotype_calibration = phenotype_calibration,
-    genotype_calibration = genotype_calibration
+    data = comparison_bundle$data,
+    pbp_data = comparison_bundle$group_data,
+    phenotype_calibration = comparison_bundle$phenotype_calibration,
+    genotype_calibration = comparison_bundle$external_calibration
   )
 }
 

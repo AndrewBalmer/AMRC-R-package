@@ -11,6 +11,18 @@ generic_mic_fixture <- function() {
   )
 }
 
+generic_mds_fixture <- function(labels, coords) {
+  coords <- as.matrix(coords)
+  rownames(coords) <- labels
+
+  list(
+    delta = stats::dist(coords),
+    conf = coords,
+    confdist = as.matrix(stats::dist(coords)),
+    spp = rep(0, nrow(coords))
+  )
+}
+
 test_that("generic MIC validation checks schema and duplicate isolate IDs", {
   toy <- generic_mic_fixture()
 
@@ -128,4 +140,103 @@ test_that("generic MIC and external distance helpers preserve isolate ordering",
   expect_equal(bundle$isolate_ids, c("iso1", "iso2", "iso4"))
   expect_equal(attr(bundle$phenotype_distance, "Labels"), c("iso1", "iso2", "iso4"))
   expect_equal(attr(bundle$external_distance, "Labels"), c("iso1", "iso2", "iso4"))
+})
+
+test_that("generic map preparation aligns metadata and external structures by isolate id", {
+  metadata <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3", "iso4"),
+    lineage = c("L1", "L1", "L2", "L3"),
+    source = c("ward", "ward", "clinic", "clinic"),
+    stringsAsFactors = FALSE
+  )
+
+  phenotype_fit <- generic_mds_fixture(
+    labels = c("iso2", "iso1", "iso4", "iso3"),
+    coords = matrix(
+      c(
+        0, 0,
+        1, 0,
+        2, 2,
+        3, 2
+      ),
+      ncol = 2,
+      byrow = TRUE
+    )
+  )
+  external_fit <- generic_mds_fixture(
+    labels = c("iso1", "iso2", "iso3", "iso4"),
+    coords = matrix(
+      c(
+        10, 0,
+        11, 0,
+        20, 2,
+        21, 2
+      ),
+      ncol = 2,
+      byrow = TRUE
+    )
+  )
+
+  comparison <- amrc_prepare_map_data(
+    metadata = metadata,
+    phenotype_mds = phenotype_fit,
+    external_mds = external_fit,
+    id_col = "isolate_id",
+    group_col = "lineage"
+  )
+
+  expect_equal(comparison$data$isolate_id, c("iso2", "iso1", "iso4", "iso3"))
+  expect_equal(comparison$data$lineage, c("L1", "L1", "L3", "L2"))
+  expect_equal(comparison$data$E1, c(11, 10, 21, 20))
+  expect_true(all(c("D1_centroid", "D2_centroid") %in% colnames(comparison$data)))
+  expect_equal(nrow(comparison$group_data), 3L)
+  expect_equal(comparison$group_data$lineage, c("L1", "L3", "L2"))
+})
+
+test_that("S. pneumoniae compatibility wrapper delegates to the generic map-preparation path", {
+  metadata <- data.frame(
+    LABID = c("iso1", "iso2", "iso3"),
+    PT = c("pbpA", "pbpA", "pbpB"),
+    country = c("UK", "UK", "KE"),
+    stringsAsFactors = FALSE
+  )
+
+  phenotype_fit <- generic_mds_fixture(
+    labels = c("iso1", "iso2", "iso3"),
+    coords = matrix(
+      c(
+        0, 0,
+        1, 0,
+        2, 1
+      ),
+      ncol = 2,
+      byrow = TRUE
+    )
+  )
+  genotype_fit <- generic_mds_fixture(
+    labels = c("iso3", "iso1", "iso2"),
+    coords = matrix(
+      c(
+        10, 1,
+        20, 1,
+        21, 2
+      ),
+      ncol = 2,
+      byrow = TRUE
+    )
+  )
+
+  comparison <- amrc_prepare_spneumoniae_map_data(
+    tablemic_meta = metadata,
+    phenotype_mds = phenotype_fit,
+    genotype_mds = genotype_fit,
+    phenotype_rotation_degrees = NULL,
+    exclude_labids = character()
+  )
+
+  expect_equal(comparison$data$LABID, c("iso1", "iso2", "iso3"))
+  expect_equal(comparison$data$PBP_type, c("pbpA", "pbpA", "pbpB"))
+  expect_equal(comparison$data$G1, c(20, 21, 10))
+  expect_true(all(c("x_centroid", "y_centroid") %in% colnames(comparison$data)))
+  expect_equal(nrow(comparison$pbp_data), 2L)
 })

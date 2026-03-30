@@ -1,0 +1,187 @@
+---
+title: "Using amrcartography with Your Own MIC Table"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using amrcartography with Your Own MIC Table}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette shows the generic package workflow: start from an arbitrary MIC
+table, standardise it, compute a phenotype map, optionally align it to an
+external distance structure, and then prepare reusable comparison and clustering
+tables.
+
+The example uses a small synthetic dataset so the workflow stays fast and easy
+to adapt to your own data. The organism-specific *S. pneumoniae* case study is
+available separately in `vignette("end-to-end-spneumoniae")`.
+
+## Load the package
+
+```{r}
+if (!"package:amrcartography" %in% search()) {
+  library(amrcartography)
+}
+```
+
+## Create a simple MIC table
+
+The package expects one row per isolate, an isolate identifier column, and one
+column per drug. Extra metadata columns can be carried through the workflow.
+
+```{r}
+mic_table <- data.frame(
+  isolate_id = paste0("iso", 1:6),
+  lineage = c("L1", "L1", "L2", "L2", "L3", "L3"),
+  country = c("UK", "UK", "KE", "KE", "BR", "BR"),
+  drug_a = c(0.5, 1, 2, 2, 4, 8),
+  drug_b = c(1, 1, 2, 4, 4, 8),
+  drug_c = c(0.25, 0.5, 1, 2, 4, 4),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+mic_table
+```
+
+## Standardise the MIC data
+
+```{r}
+mic_data <- amrc_standardise_mic_data(
+  data = mic_table,
+  id_col = "isolate_id",
+  mic_cols = c("drug_a", "drug_b", "drug_c"),
+  metadata_cols = c("lineage", "country"),
+  transform = "log2"
+)
+
+mic_data$metadata
+mic_data$mic
+```
+
+## Compute a phenotype distance matrix and phenotype map
+
+```{r}
+phenotype_distance <- amrc_compute_mic_distance(mic_data)
+
+phenotype_map <- amrc_compute_mds(
+  phenotype_distance,
+  itmax = 100,
+  eps = 1e-06
+)
+
+phenotype_report <- amrc_map_fit_report(phenotype_map)
+
+phenotype_report$residual_summary
+phenotype_report$stress_summary
+```
+
+## Add an optional external distance structure
+
+Here we create a small synthetic external structure, but in a real analysis
+this could come from genotype distances, phylogeny, or any other aligned
+distance source.
+
+```{r}
+external_positions <- data.frame(
+  isolate_id = c("iso3", "iso1", "iso2", "iso4", "iso6", "iso5"),
+  axis1 = c(0.0, 0.1, 0.3, 1.2, 2.2, 2.0),
+  axis2 = c(0.0, 0.2, 0.1, 1.0, 2.1, 1.8),
+  stringsAsFactors = FALSE
+)
+
+external_distance <- amrc_compute_external_distance(
+  x = as.matrix(stats::dist(external_positions[, c("axis1", "axis2")])),
+  isolate_ids = external_positions$isolate_id
+)
+
+external_map <- amrc_compute_mds(
+  external_distance,
+  itmax = 100,
+  eps = 1e-06
+)
+```
+
+## Build a reusable comparison table
+
+```{r}
+comparison_bundle <- amrc_prepare_map_data(
+  metadata = mic_data$metadata,
+  phenotype_mds = phenotype_map,
+  external_mds = external_map,
+  id_col = "isolate_id",
+  group_col = "lineage"
+)
+
+comparison_bundle$data[, c(
+  "isolate_id", "lineage", "country", "D1", "D2", "E1", "E2"
+)]
+```
+
+Because `group_col = "lineage"` was supplied, the output also includes one row
+per lineage plus phenotype-centroid columns.
+
+```{r}
+comparison_bundle$group_data[, c("lineage", "D1_centroid", "D2_centroid", "E1", "E2")]
+```
+
+## Cluster the external map and attach the labels
+
+```{r}
+cluster_fit <- amrc_cluster_map(
+  data = comparison_bundle$group_data,
+  coord_cols = c("E1", "E2"),
+  distinct_col = "lineage",
+  n_clusters = 2,
+  max_k = 3
+)
+
+comparison_data <- amrc_add_cluster_assignments(
+  data = comparison_bundle$data,
+  assignments = cluster_fit$assignments,
+  key_col = "lineage",
+  cluster_col = "external_cluster"
+)
+
+comparison_data[, c("isolate_id", "lineage", "external_cluster", "D1", "D2", "E1", "E2")]
+```
+
+```{r}
+amrc_plot_cluster_elbow(
+  cluster_fit$scree,
+  highlight_cluster = 2,
+  x_limits = c(1, 3)
+)
+```
+
+```{r}
+amrc_plot_cluster_map(
+  data = comparison_data,
+  x = "E1",
+  y = "E2",
+  cluster_col = "external_cluster",
+  point_size = 4,
+  show_legend = TRUE
+)
+```
+
+## What to adapt for your own dataset
+
+In a real analysis, the main things you would replace are:
+
+- `mic_table`: your own isolate-by-drug MIC table
+- `id_col`: your isolate identifier column
+- `mic_cols`: the drug columns to include
+- `metadata_cols`: the metadata you want to carry through the workflow
+- `external_distance`: an optional genotype, phylogenetic, or other aligned
+  distance structure
+
+If you only need phenotype cartography, you can stop after
+`amrc_compute_mic_distance()`, `amrc_compute_mds()`, and `amrc_map_fit_report()`.
