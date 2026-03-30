@@ -6,15 +6,26 @@
 
 ## Positioning
 
-The manuscript should be a software/application paper centered on one core example workflow:
+The manuscript should be a software/application paper centered on the package
+as a generic toolkit for MIC cartography, with one concrete case study used to
+demonstrate that generic workflow on real data.
+
+The main user-facing workflow should now be the generic vignette:
+
+[using-your-own-mic-data.Rmd](/Users/ab69/AMRC-R-package/vignettes/using-your-own-mic-data.Rmd)
+
+The `S. pneumoniae` workflow remains important, but it should be framed as the
+secondary case-study/validation path rather than the package identity:
+
+[end-to-end-spneumoniae.Rmd](/Users/ab69/AMRC-R-package/vignettes/end-to-end-spneumoniae.Rmd)
+
+The manuscript should explain the package around this generic sequence:
 
 1. preprocess MIC phenotype data
-2. preprocess genotype sequence data
-3. fit phenotype and genotype maps
+2. optionally prepare or import an external distance structure
+3. fit phenotype and external maps
 4. compare map structure and cluster-level relationships
-
-That workflow now exists in a user-facing form in the vignette:
-[end-to-end-spneumoniae.Rmd](/Users/ab69/AMRC-R-package/vignettes/end-to-end-spneumoniae.Rmd)
+5. demonstrate the approach on the `S. pneumoniae` case study
 
 The manuscript software baseline is now fixed at:
 
@@ -27,7 +38,21 @@ commit/version pair unless a later validated release supersedes it.
 
 ## Draft Abstract
 
-Antimicrobial resistance phenotypes measured by minimum inhibitory concentration (MIC) assays are intrinsically multivariate, but many analysis workflows remain tied to univariate summaries or project-specific scripts. We present `amrcartography`, an R package for reproducible antimicrobial resistance cartography workflows that transform MIC datasets into phenotype maps, integrate genotype-derived distance structures, and support downstream clustering and phenotype-versus-genotype comparison analyses. The package formalizes data preprocessing, multidimensional scaling, map calibration, robustness analyses, and reusable comparison summaries that were previously distributed across notebook-style analysis scripts. We demonstrate the workflow using a packaged *Streptococcus pneumoniae* example and provide bundled examples, regression tests, and a reproducible environment for reuse and extension. `amrcartography` is intended both as a practical toolkit for MIC-based analysis and as a reproducible software companion to AMR cartography studies.
+Antimicrobial resistance phenotypes measured by minimum inhibitory concentration
+(MIC) assays are intrinsically multivariate, but many analysis workflows remain
+tied to univariate summaries or project-specific scripts. We present
+`amrcartography`, an R package for reproducible antimicrobial resistance
+cartography workflows that transform arbitrary MIC datasets into phenotype maps,
+optionally integrate aligned external distance structures, and support
+downstream clustering and phenotype-versus-external comparison analyses. The
+package formalizes data preprocessing, multidimensional scaling, map
+calibration, robustness analyses, and reusable comparison summaries that were
+previously distributed across notebook-style analysis scripts. We demonstrate
+the workflow using a packaged *Streptococcus pneumoniae* case study and provide
+bundled examples, regression tests, and a reproducible environment for reuse
+and extension. `amrcartography` is intended both as a practical toolkit for
+MIC-based analysis and as a reproducible software companion to AMR cartography
+studies.
 
 ## Draft Outline
 
@@ -41,17 +66,18 @@ Antimicrobial resistance phenotypes measured by minimum inhibitory concentration
 ### 2. Package Design
 
 - Reproducible input handling and provenance
-- Canonical phenotype preprocessing
-- Canonical genotype preprocessing
+- Generic MIC preprocessing
+- Generic external-data preparation and distance handling
 - MDS fitting, calibration, and goodness-of-fit helpers
-- Robustness, clustering, and phenotype-genotype comparison helpers
+- Robustness, clustering, and phenotype-vs-external comparison helpers
 
 ### 3. Example Workflow
 
-- Use the vignette workflow as the manuscript’s main worked example
+- Use the generic vignette workflow as the manuscript’s conceptual main path
+- Show the `S. pneumoniae` vignette as the biological case-study validation
 - Show phenotype preprocessing output
-- Show genotype preprocessing output
-- Show phenotype and genotype maps
+- Show optional external-data integration
+- Show phenotype and external maps
 - Show clustering/comparison summary
 
 ### 4. Reproducibility and Validation
@@ -71,15 +97,15 @@ Antimicrobial resistance phenotypes measured by minimum inhibitory concentration
 ## Figures to Build from the Package
 
 - phenotype map example
-- genotype map example
-- side-by-side phenotype/genotype comparison
+- external map example
+- side-by-side phenotype/external comparison
 - possibly one robustness/clustering summary figure if space allows
 
 ## Tables to Build from the Package
 
 - preprocessing outputs summary
 - map fit / goodness-of-fit summary
-- phenotype-vs-genotype cluster comparison summary
+- phenotype-vs-external cluster comparison summary
 
 ## Writing Tasks
 

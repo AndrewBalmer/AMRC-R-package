@@ -21,6 +21,9 @@ amrc_check_files_exist <- function(paths) {
 #' `S. pneumoniae` case study. Generic MIC workflows should prefer
 #' [amrc_standardise_mic_data()] and [amrc_compute_mic_distance()].
 #'
+#' Lifecycle note: this function remains exported for case-study compatibility,
+#' but it is not intended to define the long-term generic package API.
+#'
 #' @param input_dir Directory containing the raw phenotype CSV files.
 #' @param mic_files Length-2 character vector of phenotype file names.
 #' @param drop_incomplete Logical; drop rows with missing MIC values.

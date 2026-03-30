@@ -102,6 +102,57 @@ amrc_distance_labels <- function(distance_matrix) {
   attr(distance_matrix, "Labels")
 }
 
+amrc_external_feature_frame <- function(data, feature_cols, feature_mode = c("numeric", "character")) {
+  feature_mode <- match.arg(feature_mode)
+
+  if (identical(feature_mode, "numeric")) {
+    feature_data <- as.data.frame(
+      Map(
+        function(column, name) amrc_numeric_coercion(column, name),
+        data[, feature_cols, drop = FALSE],
+        feature_cols
+      ),
+      check.names = FALSE
+    )
+  } else {
+    feature_data <- as.data.frame(
+      lapply(data[, feature_cols, drop = FALSE], function(column) {
+        column <- as.character(column)
+        column[trimws(column) == ""] <- NA_character_
+        column
+      }),
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  feature_data
+}
+
+amrc_mismatch_distance <- function(feature_data, normalise = TRUE) {
+  feature_matrix <- as.matrix(feature_data)
+  n <- nrow(feature_matrix)
+  out <- matrix(
+    0,
+    nrow = n,
+    ncol = n,
+    dimnames = list(rownames(feature_matrix), rownames(feature_matrix))
+  )
+
+  for (i in seq_len(n - 1L)) {
+    for (j in seq.int(i + 1L, n)) {
+      mismatches <- sum(feature_matrix[i, ] != feature_matrix[j, ])
+      if (isTRUE(normalise)) {
+        mismatches <- mismatches / ncol(feature_matrix)
+      }
+      out[i, j] <- mismatches
+      out[j, i] <- mismatches
+    }
+  }
+
+  stats::as.dist(out)
+}
+
 #' Validate a Generic MIC Input Table
 #'
 #' Checks that a user-supplied MIC table has the required identifier and MIC
@@ -330,6 +381,106 @@ amrc_standardise_mic_data <- function(
   )
 }
 
+#' Standardise a Generic External Feature Table
+#'
+#' Converts a user-supplied external feature table into a standard package
+#' object with aligned isolate identifiers, external features, optional
+#' metadata, and row exclusions. This is the generic counterpart to the
+#' pneumococcal genotype wrapper when users already have aligned external
+#' features rather than a precomputed distance matrix.
+#'
+#' @param data A `data.frame` containing isolate identifiers, external feature
+#'   columns, and optional metadata columns.
+#' @param id_col Name of the isolate identifier column.
+#' @param feature_cols Character vector naming the external feature columns. When
+#'   `NULL`, all non-identifier, non-metadata columns are treated as features.
+#' @param metadata_cols Optional character vector naming metadata columns to
+#'   retain.
+#' @param feature_mode Either `"numeric"` or `"character"`.
+#' @param drop_incomplete Logical; drop rows with incomplete external features.
+#' @param allow_duplicate_ids Logical; allow duplicate isolate identifiers when
+#'   `TRUE`.
+#'
+#' @return An `amrc_external_data` object.
+#' @export
+amrc_standardise_external_data <- function(
+  data,
+  id_col,
+  feature_cols = NULL,
+  metadata_cols = NULL,
+  feature_mode = c("numeric", "character"),
+  drop_incomplete = TRUE,
+  allow_duplicate_ids = FALSE
+) {
+  feature_mode <- match.arg(feature_mode)
+
+  amrc_assert_is_data_frame(data)
+  amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
+  if (!is.null(metadata_cols)) {
+    amrc_assert_column_set(metadata_cols, data, arg_name = "metadata_cols")
+  }
+
+  if (is.null(feature_cols)) {
+    feature_cols <- setdiff(
+      colnames(data),
+      unique(c(id_col, metadata_cols))
+    )
+  }
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+
+  overlap <- intersect(
+    feature_cols,
+    if (is.null(metadata_cols)) character() else metadata_cols
+  )
+  if (length(overlap) > 0) {
+    stop(
+      "feature_cols and metadata_cols must not overlap: ",
+      paste(overlap, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  ids <- as.character(data[[id_col]])
+  if (anyNA(ids) || any(!nzchar(ids))) {
+    stop("The isolate identifier column contains missing or blank values.", call. = FALSE)
+  }
+  if (!isTRUE(allow_duplicate_ids) && anyDuplicated(ids) > 0) {
+    stop("The isolate identifier column contains duplicate values.", call. = FALSE)
+  }
+
+  feature_data <- amrc_external_feature_frame(
+    data = data,
+    feature_cols = feature_cols,
+    feature_mode = feature_mode
+  )
+  metadata <- data[, unique(c(id_col, metadata_cols)), drop = FALSE]
+
+  excluded_rows <- integer()
+  if (isTRUE(drop_incomplete)) {
+    keep <- stats::complete.cases(feature_data)
+    excluded_rows <- which(!keep)
+    ids <- ids[keep]
+    feature_data <- feature_data[keep, , drop = FALSE]
+    metadata <- metadata[keep, , drop = FALSE]
+  }
+
+  rownames(feature_data) <- ids
+  rownames(metadata) <- ids
+
+  structure(
+    list(
+      isolate_ids = ids,
+      features = feature_data,
+      metadata = metadata,
+      feature_columns = feature_cols,
+      id_column = id_col,
+      feature_mode = feature_mode,
+      excluded_rows = excluded_rows
+    ),
+    class = "amrc_external_data"
+  )
+}
+
 #' Compute a Distance Matrix from MIC Data
 #'
 #' Computes a phenotype distance matrix from either an `amrc_mic_data` object or
@@ -418,6 +569,109 @@ amrc_compute_external_distance <- function(
     } else {
       distance_matrix <- amrc_subset_distance(distance_matrix, isolate_ids = isolate_ids)
     }
+  }
+
+  distance_matrix
+}
+
+#' Compute an External Distance Matrix from Feature Data
+#'
+#' Builds a distance matrix from a generic external feature table, for example
+#' genotype-derived summary features, phylogenetic embeddings, or any other
+#' aligned non-MIC measurements.
+#'
+#' @param data A `data.frame` or matrix containing one row per isolate.
+#' @param feature_cols Optional character vector naming the feature columns to
+#'   use when `data` is a `data.frame`. When `NULL`, all non-identifier columns
+#'   are used.
+#' @param id_col Optional isolate identifier column name when `data` is a
+#'   `data.frame`.
+#' @param feature_mode Either `"numeric"` or `"character"`. When `data` is an
+#'   `amrc_external_data` object, the stored feature mode is used.
+#' @param normalise_mismatch Logical; when computing distances from character
+#'   features, divide mismatch counts by the number of feature columns.
+#' @param method Distance method passed to [stats::dist()].
+#' @param ... Additional arguments passed to [stats::dist()].
+#'
+#' @return A labelled `dist` object when isolate identifiers are available.
+#' @export
+amrc_compute_external_feature_distance <- function(
+  data,
+  feature_cols = NULL,
+  id_col = NULL,
+  feature_mode = c("numeric", "character"),
+  normalise_mismatch = TRUE,
+  method = "euclidean",
+  ...
+) {
+  if (inherits(data, "amrc_external_data")) {
+    feature_data <- as.data.frame(data$features, check.names = FALSE)
+    isolate_ids <- data$isolate_ids
+    feature_mode <- data$feature_mode
+  } else {
+    feature_mode <- match.arg(feature_mode)
+    isolate_ids <- NULL
+
+    if (is.matrix(data)) {
+      feature_data <- as.data.frame(data, check.names = FALSE)
+      isolate_ids <- rownames(data)
+
+      if (!is.null(id_col)) {
+        stop("id_col can only be used when data is a data.frame.", call. = FALSE)
+      }
+    } else {
+      amrc_assert_is_data_frame(data)
+
+      if (!is.null(id_col)) {
+        amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
+        isolate_ids <- as.character(data[[id_col]])
+      } else if (!is.null(rownames(data)) && any(nzchar(rownames(data)))) {
+        isolate_ids <- rownames(data)
+      }
+
+      if (is.null(feature_cols)) {
+        feature_cols <- if (is.null(id_col)) {
+          colnames(data)
+        } else {
+          setdiff(colnames(data), id_col)
+        }
+      }
+
+      amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+      feature_data <- amrc_external_feature_frame(
+        data = data,
+        feature_cols = feature_cols,
+        feature_mode = feature_mode
+      )
+    }
+
+    if (anyNA(feature_data)) {
+      stop(
+        "External feature distances cannot be computed from inputs with missing values. ",
+        "Remove, impute, or subset incomplete rows first.",
+        call. = FALSE
+      )
+    }
+
+    if (!is.null(isolate_ids)) {
+      rownames(feature_data) <- isolate_ids
+    }
+  }
+
+  if (identical(feature_mode, "character")) {
+    distance_matrix <- amrc_mismatch_distance(
+      feature_data = feature_data,
+      normalise = normalise_mismatch
+    )
+  } else {
+    distance_matrix <- stats::dist(feature_data, method = method, ...)
+  }
+
+  if (!is.null(isolate_ids)) {
+    distance_matrix <- amrc_compute_external_distance(
+      distance_matrix,
+      isolate_ids = isolate_ids
+    )
   }
 
   distance_matrix

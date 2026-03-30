@@ -3,7 +3,11 @@
 ## Planning assumptions
 
 - The working package name is `amrcartography`.
-- The first reproducible release should target the `S. pneumoniae` beta-lactam workflow already present in the repo.
+- The first reproducible public milestone should be generic-first: a user
+  should be able to start from their own MIC table without touching
+  `S. pneumoniae`-specific functions.
+- The `S. pneumoniae` workflow should remain in the repo as a case study,
+  validation target, and example-data pipeline.
 - The existing scripts should be preserved as legacy references until each one has been functionally replaced.
 - The first public milestone should be a GitHub-installable research package, not a CRAN submission.
 - The interactive app should stay out of scope until the package API and reproducible example data are stable.
@@ -31,9 +35,12 @@
 ## Phase 3: Define the minimum viable package API
 
 - Lock down the smallest useful first release rather than trying to package every notebook at once.
-- Make the first release able to do four things well: download the example source data, clean MIC phenotype data, clean genotype sequence data, and fit basic AMR cartography MDS maps.
+- Make the first release able to do four things well: validate MIC inputs,
+  build phenotype distances, fit basic AMR cartography MDS maps, and compare
+  those maps with aligned external distance structures.
 - Standardise function naming, argument conventions, and return objects.
-- Decide which functions are specific to the `S. pneumoniae` example and which should be generalized for user-supplied MIC datasets.
+- Decide which functions are specific to the `S. pneumoniae` case study and
+  which should be generalized for user-supplied MIC datasets.
 - Add validation around required columns, missing values, and common data-shape mistakes.
 - Create one helper for repairing spreadsheet-damaged PBP-type labels and reuse it everywhere.
 - Create one helper for map rotation and one helper for map dilation/calibration instead of repeating that code across notebooks.
@@ -71,8 +78,9 @@
 - Create plotting functions for phenotype maps, genotype maps, stress summaries, residual histograms, and cluster overlays.
 - Move one-off figure tuning and manuscript annotations out of core functions.
 - Reproduce the key legacy figures from package outputs as a validation milestone.
-- Add at least one vignette that walks a user from raw MIC data to a phenotype map.
-- Add one second vignette that compares phenotype and genotype maps using the example dataset.
+- Add at least one vignette that walks a user from their own MIC table to a
+  phenotype map and optional external-map comparison.
+- Keep the `S. pneumoniae` vignette as a second case-study vignette.
 
 ## Phase 8: Add testing, validation, and quality control
 
@@ -89,7 +97,8 @@
 - Keep the README short and task-oriented for new users.
 - Maintain a separate script-audit document for maintainers so the migration status stays explicit.
 - Document the required input schema for user-supplied MIC datasets.
-- Document how genotype data should be formatted if users want genotype-map support.
+- Document how user-supplied external feature tables or external distance
+  matrices should be formatted if users want phenotype-vs-external comparison.
 - Add a package website later, but only after the public API stops changing week to week.
 - Write a changelog once the first tagged release is close.
 
@@ -106,8 +115,12 @@
 
 - Do not start the package manuscript before the package API and example workflow are stable enough to cite.
 - Frame the paper around the problem the package solves: reproducible cartography of MIC landscapes rather than the codebase alone.
-- Include one motivating biological case study using the `S. pneumoniae` dataset already in the project.
-- Explain the conceptual workflow clearly: input data, preprocessing, distance calculation, MDS map fitting, calibration, diagnostics, and interpretation.
+- Include one motivating biological case study using the `S. pneumoniae`
+  dataset already in the project, but keep the package contribution framed as
+  generic.
+- Explain the conceptual workflow clearly: input data, preprocessing, optional
+  external-distance integration, MDS map fitting, calibration, diagnostics, and
+  interpretation.
 - Include one figure that shows the end-to-end pipeline and one figure that shows a canonical phenotype map.
 - Include one table that tells readers which parts of the legacy workflow are now package functions.
 - Provide a reproducibility statement that points readers to the GitHub repository, installation instructions, and example-data pipeline.

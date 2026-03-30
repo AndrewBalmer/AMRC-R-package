@@ -58,4 +58,10 @@ amino-acid distance matrices.
 This is an example-specific wrapper retained for the packaged
 \verb{S. pneumoniae} case study. It is not intended to define the long-term
 generic package API.
+
+Lifecycle note: this function remains exported for case-study compatibility,
+while the generic package story is moving toward user-supplied external
+distance structures and helper functions such as
+\code{\link[=amrc_compute_external_distance]{amrc_compute_external_distance()}} and
+\code{\link[=amrc_compute_external_feature_distance]{amrc_compute_external_feature_distance()}}.
 }

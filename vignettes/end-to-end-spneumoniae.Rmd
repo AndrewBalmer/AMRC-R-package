@@ -14,9 +14,16 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette shows a small end-to-end workflow with `amrcartography`: start from bundled example inputs, preprocess phenotype and genotype data, fit phenotype and genotype maps, and build comparison summaries from the fitted maps.
+This vignette shows a small end-to-end workflow with `amrcartography`: start
+from bundled example inputs, preprocess phenotype and genotype data, fit
+phenotype and genotype maps, and build comparison summaries from the fitted
+maps.
 
-The runnable example uses a tiny bundled raw-input example so the vignette stays fast and deterministic. A second non-evaluated chunk shows how to scale the same workflow up to the larger notebook-style *S. pneumoniae* example data in a local source checkout.
+The runnable example uses a tiny bundled raw-input example so the vignette stays
+fast and deterministic. That is intentional: the full notebook-scale
+*S. pneumoniae* workflow is much slower, and it is not a good default example
+for learning the package API. A second non-evaluated chunk shows how to scale
+the same workflow up to the larger case-study data in a local source checkout.
 
 ## Load the package and locate the example inputs
 
@@ -122,13 +129,19 @@ amrc_plot_cluster_map(
 ```{r}
 reference_distances <- amrc_compute_reference_distance_table(
   data = comparison_data,
-  reference_pbp_type = comparison_data$PBP_type[[1]],
-  cluster_col = "gen_cluster"
+  reference_value = comparison_data$PBP_type[[1]],
+  reference_col = "PBP_type",
+  cluster_col = "gen_cluster",
+  external_cols = c("G1", "G2"),
+  phenotype_distance_col = "phen_distance",
+  external_distance_col = "gen_distance"
 )
 
 reference_summary <- amrc_summarise_reference_distance_table(
   distance_table = reference_distances,
-  cluster_col = "gen_cluster"
+  cluster_col = "gen_cluster",
+  phenotype_distance_col = "phen_distance",
+  external_distance_col = "gen_distance"
 )
 
 reference_summary$summary_with_overall
@@ -137,6 +150,8 @@ reference_summary$summary_with_overall
 ```{r}
 amrc_plot_reference_distance_relationship(
   reference_distances,
+  x_col = "gen_distance",
+  y_col = "phen_distance",
   cluster_col = "gen_cluster",
   xlab = "Genetic distance",
   ylab = "Phenotypic distance"

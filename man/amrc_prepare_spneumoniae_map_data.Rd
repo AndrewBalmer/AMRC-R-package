@@ -53,4 +53,7 @@ joined to the processed phenotype metadata.
 This is an example-specific wrapper for the pneumococcal case study. The
 generic replacement target is a dataset-agnostic \code{amrc_prepare_map_data()}
 workflow.
+
+Lifecycle note: this function remains exported for case-study compatibility,
+but new analyses should prefer \code{\link[=amrc_prepare_map_data]{amrc_prepare_map_data()}}.
 }

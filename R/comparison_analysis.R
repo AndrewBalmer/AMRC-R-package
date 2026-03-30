@@ -392,6 +392,9 @@ amrc_prepare_map_data <- function(
 #' generic replacement target is a dataset-agnostic `amrc_prepare_map_data()`
 #' workflow.
 #'
+#' Lifecycle note: this function remains exported for case-study compatibility,
+#' but new analyses should prefer [amrc_prepare_map_data()].
+#'
 #' @param tablemic_meta Processed metadata table containing at least `LABID` and
 #'   `PT`.
 #' @param phenotype_mds Phenotype MDS fit.
@@ -666,135 +669,312 @@ amrc_cluster_label_positions <- function(
   labels
 }
 
-#' Compute Distances from a Reference PBP Type
+amrc_default_existing_column <- function(data, candidates) {
+  matches <- candidates[candidates %in% colnames(data)]
+  if (length(matches) == 0) {
+    return(NULL)
+  }
+
+  matches[[1]]
+}
+
+amrc_resolve_external_coord_cols <- function(data, external_cols = NULL, genotype_cols = NULL) {
+  if (!is.null(external_cols) && !is.null(genotype_cols)) {
+    stop("Specify only one of external_cols or genotype_cols.", call. = FALSE)
+  }
+
+  resolved <- external_cols
+  if (is.null(resolved)) {
+    resolved <- genotype_cols
+  }
+  if (is.null(resolved)) {
+    resolved <- if (all(c("E1", "E2") %in% colnames(data))) {
+      c("E1", "E2")
+    } else if (all(c("G1", "G2") %in% colnames(data))) {
+      c("G1", "G2")
+    } else {
+      NULL
+    }
+  }
+
+  if (is.null(resolved)) {
+    stop(
+      "Could not infer the external coordinate columns. Supply external_cols explicitly.",
+      call. = FALSE
+    )
+  }
+
+  resolved
+}
+
+amrc_resolve_distance_column <- function(data, explicit, candidates, arg_name) {
+  if (!is.null(explicit)) {
+    if (!(explicit %in% colnames(data))) {
+      stop(arg_name, " '", explicit, "' was not found in the input data.", call. = FALSE)
+    }
+    return(explicit)
+  }
+
+  resolved <- amrc_default_existing_column(data, candidates)
+  if (is.null(resolved)) {
+    stop(
+      "Could not infer ",
+      arg_name,
+      ". Supply it explicitly.",
+      call. = FALSE
+    )
+  }
+
+  resolved
+}
+
+#' Compute Distances from a Generic Reference Entry
 #'
-#' @param data A comparison table produced by
-#'   [amrc_prepare_spneumoniae_map_data()].
-#' @param reference_pbp_type Reference PBP type.
+#' Computes phenotype and external-map distances from a chosen reference entry
+#' in a generic comparison table. The reference can be defined by any grouping
+#' column, not just a pneumococcal PBP type.
+#'
+#' @param data A comparison table, typically produced by
+#'   [amrc_prepare_map_data()].
+#' @param reference_value Reference value to locate in `reference_col`.
+#' @param reference_col Column used to identify the reference row or group. When
+#'   omitted, the function falls back to `PBP_type` for case-study
+#'   compatibility.
 #' @param phenotype_cols Length-2 character vector for phenotype coordinates.
-#' @param genotype_cols Length-2 character vector for genotype coordinates.
+#' @param external_cols Length-2 character vector for external coordinates.
+#' @param genotype_cols Legacy alias for `external_cols` retained for the
+#'   pneumococcal case study.
 #' @param phenotype_reference_cols Optional alternate phenotype coordinate
-#'   columns used to define the distances, for example `x_centroid` and
-#'   `y_centroid`.
-#' @param cluster_col Cluster column to carry through.
+#'   columns used to define the phenotype distances, for example centroid
+#'   columns.
+#' @param id_col Optional identifier column to carry through to the output.
+#' @param cluster_col Optional cluster column to carry through to the output.
+#'   When omitted, the function falls back to `external_cluster`, `gen_cluster`,
+#'   or `cluster` if present. Use `FALSE` to suppress cluster handling even when
+#'   a cluster column is available.
+#' @param keep_cols Optional additional metadata columns to carry through.
+#' @param phenotype_distance_col Output column name for phenotype distances.
+#' @param external_distance_col Output column name for external distances.
+#' @param reference_pbp_type Legacy alias for `reference_value` retained for the
+#'   pneumococcal case study.
 #'
-#' @return A data frame of per-row phenotype/genotype distances from the
-#'   reference PBP type.
+#' @return A data frame of per-row phenotype and external distances from the
+#'   chosen reference entry.
 #' @export
 amrc_compute_reference_distance_table <- function(
   data,
-  reference_pbp_type,
+  reference_value = NULL,
+  reference_col = NULL,
   phenotype_cols = c("D1", "D2"),
-  genotype_cols = c("G1", "G2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
   phenotype_reference_cols = phenotype_cols,
-  cluster_col = "gen_cluster"
+  id_col = NULL,
+  cluster_col = NULL,
+  keep_cols = NULL,
+  phenotype_distance_col = "phen_distance",
+  external_distance_col = "gen_distance",
+  reference_pbp_type = NULL
 ) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+
+  if (is.null(reference_value)) {
+    reference_value <- reference_pbp_type
+  }
+  if (is.null(reference_value) || length(reference_value) != 1L || is.na(reference_value)) {
+    stop("reference_value must identify exactly one reference entry.", call. = FALSE)
+  }
+
+  if (is.null(reference_col)) {
+    reference_col <- amrc_default_existing_column(data, c("PBP_type"))
+  }
+  if (is.null(reference_col)) {
+    stop(
+      "reference_col could not be inferred. Supply a column that identifies the reference entry.",
+      call. = FALSE
+    )
+  }
+
+  if (!(reference_col %in% colnames(data))) {
+    stop("reference_col was not found in data.", call. = FALSE)
+  }
+
+  external_cols <- amrc_resolve_external_coord_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+
   amrc_require_coordinate_columns(data, phenotype_cols)
-  amrc_require_coordinate_columns(data, genotype_cols)
+  amrc_require_coordinate_columns(data, external_cols)
   amrc_require_coordinate_columns(data, phenotype_reference_cols)
 
-  if (!("PBP_type" %in% colnames(data))) {
-    stop("data must contain a PBP_type column.", call. = FALSE)
-  }
-  if (!(cluster_col %in% colnames(data))) {
-    stop("data must contain the cluster column.", call. = FALSE)
+  if (is.null(id_col)) {
+    id_col <- amrc_default_existing_column(data, c("isolate_id", "LABID"))
+  } else if (!(id_col %in% colnames(data))) {
+    stop("id_col was not found in data.", call. = FALSE)
   }
 
-  reference_rows <- data[data$PBP_type == reference_pbp_type, , drop = FALSE]
+  if (identical(cluster_col, FALSE)) {
+    cluster_col <- NULL
+  } else if (is.null(cluster_col)) {
+    cluster_col <- amrc_default_existing_column(data, c("external_cluster", "gen_cluster", "cluster"))
+  } else if (!(cluster_col %in% colnames(data))) {
+    stop("cluster_col was not found in data.", call. = FALSE)
+  }
+
+  if (!is.null(keep_cols)) {
+    amrc_assert_column_set(keep_cols, data, arg_name = "keep_cols")
+  }
+
+  reference_rows <- data[data[[reference_col]] == reference_value, , drop = FALSE]
   if (nrow(reference_rows) == 0) {
-    stop("reference_pbp_type was not found in data.", call. = FALSE)
+    stop("reference_value was not found in reference_col.", call. = FALSE)
   }
 
   reference_row <- reference_rows[1, , drop = FALSE]
   phenotype_reference <- as.numeric(reference_row[1, phenotype_reference_cols, drop = TRUE])
-  genotype_reference <- as.numeric(reference_row[1, genotype_cols, drop = TRUE])
+  external_reference <- as.numeric(reference_row[1, external_cols, drop = TRUE])
 
-  result <- data.frame(
-    LABID = data$LABID,
-    PBP_type = data$PBP_type,
-    gen_cluster = data[[cluster_col]],
-    phen_distance = sqrt(
-      (data[[phenotype_cols[[1]]]] - phenotype_reference[[1]])^2 +
-        (data[[phenotype_cols[[2]]]] - phenotype_reference[[2]])^2
-    ),
-    gen_distance = sqrt(
-      (data[[genotype_cols[[1]]]] - genotype_reference[[1]])^2 +
-        (data[[genotype_cols[[2]]]] - genotype_reference[[2]])^2
-    )
+  result <- list()
+  if (!is.null(id_col)) {
+    result[[id_col]] <- data[[id_col]]
+  }
+  result[[reference_col]] <- data[[reference_col]]
+  if (!is.null(cluster_col)) {
+    result[[cluster_col]] <- data[[cluster_col]]
+  }
+  if (!is.null(keep_cols) && length(keep_cols) > 0) {
+    for (column in keep_cols) {
+      result[[column]] <- data[[column]]
+    }
+  }
+
+  result[[phenotype_distance_col]] <- sqrt(
+    (data[[phenotype_cols[[1]]]] - phenotype_reference[[1]])^2 +
+      (data[[phenotype_cols[[2]]]] - phenotype_reference[[2]])^2
+  )
+  result[[external_distance_col]] <- sqrt(
+    (data[[external_cols[[1]]]] - external_reference[[1]])^2 +
+      (data[[external_cols[[2]]]] - external_reference[[2]])^2
   )
 
-  colnames(result)[colnames(result) == "gen_cluster"] <- cluster_col
-  result
+  as.data.frame(result, stringsAsFactors = FALSE, check.names = FALSE)
 }
 
-#' Summarise Reference-Distance Comparisons by Cluster
+#' Summarise Reference-Distance Comparisons
+#'
+#' Summarises phenotype-vs-external distances either by cluster or overall when
+#' no cluster column is available.
 #'
 #' @param distance_table Output from [amrc_compute_reference_distance_table()].
-#' @param cluster_col Cluster column in `distance_table`.
+#' @param cluster_col Optional cluster column in `distance_table`. When omitted,
+#'   the function falls back to `external_cluster`, `gen_cluster`, or `cluster`
+#'   if present. Use `FALSE` to force an overall-only summary. When no cluster
+#'   column is available, only an overall summary is returned.
+#' @param phenotype_distance_col Column containing phenotype distances.
+#' @param external_distance_col Column containing external distances.
 #' @param digits Number of digits used when rounding the summary tables.
 #'
-#' @return A list containing the raw `distance_table`, per-cluster `summary`,
+#' @return A list containing the raw `distance_table`, grouped `summary`,
 #'   `summary_with_overall` rows, a linear-model fit, and a Spearman
 #'   correlation test.
 #' @export
 amrc_summarise_reference_distance_table <- function(
   distance_table,
-  cluster_col = "gen_cluster",
+  cluster_col = NULL,
+  phenotype_distance_col = NULL,
+  external_distance_col = NULL,
   digits = 2
 ) {
-  required_cols <- c(cluster_col, "phen_distance", "gen_distance")
-  missing_cols <- setdiff(required_cols, colnames(distance_table))
-  if (length(missing_cols) > 0) {
-    stop(
-      "distance_table is missing required columns: ",
-      paste(missing_cols, collapse = ", "),
-      call. = FALSE
+  phenotype_distance_col <- amrc_resolve_distance_column(
+    data = distance_table,
+    explicit = phenotype_distance_col,
+    candidates = c("phenotype_distance", "phen_distance"),
+    arg_name = "phenotype_distance_col"
+  )
+  external_distance_col <- amrc_resolve_distance_column(
+    data = distance_table,
+    explicit = external_distance_col,
+    candidates = c("external_distance", "gen_distance"),
+    arg_name = "external_distance_col"
+  )
+
+  if (identical(cluster_col, FALSE)) {
+    cluster_col <- NULL
+  } else if (is.null(cluster_col)) {
+    cluster_col <- amrc_default_existing_column(
+      distance_table,
+      c("external_cluster", "gen_cluster", "cluster")
     )
+  } else if (!(cluster_col %in% colnames(distance_table))) {
+    stop("cluster_col was not found in distance_table.", call. = FALSE)
   }
 
-  phen_means <- stats::aggregate(
-    distance_table$phen_distance,
-    by = list(cluster = distance_table[[cluster_col]]),
-    FUN = mean
-  )
-  gen_means <- stats::aggregate(
-    distance_table$gen_distance,
-    by = list(cluster = distance_table[[cluster_col]]),
-    FUN = mean
-  )
+  if (is.null(cluster_col)) {
+    summary <- data.frame(
+      cluster = "Overall",
+      mean_phenotypic_distance = mean(distance_table[[phenotype_distance_col]]),
+      mean_external_distance = mean(distance_table[[external_distance_col]]),
+      external_to_phenotypic_ratio =
+        mean(distance_table[[external_distance_col]]) /
+        mean(distance_table[[phenotype_distance_col]]),
+      stringsAsFactors = FALSE
+    )
+    rounded_summary <- summary
+    rounded_summary[, 2:4] <- round(rounded_summary[, 2:4, drop = FALSE], digits = digits)
+    rounded_with_overall <- rounded_summary
+  } else {
+    phen_means <- stats::aggregate(
+      distance_table[[phenotype_distance_col]],
+      by = list(cluster = distance_table[[cluster_col]]),
+      FUN = mean
+    )
+    ext_means <- stats::aggregate(
+      distance_table[[external_distance_col]],
+      by = list(cluster = distance_table[[cluster_col]]),
+      FUN = mean
+    )
 
-  summary <- merge(phen_means, gen_means, by = "cluster", sort = FALSE)
-  colnames(summary) <- c(
-    "cluster",
-    "mean_phenotypic_distance",
-    "mean_genetic_distance"
+    summary <- merge(phen_means, ext_means, by = "cluster", sort = FALSE)
+    colnames(summary) <- c(
+      "cluster",
+      "mean_phenotypic_distance",
+      "mean_external_distance"
+    )
+    summary$external_to_phenotypic_ratio <-
+      summary$mean_external_distance / summary$mean_phenotypic_distance
+    summary <- summary[order(summary$mean_external_distance), , drop = FALSE]
+
+    average_row <- data.frame(
+      cluster = "Average",
+      mean_phenotypic_distance = mean(summary$mean_phenotypic_distance),
+      mean_external_distance = mean(summary$mean_external_distance),
+      external_to_phenotypic_ratio = mean(summary$external_to_phenotypic_ratio, na.rm = TRUE),
+      stringsAsFactors = FALSE
+    )
+    sd_row <- data.frame(
+      cluster = "SD",
+      mean_phenotypic_distance = stats::sd(summary$mean_phenotypic_distance),
+      mean_external_distance = stats::sd(summary$mean_external_distance),
+      external_to_phenotypic_ratio = stats::sd(summary$external_to_phenotypic_ratio, na.rm = TRUE),
+      stringsAsFactors = FALSE
+    )
+
+    rounded_summary <- summary
+    rounded_summary[, 2:4] <- round(rounded_summary[, 2:4, drop = FALSE], digits = digits)
+
+    rounded_with_overall <- rbind(rounded_summary, average_row, sd_row)
+    rounded_with_overall[, 2:4] <- round(rounded_with_overall[, 2:4, drop = FALSE], digits = digits)
+  }
+
+  fit_formula <- stats::as.formula(
+    paste(phenotype_distance_col, "~", external_distance_col)
   )
-  summary$genetic_to_phenotypic_ratio <- summary$mean_genetic_distance / summary$mean_phenotypic_distance
-  summary <- summary[order(summary$mean_genetic_distance), , drop = FALSE]
-
-  average_row <- data.frame(
-    cluster = "Average",
-    mean_phenotypic_distance = mean(summary$mean_phenotypic_distance),
-    mean_genetic_distance = mean(summary$mean_genetic_distance),
-    genetic_to_phenotypic_ratio = mean(summary$genetic_to_phenotypic_ratio, na.rm = TRUE)
-  )
-  sd_row <- data.frame(
-    cluster = "SD",
-    mean_phenotypic_distance = stats::sd(summary$mean_phenotypic_distance),
-    mean_genetic_distance = stats::sd(summary$mean_genetic_distance),
-    genetic_to_phenotypic_ratio = stats::sd(summary$genetic_to_phenotypic_ratio, na.rm = TRUE)
-  )
-
-  rounded_summary <- summary
-  rounded_summary[, 2:4] <- round(rounded_summary[, 2:4, drop = FALSE], digits = digits)
-
-  rounded_with_overall <- rbind(rounded_summary, average_row, sd_row)
-  rounded_with_overall[, 2:4] <- round(rounded_with_overall[, 2:4, drop = FALSE], digits = digits)
-
-  fit <- stats::lm(phen_distance ~ gen_distance, data = distance_table)
+  fit <- stats::lm(fit_formula, data = distance_table)
   correlation <- stats::cor.test(
-    distance_table$phen_distance,
-    distance_table$gen_distance,
+    distance_table[[phenotype_distance_col]],
+    distance_table[[external_distance_col]],
     method = "spearman",
     exact = FALSE
   )

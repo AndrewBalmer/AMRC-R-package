@@ -50,4 +50,7 @@ optionally computes a phenotype distance matrix.
 This is an example-specific wrapper retained for the packaged
 \verb{S. pneumoniae} case study. Generic MIC workflows should prefer
 \code{\link[=amrc_standardise_mic_data]{amrc_standardise_mic_data()}} and \code{\link[=amrc_compute_mic_distance]{amrc_compute_mic_distance()}}.
+
+Lifecycle note: this function remains exported for case-study compatibility,
+but it is not intended to define the long-term generic package API.
 }

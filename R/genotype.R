@@ -9,6 +9,12 @@
 #' `S. pneumoniae` case study. It is not intended to define the long-term
 #' generic package API.
 #'
+#' Lifecycle note: this function remains exported for case-study compatibility,
+#' while the generic package story is moving toward user-supplied external
+#' distance structures and helper functions such as
+#' [amrc_compute_external_distance()] and
+#' [amrc_compute_external_feature_distance()].
+#'
 #' @param input_dir Directory containing the raw genotype CSV files.
 #' @param sequence_files Length-2 character vector of genotype file names.
 #' @param metadata Optional phenotype metadata `data.frame`. If `NULL`,

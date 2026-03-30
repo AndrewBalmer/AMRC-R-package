@@ -322,10 +322,13 @@ amrc_plot_distance_histogram <- function(
 
 #' Plot the Reference-Distance Relationship
 #'
-#' @param distance_table Data frame containing phenotype/genotype distances and
-#'   a cluster column.
-#' @param x_col,y_col Numeric column names to plot.
-#' @param cluster_col Cluster column name.
+#' @param distance_table Data frame containing phenotype/external distances and
+#'   optionally a cluster column.
+#' @param x_col,y_col Numeric column names to plot. When omitted, the function
+#'   falls back to generic names (`external_distance`, `phenotype_distance`) and
+#'   then the legacy pneumococcal names (`gen_distance`, `phen_distance`).
+#' @param cluster_col Optional cluster column name. Use `FALSE` to suppress
+#'   cluster colouring even when a cluster column is present.
 #' @param palette Optional colour palette.
 #' @param x_limits,y_limits Optional axis limits.
 #' @param x_breaks,y_breaks Optional axis breaks.
@@ -338,16 +341,16 @@ amrc_plot_distance_histogram <- function(
 #' @export
 amrc_plot_reference_distance_relationship <- function(
   distance_table,
-  x_col = "gen_distance",
-  y_col = "phen_distance",
-  cluster_col = "gen_cluster",
+  x_col = NULL,
+  y_col = NULL,
+  cluster_col = NULL,
   palette = NULL,
   x_limits = NULL,
   y_limits = NULL,
   x_breaks = NULL,
   y_breaks = NULL,
-  xlab = "Genetic distance",
-  ylab = "Phenotypic distance",
+  xlab = NULL,
+  ylab = NULL,
   annotation_text = NULL,
   annotation_x = NULL,
   annotation_y = NULL
@@ -356,29 +359,70 @@ amrc_plot_reference_distance_relationship <- function(
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
 
-  plot_data <- distance_table
-  plot_data[[cluster_col]] <- as.factor(plot_data[[cluster_col]])
-
-  cluster_values <- sort(unique(plot_data[[cluster_col]]))
-  if (is.null(palette)) {
-    palette <- amrc_default_cluster_palette(length(cluster_values))
+  x_col <- amrc_resolve_distance_column(
+    data = distance_table,
+    explicit = x_col,
+    candidates = c("external_distance", "gen_distance"),
+    arg_name = "x_col"
+  )
+  y_col <- amrc_resolve_distance_column(
+    data = distance_table,
+    explicit = y_col,
+    candidates = c("phenotype_distance", "phen_distance"),
+    arg_name = "y_col"
+  )
+  if (identical(cluster_col, FALSE)) {
+    cluster_col <- NULL
+  } else if (is.null(cluster_col)) {
+    cluster_col <- amrc_default_existing_column(
+      distance_table,
+      c("external_cluster", "gen_cluster", "cluster")
+    )
   }
-  names(palette) <- as.character(cluster_values)
 
-  plot <- ggplot2::ggplot(
-    plot_data,
-    ggplot2::aes_string(x = x_col, y = y_col, fill = cluster_col)
-  ) +
-    ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1) +
-    ggplot2::guides(fill = "none") +
+  if (is.null(xlab)) {
+    xlab <- if (identical(x_col, "gen_distance")) "Genetic distance" else "External distance"
+  }
+  if (is.null(ylab)) {
+    ylab <- if (identical(y_col, "phen_distance")) "Phenotypic distance" else "Phenotype distance"
+  }
+
+  plot_data <- distance_table
+  plot_data$.amrc_x <- plot_data[[x_col]]
+  plot_data$.amrc_y <- plot_data[[y_col]]
+  if (!is.null(cluster_col)) {
+    plot_data$.amrc_cluster <- as.factor(plot_data[[cluster_col]])
+
+    cluster_values <- sort(unique(plot_data$.amrc_cluster))
+    if (is.null(palette)) {
+      palette <- amrc_default_cluster_palette(length(cluster_values))
+    }
+    names(palette) <- as.character(cluster_values)
+
+    plot <- ggplot2::ggplot(
+      plot_data,
+      ggplot2::aes(x = .amrc_x, y = .amrc_y, fill = .amrc_cluster)
+    ) +
+      ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1) +
+      ggplot2::guides(fill = "none") +
+      ggplot2::scale_fill_manual(values = palette) +
+      ggplot2::labs(x = xlab, y = ylab, fill = "Cluster")
+  } else {
+    plot <- ggplot2::ggplot(
+      plot_data,
+      ggplot2::aes(x = .amrc_x, y = .amrc_y)
+    ) +
+      ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1, fill = "#999999", colour = "black") +
+      ggplot2::labs(x = xlab, y = ylab)
+  }
+
+  plot <- plot +
     ggplot2::theme_bw() +
-    ggplot2::labs(x = xlab, y = ylab, fill = "Genetic group") +
     ggplot2::theme(
       axis.text = ggplot2::element_text(size = 12),
       axis.title = ggplot2::element_text(size = 14),
       aspect.ratio = 1
-    ) +
-    ggplot2::scale_fill_manual(values = palette)
+    )
 
   if (!is.null(x_limits) || !is.null(x_breaks)) {
     plot <- plot + ggplot2::scale_x_continuous(limits = x_limits, breaks = x_breaks)

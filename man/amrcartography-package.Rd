@@ -6,10 +6,13 @@
 \alias{amrcartography-package}
 \title{amrcartography: Tools for Antimicrobial Resistance Cartography}
 \description{
-The \code{amrcartography} package is being built from the legacy AMR cartography
-analysis scripts in this repository. The first package components focus on
-reproducible source-data management, standardised preprocessing, and helper
-functions for multidimensional scaling workflows.
+The \code{amrcartography} package is evolving from the legacy AMR cartography
+analysis scripts in this repository into a general toolkit for MIC
+cartography. The core package surface is moving toward generic MIC
+validation, distance construction, map fitting, calibration, clustering, and
+phenotype-vs-external comparison workflows, while the historical
+\verb{S. pneumoniae} analysis remains as a worked case study and regression
+target.
 }
 \author{
 \strong{Maintainer}: Andrew Balmer \email{ab69@sanger.ac.uk}

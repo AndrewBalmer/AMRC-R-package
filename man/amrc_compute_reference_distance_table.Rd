@@ -2,37 +2,67 @@
 % Please edit documentation in R/comparison_analysis.R
 \name{amrc_compute_reference_distance_table}
 \alias{amrc_compute_reference_distance_table}
-\title{Compute Distances from a Reference PBP Type}
+\title{Compute Distances from a Generic Reference Entry}
 \usage{
 amrc_compute_reference_distance_table(
   data,
-  reference_pbp_type,
+  reference_value = NULL,
+  reference_col = NULL,
   phenotype_cols = c("D1", "D2"),
-  genotype_cols = c("G1", "G2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
   phenotype_reference_cols = phenotype_cols,
-  cluster_col = "gen_cluster"
+  id_col = NULL,
+  cluster_col = NULL,
+  keep_cols = NULL,
+  phenotype_distance_col = "phen_distance",
+  external_distance_col = "gen_distance",
+  reference_pbp_type = NULL
 )
 }
 \arguments{
-\item{data}{A comparison table produced by
-\code{\link[=amrc_prepare_spneumoniae_map_data]{amrc_prepare_spneumoniae_map_data()}}.}
+\item{data}{A comparison table, typically produced by
+\code{\link[=amrc_prepare_map_data]{amrc_prepare_map_data()}}.}
 
-\item{reference_pbp_type}{Reference PBP type.}
+\item{reference_value}{Reference value to locate in \code{reference_col}.}
+
+\item{reference_col}{Column used to identify the reference row or group. When
+omitted, the function falls back to \code{PBP_type} for case-study
+compatibility.}
 
 \item{phenotype_cols}{Length-2 character vector for phenotype coordinates.}
 
-\item{genotype_cols}{Length-2 character vector for genotype coordinates.}
+\item{external_cols}{Length-2 character vector for external coordinates.}
+
+\item{genotype_cols}{Legacy alias for \code{external_cols} retained for the
+pneumococcal case study.}
 
 \item{phenotype_reference_cols}{Optional alternate phenotype coordinate
-columns used to define the distances, for example \code{x_centroid} and
-\code{y_centroid}.}
+columns used to define the phenotype distances, for example centroid
+columns.}
 
-\item{cluster_col}{Cluster column to carry through.}
+\item{id_col}{Optional identifier column to carry through to the output.}
+
+\item{cluster_col}{Optional cluster column to carry through to the output.
+When omitted, the function falls back to \code{external_cluster}, \code{gen_cluster},
+or \code{cluster} if present. Use \code{FALSE} to suppress cluster handling even when
+a cluster column is available.}
+
+\item{keep_cols}{Optional additional metadata columns to carry through.}
+
+\item{phenotype_distance_col}{Output column name for phenotype distances.}
+
+\item{external_distance_col}{Output column name for external distances.}
+
+\item{reference_pbp_type}{Legacy alias for \code{reference_value} retained for the
+pneumococcal case study.}
 }
 \value{
-A data frame of per-row phenotype/genotype distances from the
-reference PBP type.
+A data frame of per-row phenotype and external distances from the
+chosen reference entry.
 }
 \description{
-Compute Distances from a Reference PBP Type
+Computes phenotype and external-map distances from a chosen reference entry
+in a generic comparison table. The reference can be defined by any grouping
+column, not just a pneumococcal PBP type.
 }

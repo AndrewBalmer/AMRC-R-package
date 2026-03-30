@@ -11,6 +11,17 @@ generic_mic_fixture <- function() {
   )
 }
 
+generic_external_fixture <- function() {
+  data.frame(
+    isolate_id = c("iso1", "iso2", "iso3", "iso4"),
+    lineage = c("L1", "L1", "L2", "L3"),
+    feat_a = c("1", "2", "4", "8"),
+    feat_b = c("0.5", "1", "2", "4"),
+    feat_c = c(2, 4, 8, 16),
+    stringsAsFactors = FALSE
+  )
+}
+
 generic_mds_fixture <- function(labels, coords) {
   coords <- as.matrix(coords)
   rownames(coords) <- labels
@@ -142,6 +153,66 @@ test_that("generic MIC and external distance helpers preserve isolate ordering",
   expect_equal(attr(bundle$external_distance, "Labels"), c("iso1", "iso2", "iso4"))
 })
 
+test_that("generic external feature distances can be built from aligned feature tables", {
+  features <- data.frame(
+    isolate_id = c("iso3", "iso1", "iso2"),
+    axis1 = c(0, 1, 2),
+    axis2 = c(0, 1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  feature_distance <- amrc_compute_external_feature_distance(
+    data = features,
+    id_col = "isolate_id"
+  )
+
+  expect_s3_class(feature_distance, "dist")
+  expect_equal(attr(feature_distance, "Labels"), c("iso3", "iso1", "iso2"))
+})
+
+test_that("generic external feature tables can be standardised for numeric and character data", {
+  external <- generic_external_fixture()
+
+  standardised_numeric <- amrc_standardise_external_data(
+    data = external,
+    id_col = "isolate_id",
+    feature_cols = c("feat_a", "feat_b", "feat_c"),
+    metadata_cols = "lineage",
+    feature_mode = "numeric"
+  )
+
+  expect_s3_class(standardised_numeric, "amrc_external_data")
+  expect_equal(standardised_numeric$isolate_ids, c("iso1", "iso2", "iso3", "iso4"))
+  expect_equal(colnames(standardised_numeric$features), c("feat_a", "feat_b", "feat_c"))
+  expect_equal(colnames(standardised_numeric$metadata), c("isolate_id", "lineage"))
+
+  allele_table <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3"),
+    lineage = c("L1", "L1", "L2"),
+    allele_a = c("A", "A", "T"),
+    allele_b = c("C", "G", "G"),
+    allele_c = c("T", "T", "T"),
+    stringsAsFactors = FALSE
+  )
+
+  standardised_character <- amrc_standardise_external_data(
+    data = allele_table,
+    id_col = "isolate_id",
+    metadata_cols = "lineage",
+    feature_mode = "character"
+  )
+
+  mismatch_distance <- amrc_compute_external_feature_distance(
+    data = standardised_character,
+    normalise_mismatch = TRUE
+  )
+
+  expect_s3_class(mismatch_distance, "dist")
+  expect_equal(attr(mismatch_distance, "Labels"), c("iso1", "iso2", "iso3"))
+  expect_equal(as.matrix(mismatch_distance)[1, 2], 1 / 3)
+  expect_equal(as.matrix(mismatch_distance)[1, 3], 2 / 3)
+})
+
 test_that("generic map preparation aligns metadata and external structures by isolate id", {
   metadata <- data.frame(
     isolate_id = c("iso1", "iso2", "iso3", "iso4"),
@@ -239,4 +310,98 @@ test_that("S. pneumoniae compatibility wrapper delegates to the generic map-prep
   expect_equal(comparison$data$G1, c(20, 21, 10))
   expect_true(all(c("x_centroid", "y_centroid") %in% colnames(comparison$data)))
   expect_equal(nrow(comparison$pbp_data), 2L)
+})
+
+test_that("generic reference-distance helpers work with arbitrary reference columns", {
+  comparison_data <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3", "iso4"),
+    lineage = c("L1", "L1", "L2", "L3"),
+    external_cluster = c(1, 1, 2, 2),
+    D1 = c(0, 1, 2, 3),
+    D2 = c(0, 0, 1, 1),
+    E1 = c(10, 11, 20, 21),
+    E2 = c(0, 0, 2, 2),
+    D1_centroid = c(0.5, 0.5, 2, 3),
+    D2_centroid = c(0, 0, 1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  reference_distances <- amrc_compute_reference_distance_table(
+    data = comparison_data,
+    reference_value = "L1",
+    reference_col = "lineage",
+    id_col = "isolate_id",
+    cluster_col = "external_cluster",
+    external_cols = c("E1", "E2"),
+    phenotype_reference_cols = c("D1_centroid", "D2_centroid"),
+    phenotype_distance_col = "phenotype_distance",
+    external_distance_col = "external_distance"
+  )
+
+  expect_true(all(c(
+    "isolate_id",
+    "lineage",
+    "external_cluster",
+    "phenotype_distance",
+    "external_distance"
+  ) %in% names(reference_distances)))
+  expect_equal(
+    reference_distances$phenotype_distance,
+    c(0.5, 0.5, sqrt(3.25), sqrt(7.25))
+  )
+  expect_equal(
+    reference_distances$external_distance,
+    c(0, 1, sqrt(104), sqrt(125))
+  )
+
+  reference_summary <- amrc_summarise_reference_distance_table(
+    distance_table = reference_distances,
+    cluster_col = "external_cluster",
+    phenotype_distance_col = "phenotype_distance",
+    external_distance_col = "external_distance"
+  )
+
+  expect_true(all(c(
+    "cluster",
+    "mean_phenotypic_distance",
+    "mean_external_distance",
+    "external_to_phenotypic_ratio"
+  ) %in% names(reference_summary$summary)))
+
+  overall_summary <- amrc_summarise_reference_distance_table(
+    distance_table = reference_distances,
+    cluster_col = FALSE,
+    phenotype_distance_col = "phenotype_distance",
+    external_distance_col = "external_distance"
+  )
+
+  expect_equal(overall_summary$summary$cluster, "Overall")
+})
+
+test_that("reference-distance plotting works with generic column names", {
+  skip_if_not_installed("ggplot2")
+
+  distance_table <- data.frame(
+    phenotype_distance = c(0.5, 1, 2),
+    external_distance = c(0.2, 0.8, 1.9),
+    external_cluster = c(1, 1, 2)
+  )
+
+  clustered_plot <- amrc_plot_reference_distance_relationship(
+    distance_table,
+    x_col = "external_distance",
+    y_col = "phenotype_distance",
+    cluster_col = "external_cluster"
+  )
+  expect_s3_class(clustered_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(clustered_plot))
+
+  plain_plot <- amrc_plot_reference_distance_relationship(
+    distance_table[, c("phenotype_distance", "external_distance")],
+    x_col = "external_distance",
+    y_col = "phenotype_distance",
+    cluster_col = NULL
+  )
+  expect_s3_class(plain_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(plain_plot))
 })

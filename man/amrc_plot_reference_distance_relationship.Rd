@@ -6,28 +6,31 @@
 \usage{
 amrc_plot_reference_distance_relationship(
   distance_table,
-  x_col = "gen_distance",
-  y_col = "phen_distance",
-  cluster_col = "gen_cluster",
+  x_col = NULL,
+  y_col = NULL,
+  cluster_col = NULL,
   palette = NULL,
   x_limits = NULL,
   y_limits = NULL,
   x_breaks = NULL,
   y_breaks = NULL,
-  xlab = "Genetic distance",
-  ylab = "Phenotypic distance",
+  xlab = NULL,
+  ylab = NULL,
   annotation_text = NULL,
   annotation_x = NULL,
   annotation_y = NULL
 )
 }
 \arguments{
-\item{distance_table}{Data frame containing phenotype/genotype distances and
-a cluster column.}
+\item{distance_table}{Data frame containing phenotype/external distances and
+optionally a cluster column.}
 
-\item{x_col, y_col}{Numeric column names to plot.}
+\item{x_col, y_col}{Numeric column names to plot. When omitted, the function
+falls back to generic names (\code{external_distance}, \code{phenotype_distance}) and
+then the legacy pneumococcal names (\code{gen_distance}, \code{phen_distance}).}
 
-\item{cluster_col}{Cluster column name.}
+\item{cluster_col}{Optional cluster column name. Use \code{FALSE} to suppress
+cluster colouring even when a cluster column is present.}
 
 \item{palette}{Optional colour palette.}
 

@@ -2,26 +2,36 @@
 % Please edit documentation in R/comparison_analysis.R
 \name{amrc_summarise_reference_distance_table}
 \alias{amrc_summarise_reference_distance_table}
-\title{Summarise Reference-Distance Comparisons by Cluster}
+\title{Summarise Reference-Distance Comparisons}
 \usage{
 amrc_summarise_reference_distance_table(
   distance_table,
-  cluster_col = "gen_cluster",
+  cluster_col = NULL,
+  phenotype_distance_col = NULL,
+  external_distance_col = NULL,
   digits = 2
 )
 }
 \arguments{
 \item{distance_table}{Output from \code{\link[=amrc_compute_reference_distance_table]{amrc_compute_reference_distance_table()}}.}
 
-\item{cluster_col}{Cluster column in \code{distance_table}.}
+\item{cluster_col}{Optional cluster column in \code{distance_table}. When omitted,
+the function falls back to \code{external_cluster}, \code{gen_cluster}, or \code{cluster}
+if present. Use \code{FALSE} to force an overall-only summary. When no cluster
+column is available, only an overall summary is returned.}
+
+\item{phenotype_distance_col}{Column containing phenotype distances.}
+
+\item{external_distance_col}{Column containing external distances.}
 
 \item{digits}{Number of digits used when rounding the summary tables.}
 }
 \value{
-A list containing the raw \code{distance_table}, per-cluster \code{summary},
+A list containing the raw \code{distance_table}, grouped \code{summary},
 \code{summary_with_overall} rows, a linear-model fit, and a Spearman
 correlation test.
 }
 \description{
-Summarise Reference-Distance Comparisons by Cluster
+Summarises phenotype-vs-external distances either by cluster or overall when
+no cluster column is available.
 }
