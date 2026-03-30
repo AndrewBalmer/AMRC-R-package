@@ -1,9 +1,13 @@
-#' Process Example S. pneumoniae Genotype Data
+#' Process the S. pneumoniae Genotype Example Data
 #'
 #' Reads the raw genotype CSV files referenced by the legacy analysis,
 #' optionally merges them with processed phenotype metadata, applies the PBP-type
 #' cleaning rules, removes the default indel outliers, and optionally computes
 #' amino-acid distance matrices.
+#'
+#' This is an example-specific wrapper retained for the packaged
+#' `S. pneumoniae` case study. It is not intended to define the long-term
+#' generic package API.
 #'
 #' @param input_dir Directory containing the raw genotype CSV files.
 #' @param sequence_files Length-2 character vector of genotype file names.

@@ -11,11 +11,15 @@ amrc_check_files_exist <- function(paths) {
   invisible(paths)
 }
 
-#' Process Example S. pneumoniae Phenotype Data
+#' Process the S. pneumoniae Phenotype Example Data
 #'
 #' Reads the two phenotype CSV files used in the legacy input script, combines
 #' them, repairs the PBP-type metadata, log2-transforms MIC values, and
 #' optionally computes a phenotype distance matrix.
+#'
+#' This is an example-specific wrapper retained for the packaged
+#' `S. pneumoniae` case study. Generic MIC workflows should prefer
+#' [amrc_standardise_mic_data()] and [amrc_compute_mic_distance()].
 #'
 #' @param input_dir Directory containing the raw phenotype CSV files.
 #' @param mic_files Length-2 character vector of phenotype file names.

@@ -2,7 +2,7 @@
 % Please edit documentation in R/phenotype.R
 \name{amrc_process_spneumoniae_phenotype}
 \alias{amrc_process_spneumoniae_phenotype}
-\title{Process Example S. pneumoniae Phenotype Data}
+\title{Process the S. pneumoniae Phenotype Example Data}
 \usage{
 amrc_process_spneumoniae_phenotype(
   input_dir = file.path("data-raw", "raw-data", "spneumoniae"),
@@ -45,4 +45,9 @@ A named list with \code{metadata}, \code{mic}, and \code{distance}.
 Reads the two phenotype CSV files used in the legacy input script, combines
 them, repairs the PBP-type metadata, log2-transforms MIC values, and
 optionally computes a phenotype distance matrix.
+}
+\details{
+This is an example-specific wrapper retained for the packaged
+\verb{S. pneumoniae} case study. Generic MIC workflows should prefer
+\code{\link[=amrc_standardise_mic_data]{amrc_standardise_mic_data()}} and \code{\link[=amrc_compute_mic_distance]{amrc_compute_mic_distance()}}.
 }

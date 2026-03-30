@@ -13,3 +13,7 @@ A \code{data.frame} with one row per external source file.
 Returns a manifest of the external source files referenced by the legacy
 phenotype and genotype input scripts.
 }
+\details{
+This helper is example-data infrastructure for the pneumococcal case study,
+not part of the intended generic MIC analysis API.
+}

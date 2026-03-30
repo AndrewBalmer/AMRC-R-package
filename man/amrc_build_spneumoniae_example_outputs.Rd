@@ -2,7 +2,7 @@
 % Please edit documentation in R/spneumoniae_pipeline.R
 \name{amrc_build_spneumoniae_example_outputs}
 \alias{amrc_build_spneumoniae_example_outputs}
-\title{Build the Legacy S. pneumoniae Analysis Inputs from Package Functions}
+\title{Build the S. pneumoniae Example Analysis Inputs}
 \usage{
 amrc_build_spneumoniae_example_outputs(
   raw_dir = file.path("data-raw", "raw-data", "spneumoniae"),
@@ -39,4 +39,9 @@ A named list with \code{phenotype}, \code{genotype}, \code{raw_dir}, and \code{o
 \description{
 Downloads the example source data when needed, then generates the processed
 phenotype and genotype outputs used by the legacy analysis notebooks.
+}
+\details{
+This is example-build infrastructure for the pneumococcal case study. It is
+retained to support the worked example and regression testing rather than to
+define the generic package workflow.
 }

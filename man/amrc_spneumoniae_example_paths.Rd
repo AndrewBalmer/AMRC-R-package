@@ -26,3 +26,7 @@ A named list of file paths.
 Returns the installed-file paths for the packaged S. pneumoniae examples used
 in the README and vignette.
 }
+\details{
+This helper is example-data infrastructure for the pneumococcal case study,
+not part of the intended generic MIC analysis API.
+}

@@ -54,6 +54,9 @@ amrc_generated_path <- function(generated_dir, key, must_exist = FALSE, allow_le
 #' Returns the installed-file paths for the packaged S. pneumoniae examples used
 #' in the README and vignette.
 #'
+#' This helper is example-data infrastructure for the pneumococcal case study,
+#' not part of the intended generic MIC analysis API.
+#'
 #' @param example Which example path set to locate: `mini_raw` for the tiny
 #'   bundled raw-input example in `inst/extdata/examples/spneumoniae-mini/raw`,
 #'   or `generated` for the canonical generated-output location used by local

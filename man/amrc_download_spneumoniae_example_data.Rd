@@ -27,3 +27,7 @@ A \code{data.frame} manifest including the local file paths.
 Downloads the external CSV files used by the legacy S. pneumoniae scripts
 into a single reproducible directory.
 }
+\details{
+This helper is example-data infrastructure for the pneumococcal case study,
+not part of the intended generic MIC analysis API.
+}

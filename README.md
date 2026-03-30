@@ -18,7 +18,7 @@ The package is now at the point where it has:
 
 ## Status
 
-This is still a development release rather than a CRAN release, and the repository should be used as-is. The exported API is now usable, but some notebook migrations and release-facing cleanup are still ongoing, so interfaces and bundled examples may still change. This repository is also separate from the related manuscript repository: it contains the package, migrated analysis code, and development documentation, not the manuscript submission source itself. Any interactive app remains explicitly deferred until the manuscript workflow and exported API stop moving.
+This is still a development release rather than a CRAN release, and the repository should be used as-is. The exported API is now usable, but some notebook migrations and release-facing cleanup are still ongoing, so interfaces and bundled examples may still change. This repository is also separate from the related manuscript repository: it contains the package, migrated analysis code, and development documentation, not the manuscript submission source itself. The long-term package goal is a generic MIC cartography toolkit; the current `S. pneumoniae` workflow should be read as a worked example and validation case, not the permanent center of the public API. Any interactive app remains explicitly deferred until the manuscript workflow and exported API stop moving.
 
 ## Installation
 

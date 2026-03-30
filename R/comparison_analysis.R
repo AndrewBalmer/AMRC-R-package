@@ -55,12 +55,16 @@ amrc_between_group_distances <- function(group_a, group_b) {
   as.vector(distances)
 }
 
-#' Prepare a Canonical Phenotype/Genotype Comparison Table
+#' Prepare the S. pneumoniae Example Phenotype/Genotype Comparison Table
 #'
 #' Builds the combined comparison data frame reused across the clustering and
 #' side-by-side phenotype/genotype notebooks. The phenotype and genotype maps
 #' are calibrated onto interpretable scales with [amrc_calibrate_mds()], then
 #' joined to the processed phenotype metadata.
+#'
+#' This is an example-specific wrapper for the pneumococcal case study. The
+#' generic replacement target is a dataset-agnostic `amrc_prepare_map_data()`
+#' workflow.
 #'
 #' @param tablemic_meta Processed metadata table containing at least `LABID` and
 #'   `PT`.

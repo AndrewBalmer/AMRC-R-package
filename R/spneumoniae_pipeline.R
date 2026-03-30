@@ -1,7 +1,11 @@
-#' Build the Legacy S. pneumoniae Analysis Inputs from Package Functions
+#' Build the S. pneumoniae Example Analysis Inputs
 #'
 #' Downloads the example source data when needed, then generates the processed
 #' phenotype and genotype outputs used by the legacy analysis notebooks.
+#'
+#' This is example-build infrastructure for the pneumococcal case study. It is
+#' retained to support the worked example and regression testing rather than to
+#' define the generic package workflow.
 #'
 #' @param raw_dir Directory containing or receiving the raw input CSVs.
 #' @param out_dir Directory where processed outputs should be written.
@@ -61,11 +65,15 @@ amrc_build_spneumoniae_example_outputs <- function(
   )
 }
 
-#' Build Canonical Example Phenotype and Genotype Maps
+#' Build the Canonical S. pneumoniae Example Maps
 #'
 #' Fits the standard metric, ordinal, and interval MDS maps used by the legacy
 #' notebooks and writes the resulting `.RData` objects into the canonical
 #' generated-data directory.
+#'
+#' This is example-build infrastructure for the pneumococcal case study. Generic
+#' users should typically work from [amrc_compute_mds()] and related helpers
+#' directly.
 #'
 #' @param generated_dir Directory containing processed example outputs and where
 #'   map objects should be written.

@@ -3,6 +3,9 @@
 #' Returns a manifest of the external source files referenced by the legacy
 #' phenotype and genotype input scripts.
 #'
+#' This helper is example-data infrastructure for the pneumococcal case study,
+#' not part of the intended generic MIC analysis API.
+#'
 #' @return A `data.frame` with one row per external source file.
 #' @export
 amrc_spneumoniae_sources <- function() {
@@ -29,6 +32,9 @@ amrc_spneumoniae_sources <- function() {
 #'
 #' Downloads the external CSV files used by the legacy S. pneumoniae scripts
 #' into a single reproducible directory.
+#'
+#' This helper is example-data infrastructure for the pneumococcal case study,
+#' not part of the intended generic MIC analysis API.
 #'
 #' @param dest_dir Directory where source files should be written.
 #' @param overwrite Logical; overwrite existing files if `TRUE`.

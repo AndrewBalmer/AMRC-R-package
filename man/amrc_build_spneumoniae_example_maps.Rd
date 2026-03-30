@@ -2,7 +2,7 @@
 % Please edit documentation in R/spneumoniae_pipeline.R
 \name{amrc_build_spneumoniae_example_maps}
 \alias{amrc_build_spneumoniae_example_maps}
-\title{Build Canonical Example Phenotype and Genotype Maps}
+\title{Build the Canonical S. pneumoniae Example Maps}
 \usage{
 amrc_build_spneumoniae_example_maps(
   generated_dir = file.path("inst", "extdata", "generated", "spneumoniae"),
@@ -34,4 +34,9 @@ A named list with \code{phenotype} and \code{genotype} map fits.
 Fits the standard metric, ordinal, and interval MDS maps used by the legacy
 notebooks and writes the resulting \code{.RData} objects into the canonical
 generated-data directory.
+}
+\details{
+This is example-build infrastructure for the pneumococcal case study. Generic
+users should typically work from \code{\link[=amrc_compute_mds]{amrc_compute_mds()}} and related helpers
+directly.
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/comparison_analysis.R
 \name{amrc_prepare_spneumoniae_map_data}
 \alias{amrc_prepare_spneumoniae_map_data}
-\title{Prepare a Canonical Phenotype/Genotype Comparison Table}
+\title{Prepare the S. pneumoniae Example Phenotype/Genotype Comparison Table}
 \usage{
 amrc_prepare_spneumoniae_map_data(
   tablemic_meta,
@@ -48,4 +48,9 @@ Builds the combined comparison data frame reused across the clustering and
 side-by-side phenotype/genotype notebooks. The phenotype and genotype maps
 are calibrated onto interpretable scales with \code{\link[=amrc_calibrate_mds]{amrc_calibrate_mds()}}, then
 joined to the processed phenotype metadata.
+}
+\details{
+This is an example-specific wrapper for the pneumococcal case study. The
+generic replacement target is a dataset-agnostic \code{amrc_prepare_map_data()}
+workflow.
 }

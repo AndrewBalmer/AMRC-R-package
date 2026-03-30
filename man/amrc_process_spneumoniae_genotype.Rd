@@ -2,7 +2,7 @@
 % Please edit documentation in R/genotype.R
 \name{amrc_process_spneumoniae_genotype}
 \alias{amrc_process_spneumoniae_genotype}
-\title{Process Example S. pneumoniae Genotype Data}
+\title{Process the S. pneumoniae Genotype Example Data}
 \usage{
 amrc_process_spneumoniae_genotype(
   input_dir = file.path("data-raw", "raw-data", "spneumoniae"),
@@ -53,4 +53,9 @@ Reads the raw genotype CSV files referenced by the legacy analysis,
 optionally merges them with processed phenotype metadata, applies the PBP-type
 cleaning rules, removes the default indel outliers, and optionally computes
 amino-acid distance matrices.
+}
+\details{
+This is an example-specific wrapper retained for the packaged
+\verb{S. pneumoniae} case study. It is not intended to define the long-term
+generic package API.
 }
