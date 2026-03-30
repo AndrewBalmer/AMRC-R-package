@@ -8,6 +8,7 @@ amrc_cross_validate_robustness(
   sample_distances,
   reference_distance,
   lab_ids,
+  id_col = "LABID",
   weight_matrices = NULL,
   dimensions = 1:4,
   n_samples = min(25, length(sample_distances)),
@@ -22,6 +23,9 @@ amrc_cross_validate_robustness(
 \item{reference_distance}{Reference \code{dist} object.}
 
 \item{lab_ids}{Character vector of isolate identifiers.}
+
+\item{id_col}{Output column name used for isolate identifiers in the
+per-isolate comparison table.}
 
 \item{weight_matrices}{Optional list of weight matrices.}
 

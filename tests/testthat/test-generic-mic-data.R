@@ -351,7 +351,7 @@ test_that("generic reference-distance helpers work with arbitrary reference colu
   )
   expect_equal(
     reference_distances$external_distance,
-    c(0, 1, sqrt(104), sqrt(125))
+    c(0.5, 0.5, sqrt(94.25), sqrt(114.25))
   )
 
   reference_summary <- amrc_summarise_reference_distance_table(

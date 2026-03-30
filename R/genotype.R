@@ -78,10 +78,12 @@ amrc_process_spneumoniae_genotype <- function(
 
   filtered <- merged[!(merged$LABID %in% exclude_labids), , drop = FALSE]
   filtered <- stats::na.omit(filtered)
+  rownames(filtered) <- filtered$LABID
 
   sequence_start <- ncol(metadata) + 1L
   sequence_matrix <- as.matrix(filtered[, sequence_start:ncol(filtered), drop = FALSE])
   lab_ids <- filtered$LABID
+  rownames(sequence_matrix) <- lab_ids
 
   distance_matrix <- NULL
   distance_subsample <- NULL

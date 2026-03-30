@@ -1,6 +1,14 @@
 test_that("generic vignette-style workflow runs on small synthetic data", {
-  skip_on_os("mac")
   skip_if_not_installed("smacof")
+  old_threads <- Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)
+  Sys.setenv(OMP_NUM_THREADS = "1")
+  on.exit({
+    if (is.na(old_threads)) {
+      Sys.unsetenv("OMP_NUM_THREADS")
+    } else {
+      Sys.setenv(OMP_NUM_THREADS = old_threads)
+    }
+  }, add = TRUE)
 
   mic_table <- data.frame(
     isolate_id = paste0("iso", 1:6),
@@ -76,8 +84,21 @@ test_that("generic vignette-style workflow runs on small synthetic data", {
     external_distance_col = "external_distance"
   )
 
+  robustness_study <- amrc_missing_value_study(
+    tablemic = mic_data$mic,
+    tablemic_meta = mic_data$metadata,
+    reference_mds = phenotype_map,
+    n_samples = 2,
+    missing_pct = 10,
+    cross_validation_n = 2,
+    id_col = "isolate_id",
+    seed = 1
+  )
+
   expect_equal(nrow(comparison_bundle$data), 6L)
   expect_equal(nrow(comparison_bundle$group_data), 3L)
   expect_true(all(c("phenotype_distance", "external_distance") %in% names(reference_distances)))
   expect_true(all(c("mean_phenotypic_distance", "mean_external_distance") %in% names(reference_summary$summary)))
+  expect_true(all(c("isolate_id", "drug", "MIC_value") %in% names(robustness_study$missing_samples[[1]])))
+  expect_true("overall_summary" %in% names(reference_summary))
 })

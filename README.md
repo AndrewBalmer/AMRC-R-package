@@ -1,7 +1,5 @@
 # amrcartography
 
-[![R-CMD-check](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml)
-
 > Work-in-progress notice: this repository is under active development and is provided as-is. It may change substantially, and it should not yet be treated as a stable release.
 >
 > This is the package/code repository only. It is not the source repository for the related manuscript, which is maintained separately.

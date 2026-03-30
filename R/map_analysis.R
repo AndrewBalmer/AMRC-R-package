@@ -192,6 +192,8 @@ amrc_build_dimension_fit_table <- function(
 #' @param lab_ids Character vector of isolate identifiers.
 #' @param compare_dims Integer vector of dimensions to compare against the next
 #'   lower dimension.
+#' @param id_col Output column name used for isolate identifiers in
+#'   `projection_distances`.
 #'
 #' @return A list with per-isolate `projection_distances` and a `summary`
 #'   `data.frame`.
@@ -199,7 +201,8 @@ amrc_build_dimension_fit_table <- function(
 amrc_compare_adjacent_dimensions <- function(
   mds_fits,
   lab_ids,
-  compare_dims = 2:length(mds_fits)
+  compare_dims = 2:length(mds_fits),
+  id_col = "LABID"
 ) {
   if (!requireNamespace("smacof", quietly = TRUE)) {
     stop(
@@ -227,13 +230,15 @@ amrc_compare_adjacent_dimensions <- function(
     map_low_padded <- cbind(map_low, matrix(0, nrow = nrow(map_low), ncol = pad_dims))
 
     proc <- smacof::Procrustes(map_high, map_low_padded)
-    dist_to_lower <- sqrt((proc$X[, 1] - proc$Yhat[, 1])^2 + (proc$X[, 2] - proc$Yhat[, 2])^2)
+    dist_to_lower <- sqrt(rowSums((proc$X - proc$Yhat)^2))
 
     projection_rows[[i]] <- data.frame(
-      LABID = lab_ids,
       dimension = dimension,
-      dist_to_lower_dim = dist_to_lower
+      dist_to_lower_dim = dist_to_lower,
+      stringsAsFactors = FALSE
     )
+    projection_rows[[i]][[id_col]] <- lab_ids
+    projection_rows[[i]] <- projection_rows[[i]][, c(id_col, "dimension", "dist_to_lower_dim"), drop = FALSE]
   }
 
   projection_distances <- do.call(rbind, projection_rows)

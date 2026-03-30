@@ -75,11 +75,13 @@ amrc_process_spneumoniae_phenotype <- function(
 
   metadata <- combined
   metadata$PT <- amrc_clean_pbp_type(metadata$PT)
+  rownames(metadata) <- metadata$LABID
 
   mic <- combined[, 3:8, drop = FALSE]
   mic[] <- lapply(mic, function(column) {
     round(log2(as.numeric(column)))
   })
+  rownames(mic) <- metadata$LABID
 
   distance_matrix <- NULL
   if (compute_distance) {

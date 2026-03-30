@@ -7,7 +7,8 @@
 amrc_compare_adjacent_dimensions(
   mds_fits,
   lab_ids,
-  compare_dims = 2:length(mds_fits)
+  compare_dims = 2:length(mds_fits),
+  id_col = "LABID"
 )
 }
 \arguments{
@@ -18,6 +19,9 @@ amrc_compare_adjacent_dimensions(
 
 \item{compare_dims}{Integer vector of dimensions to compare against the next
 lower dimension.}
+
+\item{id_col}{Output column name used for isolate identifiers in
+\code{projection_distances}.}
 }
 \value{
 A list with per-isolate \code{projection_distances} and a \code{summary}

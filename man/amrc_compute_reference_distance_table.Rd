@@ -30,9 +30,9 @@ amrc_compute_reference_distance_table(
 omitted, the function falls back to \code{PBP_type} for case-study
 compatibility.}
 
-\item{phenotype_cols}{Length-2 character vector for phenotype coordinates.}
+\item{phenotype_cols}{Character vector for phenotype coordinates.}
 
-\item{external_cols}{Length-2 character vector for external coordinates.}
+\item{external_cols}{Character vector for external coordinates.}
 
 \item{genotype_cols}{Legacy alias for \code{external_cols} retained for the
 pneumococcal case study.}
@@ -65,4 +65,10 @@ chosen reference entry.
 Computes phenotype and external-map distances from a chosen reference entry
 in a generic comparison table. The reference can be defined by any grouping
 column, not just a pneumococcal PBP type.
+}
+\details{
+When \code{reference_col} matches multiple rows, the function uses the centroid of
+those rows to define the phenotype and external reference positions. This
+avoids order-dependent behaviour when the reference group contains multiple
+isolates.
 }

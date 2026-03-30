@@ -28,8 +28,9 @@ column is available, only an overall summary is returned.}
 }
 \value{
 A list containing the raw \code{distance_table}, grouped \code{summary},
-\code{summary_with_overall} rows, a linear-model fit, and a Spearman
-correlation test.
+separate \code{overall_summary}, \code{average_row}, and \code{sd_row} summaries, a
+compatibility \code{summary_with_overall} table, a linear-model fit, and a
+Spearman correlation test.
 }
 \description{
 Summarises phenotype-vs-external distances either by cluster or overall when

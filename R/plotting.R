@@ -70,14 +70,14 @@ amrc_plot_configuration_displacement <- function(
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
 
-  ggplot2::ggplot(data, ggplot2::aes_string(x = x_ref, y = y_ref)) +
+  ggplot2::ggplot(data, ggplot2::aes(x = .data[[x_ref]], y = .data[[y_ref]])) +
     ggplot2::geom_segment(
-      ggplot2::aes_string(xend = x_alt, yend = y_alt),
+      ggplot2::aes(xend = .data[[x_alt]], yend = .data[[y_alt]]),
       colour = "grey",
       linewidth = 0.5
     ) +
     ggplot2::geom_point(
-      ggplot2::aes_string(x = x_alt, y = y_alt),
+      ggplot2::aes(x = .data[[x_alt]], y = .data[[y_alt]]),
       shape = 21,
       size = 2,
       fill = "black",
@@ -143,7 +143,7 @@ amrc_plot_cluster_elbow <- function(
 
   plot <- ggplot2::ggplot(
     scree_data,
-    ggplot2::aes_string(x = "n_clusters", y = "within_cluster_inertia")
+    ggplot2::aes(x = .data[["n_clusters"]], y = .data[["within_cluster_inertia"]])
   )
 
   if (isTRUE(draw_path)) {
@@ -227,12 +227,12 @@ amrc_plot_cluster_map <- function(
   }
   names(palette) <- as.character(cluster_values)
 
-  plot <- ggplot2::ggplot(plot_data, ggplot2::aes_string(x = x, y = y, fill = cluster_col))
+  plot <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[x]], y = .data[[y]], fill = .data[[cluster_col]]))
 
   if (!is.null(background_data)) {
     plot <- plot + ggplot2::geom_point(
       data = background_data,
-      mapping = ggplot2::aes_string(x = background_x, y = background_y),
+      mapping = ggplot2::aes(x = .data[[background_x]], y = .data[[background_y]]),
       inherit.aes = FALSE,
       colour = "#999999",
       fill = "#999999",
@@ -250,7 +250,7 @@ amrc_plot_cluster_map <- function(
 
   if (!is.null(centroid_x) && !is.null(centroid_y)) {
     plot <- plot + ggplot2::geom_point(
-      mapping = ggplot2::aes_string(x = centroid_x, y = centroid_y, fill = cluster_col),
+      mapping = ggplot2::aes(x = .data[[centroid_x]], y = .data[[centroid_y]], fill = .data[[cluster_col]]),
       shape = 21,
       size = centroid_size,
       alpha = 0.8,
@@ -314,7 +314,7 @@ amrc_plot_distance_histogram <- function(
     stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
   }
 
-  ggplot2::ggplot(hist_data, ggplot2::aes_string(x = "Distance", fill = "DistanceType")) +
+  ggplot2::ggplot(hist_data, ggplot2::aes(x = .data[["Distance"]], fill = .data[["DistanceType"]])) +
     ggplot2::geom_histogram(binwidth = binwidth, position = "identity", alpha = 0.6) +
     ggplot2::labs(x = "Pairwise Distance", y = "Count") +
     ggplot2::scale_fill_manual(values = fill_values)
@@ -434,7 +434,7 @@ amrc_plot_reference_distance_relationship <- function(
     plot <- plot + ggplot2::geom_label(
       inherit.aes = FALSE,
       data = data.frame(x = annotation_x, y = annotation_y, label = annotation_text),
-      ggplot2::aes_string(x = "x", y = "y", label = "label"),
+      ggplot2::aes(x = .data[["x"]], y = .data[["y"]], label = .data[["label"]]),
       size = 4.5
     )
   }
@@ -467,17 +467,21 @@ amrc_plot_one_vs_two_dimensional_projection <- function(projection_data) {
 
   ggplot2::ggplot(
     projection_data,
-    ggplot2::aes_string(x = "X_axis_2D_map", y = "Y_axis_2D_map", size = "spp_1D")
+    ggplot2::aes(
+      x = .data[["X_axis_2D_map"]],
+      y = .data[["Y_axis_2D_map"]],
+      size = .data[["spp_1D"]]
+    )
   ) +
     ggplot2::geom_segment(
       data = line_data,
-      ggplot2::aes_string(x = "x", y = "y", xend = "xend", yend = "yend"),
+      ggplot2::aes(x = .data[["x"]], y = .data[["y"]], xend = .data[["xend"]], yend = .data[["yend"]]),
       inherit.aes = FALSE,
       linewidth = 1,
       colour = "black"
     ) +
     ggplot2::geom_segment(
-      ggplot2::aes_string(xend = "X_axis_1D_map", yend = "Y_axis_1D_map"),
+      ggplot2::aes(xend = .data[["X_axis_1D_map"]], yend = .data[["Y_axis_1D_map"]]),
       linewidth = 0.3,
       colour = "black"
     ) +

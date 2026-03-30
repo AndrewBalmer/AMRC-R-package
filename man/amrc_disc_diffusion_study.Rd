@@ -10,14 +10,16 @@ amrc_disc_diffusion_study(
   reference_mds,
   n_samples = 100,
   disc_pct = 10,
+  breakpoints = NULL,
   cross_validation_n = 25,
+  id_col = NULL,
   seed = 1234
 )
 }
 \arguments{
 \item{tablemic}{Numeric MIC table.}
 
-\item{tablemic_meta}{Metadata table containing \code{LABID}.}
+\item{tablemic_meta}{Metadata table containing an isolate identifier column.}
 
 \item{reference_mds}{Baseline MDS fit used as the reference map.}
 
@@ -26,14 +28,22 @@ amrc_disc_diffusion_study(
 \item{disc_pct}{Percentage of eligible isolates to replace with disc
 diffusion-like values.}
 
+\item{breakpoints}{Optional named list of breakpoint functions, one per MIC
+column. When omitted, the legacy pneumococcal beta-lactam defaults from
+\code{amrc_disc_diffusion_breakpoints()} are used.}
+
 \item{cross_validation_n}{Number of samples used for dimensional
 cross-validation.}
+
+\item{id_col}{Optional identifier column in \code{tablemic_meta}. When omitted,
+the function looks for \code{isolate_id} and then \code{LABID}.}
 
 \item{seed}{Integer random seed.}
 }
 \value{
 A structured list containing perturbed datasets, fitted maps, and
-summary tables suitable for plotting.
+summary tables suitable for plotting. Long-form outputs preserve the
+identifier column supplied through \code{id_col}.
 }
 \description{
 Run the Mixed MIC/Disc-Diffusion Robustness Analysis

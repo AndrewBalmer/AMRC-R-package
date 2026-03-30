@@ -144,7 +144,11 @@ reference_summary <- amrc_summarise_reference_distance_table(
   external_distance_col = "gen_distance"
 )
 
-reference_summary$summary_with_overall
+rbind(
+  reference_summary$summary,
+  reference_summary$average_row,
+  reference_summary$sd_row
+)
 ```
 
 ```{r}

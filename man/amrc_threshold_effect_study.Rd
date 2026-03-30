@@ -10,6 +10,7 @@ amrc_threshold_effect_study(
   reference_mds,
   threshold_value = 1,
   weighted_repeats = 10,
+  id_col = NULL,
   seed = 1234
 )
 }
@@ -17,13 +18,16 @@ amrc_threshold_effect_study(
 \item{tablemic}{Numeric MIC table that has already been shifted onto a
 positive scale where thresholded values equal \code{threshold_value}.}
 
-\item{tablemic_meta}{Metadata table containing \code{LABID}.}
+\item{tablemic_meta}{Metadata table containing an isolate identifier column.}
 
 \item{reference_mds}{Baseline MDS fit used as the reference map.}
 
 \item{threshold_value}{Numeric value denoting a thresholded MIC.}
 
 \item{weighted_repeats}{Number of repeated weighted fits to run.}
+
+\item{id_col}{Optional identifier column in \code{tablemic_meta}. When omitted,
+the function looks for \code{isolate_id} and then \code{LABID}.}
 
 \item{seed}{Integer random seed.}
 }

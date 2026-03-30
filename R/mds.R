@@ -245,7 +245,7 @@ amrc_run_weighted_mds_search <- function(
       distance_matrix = distance_matrix,
       ndim = ndim,
       type = type,
-      init = "torgerson",
+      init = "random",
       weightmat = weight_matrix,
       ...
     )

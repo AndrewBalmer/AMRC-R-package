@@ -7,7 +7,8 @@
 amrc_compare_procrustes_collection(
   reference_configuration,
   fit_collection,
-  lab_ids
+  lab_ids,
+  id_col = "LABID"
 )
 }
 \arguments{
@@ -18,6 +19,9 @@ data frame.}
 \code{\link[=amrc_run_mds_collection]{amrc_run_mds_collection()}}.}
 
 \item{lab_ids}{Character vector of isolate identifiers.}
+
+\item{id_col}{Output column name used for isolate identifiers in the
+per-isolate comparison table.}
 }
 \value{
 A list containing raw \code{comparisons}, a summary table, and per-isolate

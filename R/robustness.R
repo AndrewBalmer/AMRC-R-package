@@ -1,4 +1,26 @@
-amrc_long_table_values <- function(table, lab_ids, value_name = "value") {
+amrc_resolve_id_col <- function(data, id_col = NULL, arg_name = "id_col") {
+  if (is.null(id_col)) {
+    id_col <- amrc_default_existing_column(data, c("isolate_id", "LABID"))
+  }
+
+  if (is.null(id_col) || !(id_col %in% colnames(data))) {
+    stop(
+      arg_name,
+      " could not be inferred. Supply an identifier column present in the input metadata.",
+      call. = FALSE
+    )
+  }
+
+  id_col
+}
+
+amrc_id_frame <- function(ids, id_col = "LABID") {
+  out <- data.frame(ids, stringsAsFactors = FALSE, check.names = FALSE)
+  colnames(out) <- id_col
+  out
+}
+
+amrc_long_table_values <- function(table, lab_ids, value_name = "value", id_col = "LABID") {
   matrix_table <- as.matrix(table)
   row_labels <- rownames(matrix_table)
   if (is.null(row_labels)) {
@@ -9,15 +31,15 @@ amrc_long_table_values <- function(table, lab_ids, value_name = "value") {
   values <- as.data.frame(as.table(matrix_table), stringsAsFactors = FALSE)
   colnames(values) <- c("row_id", "drug", value_name)
   row_lookup <- stats::setNames(seq_along(row_labels), row_labels)
-  values$LABID <- lab_ids[unname(row_lookup[as.character(values$row_id)])]
+  values[[id_col]] <- lab_ids[unname(row_lookup[as.character(values$row_id)])]
   values$row_id <- NULL
-  values <- values[, c("LABID", "drug", value_name)]
+  values <- values[, c(id_col, "drug", value_name)]
   rownames(values) <- NULL
   values
 }
 
-amrc_true_value_long <- function(table, lab_ids) {
-  amrc_long_table_values(table, lab_ids, value_name = "true_value")
+amrc_true_value_long <- function(table, lab_ids, id_col = "LABID") {
+  amrc_long_table_values(table, lab_ids, value_name = "true_value", id_col = id_col)
 }
 
 amrc_weight_counts_from_na <- function(table) {
@@ -92,13 +114,13 @@ amrc_run_mds_collection <- function(
   fits
 }
 
-amrc_reference_configuration <- function(reference_mds, lab_ids, rotation_degrees = NULL) {
+amrc_reference_configuration <- function(reference_mds, lab_ids, rotation_degrees = NULL, id_col = "LABID") {
   configuration <- amrc_calibrate_mds(reference_mds, rotation_degrees = rotation_degrees)$configuration
   configuration <- as.data.frame(configuration)
   dimension_names <- paste0("D", seq_len(ncol(configuration)))
   colnames(configuration) <- dimension_names
-  configuration$LABID <- lab_ids
-  configuration[, c("LABID", dimension_names)]
+  configuration[[id_col]] <- lab_ids
+  configuration[, c(id_col, dimension_names)]
 }
 
 #' Compare a Collection of MDS Fits to a Reference Configuration
@@ -108,11 +130,13 @@ amrc_reference_configuration <- function(reference_mds, lab_ids, rotation_degree
 #' @param fit_collection List of simplified MDS fits from
 #'   [amrc_run_mds_collection()].
 #' @param lab_ids Character vector of isolate identifiers.
+#' @param id_col Output column name used for isolate identifiers in the
+#'   per-isolate comparison table.
 #'
 #' @return A list containing raw `comparisons`, a summary table, and per-isolate
 #'   pairwise comparison distances.
 #' @export
-amrc_compare_procrustes_collection <- function(reference_configuration, fit_collection, lab_ids) {
+amrc_compare_procrustes_collection <- function(reference_configuration, fit_collection, lab_ids, id_col = "LABID") {
   if (!requireNamespace("smacof", quietly = TRUE)) {
     stop(
       "Package 'smacof' is required for Procrustes comparisons. ",
@@ -122,11 +146,11 @@ amrc_compare_procrustes_collection <- function(reference_configuration, fit_coll
   }
 
   if (is.data.frame(reference_configuration) &&
-      "LABID" %in% colnames(reference_configuration)) {
-    reference_configuration <- reference_configuration[, setdiff(colnames(reference_configuration), "LABID"), drop = FALSE]
+      id_col %in% colnames(reference_configuration)) {
+    reference_configuration <- reference_configuration[, setdiff(colnames(reference_configuration), id_col), drop = FALSE]
   } else if (!is.null(colnames(reference_configuration)) &&
-             "LABID" %in% colnames(reference_configuration)) {
-    reference_configuration <- reference_configuration[, setdiff(colnames(reference_configuration), "LABID"), drop = FALSE]
+             id_col %in% colnames(reference_configuration)) {
+    reference_configuration <- reference_configuration[, setdiff(colnames(reference_configuration), id_col), drop = FALSE]
   }
   reference_matrix <- as.matrix(reference_configuration)
   storage.mode(reference_matrix) <- "double"
@@ -146,7 +170,7 @@ amrc_compare_procrustes_collection <- function(reference_configuration, fit_coll
       paste0("alt_D", seq_len(ncol(comparison$Yhat)))
     )
     pairwise$dist_phen <- sqrt(rowSums((comparison$X - comparison$Yhat)^2))
-    pairwise$LABID <- lab_ids
+    pairwise[[id_col]] <- lab_ids
     pairwise$sample_id <- i
     pairwise_rows[[i]] <- pairwise
 
@@ -164,18 +188,17 @@ amrc_compare_procrustes_collection <- function(reference_configuration, fit_coll
   )
 }
 
-amrc_collect_spp_annotations <- function(fit_collection, lab_ids, annotation_list = NULL) {
+amrc_collect_spp_annotations <- function(fit_collection, lab_ids, annotation_list = NULL, id_col = "LABID") {
   spp_rows <- vector("list", length(fit_collection))
 
   for (i in seq_along(fit_collection)) {
-    spp_df <- data.frame(
-      sample_id = i,
-      LABID = lab_ids,
-      spp = fit_collection[[i]]$spp
-    )
+    spp_df <- amrc_id_frame(lab_ids, id_col = id_col)
+    spp_df$sample_id <- i
+    spp_df$spp <- fit_collection[[i]]$spp
+    spp_df <- spp_df[, c("sample_id", id_col, "spp"), drop = FALSE]
 
     if (!is.null(annotation_list)) {
-      spp_df <- merge(spp_df, annotation_list[[i]], by = "LABID", all.x = TRUE, sort = FALSE)
+      spp_df <- merge(spp_df, annotation_list[[i]], by = id_col, all.x = TRUE, sort = FALSE)
     }
 
     spp_rows[[i]] <- spp_df
@@ -189,6 +212,8 @@ amrc_collect_spp_annotations <- function(fit_collection, lab_ids, annotation_lis
 #' @param sample_distances List of perturbed `dist` objects.
 #' @param reference_distance Reference `dist` object.
 #' @param lab_ids Character vector of isolate identifiers.
+#' @param id_col Output column name used for isolate identifiers in the
+#'   per-isolate comparison table.
 #' @param weight_matrices Optional list of weight matrices.
 #' @param dimensions Integer vector of dimensions to fit.
 #' @param n_samples Number of perturbed samples to use.
@@ -203,6 +228,7 @@ amrc_cross_validate_robustness <- function(
   sample_distances,
   reference_distance,
   lab_ids,
+  id_col = "LABID",
   weight_matrices = NULL,
   dimensions = 1:4,
   n_samples = min(25, length(sample_distances)),
@@ -264,9 +290,11 @@ amrc_cross_validate_robustness <- function(
       pairwise_rows[[row_index]] <- data.frame(
         sample_id = i,
         dimension = dimension,
-        LABID = lab_ids,
-        dist_phen = sqrt(rowSums((comparison$X - comparison$Yhat)^2))
+        dist_phen = sqrt(rowSums((comparison$X - comparison$Yhat)^2)),
+        stringsAsFactors = FALSE
       )
+      pairwise_rows[[row_index]][[id_col]] <- lab_ids
+      pairwise_rows[[row_index]] <- pairwise_rows[[row_index]][, c("sample_id", "dimension", id_col, "dist_phen"), drop = FALSE]
       row_index <- row_index + 1L
     }
     sample_fits[[as.character(dimension)]] <- dim_fits
@@ -300,7 +328,8 @@ amrc_cross_validate_robustness <- function(
     sample_fits = sample_fits,
     pairwise = pairwise,
     sample_summary = sample_summary,
-    dimension_summary = dimension_summary
+    dimension_summary = dimension_summary,
+    id_col = id_col
   )
 }
 
@@ -331,7 +360,8 @@ amrc_legacy_dimension_objects <- function(cross_validation) {
     amrc_compare_procrustes_collection(
       reference_configuration = cross_validation$reference_configurations[[d]],
       fit_collection = sample_fits[[d]],
-      lab_ids = sample_fits[[d]][[1]]$lab_ids
+      lab_ids = sample_fits[[d]][[1]]$lab_ids,
+      id_col = if (is.null(cross_validation$id_col)) "LABID" else cross_validation$id_col
     )$comparisons
   })
   names(comparison_dim) <- dimensions
@@ -349,16 +379,19 @@ amrc_legacy_dimension_objects <- function(cross_validation) {
 #' Run the Missing-Value Robustness Analysis
 #'
 #' @param tablemic Numeric MIC table.
-#' @param tablemic_meta Metadata table containing `LABID`.
+#' @param tablemic_meta Metadata table containing an isolate identifier column.
 #' @param reference_mds Baseline MDS fit used as the reference map.
 #' @param n_samples Number of perturbed datasets to generate.
 #' @param missing_pct Percentage of cells to set to `NA` in each sample.
 #' @param cross_validation_n Number of samples used for dimensional
 #'   cross-validation.
+#' @param id_col Optional identifier column in `tablemic_meta`. When omitted,
+#'   the function looks for `isolate_id` and then `LABID`.
 #' @param seed Integer random seed.
 #'
 #' @return A structured list containing perturbed datasets, fitted maps, and
-#'   summary tables suitable for plotting.
+#'   summary tables suitable for plotting. Long-form outputs preserve the
+#'   identifier column supplied through `id_col`.
 #' @export
 amrc_missing_value_study <- function(
   tablemic,
@@ -367,13 +400,15 @@ amrc_missing_value_study <- function(
   n_samples = 100,
   missing_pct = 10,
   cross_validation_n = 25,
+  id_col = NULL,
   seed = 1234
 ) {
   tablemic <- as.data.frame(tablemic)
-  lab_ids <- as.character(tablemic_meta$LABID)
+  id_col <- amrc_resolve_id_col(tablemic_meta, id_col = id_col)
+  lab_ids <- as.character(tablemic_meta[[id_col]])
   total_cells <- nrow(tablemic) * ncol(tablemic)
   target_missing <- floor(total_cells * missing_pct / 100)
-  true_values <- amrc_true_value_long(tablemic, lab_ids)
+  true_values <- amrc_true_value_long(tablemic, lab_ids, id_col = id_col)
 
   set.seed(seed)
   sample_tables <- vector("list", n_samples)
@@ -393,15 +428,13 @@ amrc_missing_value_study <- function(
     sample_distances[[i]] <- stats::dist(sample_table)
     weight_matrices[[i]] <- amrc_weight_matrix_from_na(sample_table, square = TRUE)
 
-    values_long <- amrc_long_table_values(sample_table, lab_ids, value_name = "MIC_value")
-    values_long <- merge(values_long, true_values, by = c("LABID", "drug"), all.x = TRUE, sort = FALSE)
+    values_long <- amrc_long_table_values(sample_table, lab_ids, value_name = "MIC_value", id_col = id_col)
+    values_long <- merge(values_long, true_values, by = c(id_col, "drug"), all.x = TRUE, sort = FALSE)
     values_long$sample_id <- i
     sample_values_long[[i]] <- values_long
 
-    annotation_list[[i]] <- data.frame(
-      LABID = lab_ids,
-      missing_count = rowSums(is.na(sample_table))
-    )
+    annotation_list[[i]] <- amrc_id_frame(lab_ids, id_col = id_col)
+    annotation_list[[i]]$missing_count <- rowSums(is.na(sample_table))
   }
 
   fits <- amrc_run_mds_collection(
@@ -412,15 +445,16 @@ amrc_missing_value_study <- function(
     type = "ratio"
   )
 
-  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids)[, c("D1", "D2")]
-  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids)
+  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids, id_col = id_col)[, c("D1", "D2")]
+  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids, id_col = id_col)
   stress_values <- data.frame(value = vapply(fits, function(fit) fit$stress, numeric(1)))
-  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list)
+  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list, id_col = id_col)
 
   cross_validation <- amrc_cross_validate_robustness(
     sample_distances = sample_distances,
     reference_distance = stats::dist(tablemic),
     lab_ids = lab_ids,
+    id_col = id_col,
     weight_matrices = weight_matrices,
     dimensions = 1:4,
     n_samples = cross_validation_n,
@@ -466,7 +500,7 @@ amrc_missing_value_study <- function(
 #'
 #' @param tablemic Numeric MIC table that has already been shifted onto a
 #'   positive scale where thresholded values equal `threshold_value`.
-#' @param tablemic_meta Metadata table containing `LABID`.
+#' @param tablemic_meta Metadata table containing an isolate identifier column.
 #' @param reference_mds Baseline MDS fit used as the reference map.
 #' @param n_samples Number of perturbed datasets to generate.
 #' @param perturb_pct Percentage of cells to sample for potential noise.
@@ -474,10 +508,13 @@ amrc_missing_value_study <- function(
 #'   not be perturbed.
 #' @param cross_validation_n Number of samples used for dimensional
 #'   cross-validation.
+#' @param id_col Optional identifier column in `tablemic_meta`. When omitted,
+#'   the function looks for `isolate_id` and then `LABID`.
 #' @param seed Integer random seed.
 #'
 #' @return A structured list containing perturbed datasets, fitted maps, and
-#'   summary tables suitable for plotting.
+#'   summary tables suitable for plotting. Long-form outputs preserve the
+#'   identifier column supplied through `id_col`.
 #' @export
 amrc_noise_added_study <- function(
   tablemic,
@@ -487,13 +524,15 @@ amrc_noise_added_study <- function(
   perturb_pct = 10,
   threshold_value = 1,
   cross_validation_n = 25,
+  id_col = NULL,
   seed = 1234
 ) {
   tablemic <- as.data.frame(tablemic)
-  lab_ids <- as.character(tablemic_meta$LABID)
+  id_col <- amrc_resolve_id_col(tablemic_meta, id_col = id_col)
+  lab_ids <- as.character(tablemic_meta[[id_col]])
   total_cells <- nrow(tablemic) * ncol(tablemic)
   target_cells <- floor(total_cells * perturb_pct / 100)
-  true_values <- amrc_true_value_long(tablemic, lab_ids)
+  true_values <- amrc_true_value_long(tablemic, lab_ids, id_col = id_col)
 
   set.seed(seed)
   noise_added_samples <- vector("list", n_samples)
@@ -517,23 +556,21 @@ amrc_noise_added_study <- function(
 
     noise_df <- data.frame(error_table)
     colnames(noise_df) <- colnames(tablemic)
-    noise_long <- amrc_long_table_values(noise_df, lab_ids, value_name = "error_added")
+    noise_long <- amrc_long_table_values(noise_df, lab_ids, value_name = "error_added", id_col = id_col)
     noise_long <- noise_long[noise_long$error_added != 0, , drop = FALSE]
-    noise_long <- merge(noise_long, true_values, by = c("LABID", "drug"), all.x = TRUE, sort = FALSE)
+    noise_long <- merge(noise_long, true_values, by = c(id_col, "drug"), all.x = TRUE, sort = FALSE)
     noise_long <- noise_long[noise_long$true_value != threshold_value, , drop = FALSE]
     noise_long$noise_added_value <- noise_long$true_value + noise_long$error_added
     noise_long$sample_id <- i
     noise_tables[[i]] <- noise_long
 
-    values_long <- amrc_long_table_values(sample_table, lab_ids, value_name = "MIC_value")
-    values_long <- merge(values_long, true_values, by = c("LABID", "drug"), all.x = TRUE, sort = FALSE)
+    values_long <- amrc_long_table_values(sample_table, lab_ids, value_name = "MIC_value", id_col = id_col)
+    values_long <- merge(values_long, true_values, by = c(id_col, "drug"), all.x = TRUE, sort = FALSE)
     values_long$sample_id <- i
     sample_values_long[[i]] <- values_long
 
-    annotation_list[[i]] <- data.frame(
-      LABID = lab_ids,
-      noise_count = rowSums(error_table != 0 & tablemic != threshold_value)
-    )
+    annotation_list[[i]] <- amrc_id_frame(lab_ids, id_col = id_col)
+    annotation_list[[i]]$noise_count <- rowSums(error_table != 0 & tablemic != threshold_value)
   }
 
   fits <- amrc_run_mds_collection(
@@ -543,15 +580,16 @@ amrc_noise_added_study <- function(
     type = "ratio"
   )
 
-  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids)[, c("D1", "D2")]
-  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids)
+  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids, id_col = id_col)[, c("D1", "D2")]
+  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids, id_col = id_col)
   stress_values <- data.frame(value = vapply(fits, function(fit) fit$stress, numeric(1)))
-  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list)
+  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list, id_col = id_col)
 
   cross_validation <- amrc_cross_validate_robustness(
     sample_distances = sample_distances,
     reference_distance = stats::dist(tablemic),
     lab_ids = lab_ids,
+    id_col = id_col,
     dimensions = 1:4,
     n_samples = cross_validation_n,
     type = "ratio"
@@ -609,17 +647,23 @@ amrc_mode_string <- function(x) {
 #' Run the Mixed MIC/Disc-Diffusion Robustness Analysis
 #'
 #' @param tablemic Numeric MIC table.
-#' @param tablemic_meta Metadata table containing `LABID`.
+#' @param tablemic_meta Metadata table containing an isolate identifier column.
 #' @param reference_mds Baseline MDS fit used as the reference map.
 #' @param n_samples Number of perturbed datasets to generate.
 #' @param disc_pct Percentage of eligible isolates to replace with disc
 #'   diffusion-like values.
+#' @param breakpoints Optional named list of breakpoint functions, one per MIC
+#'   column. When omitted, the legacy pneumococcal beta-lactam defaults from
+#'   `amrc_disc_diffusion_breakpoints()` are used.
 #' @param cross_validation_n Number of samples used for dimensional
 #'   cross-validation.
+#' @param id_col Optional identifier column in `tablemic_meta`. When omitted,
+#'   the function looks for `isolate_id` and then `LABID`.
 #' @param seed Integer random seed.
 #'
 #' @return A structured list containing perturbed datasets, fitted maps, and
-#'   summary tables suitable for plotting.
+#'   summary tables suitable for plotting. Long-form outputs preserve the
+#'   identifier column supplied through `id_col`.
 #' @export
 amrc_disc_diffusion_study <- function(
   tablemic,
@@ -627,15 +671,26 @@ amrc_disc_diffusion_study <- function(
   reference_mds,
   n_samples = 100,
   disc_pct = 10,
+  breakpoints = NULL,
   cross_validation_n = 25,
+  id_col = NULL,
   seed = 1234
 ) {
   tablemic <- as.data.frame(tablemic)
-  lab_ids <- as.character(tablemic_meta$LABID)
-  mic_meta <- as.data.frame(tablemic_meta)
-  colnames(mic_meta)[3:8] <- paste0(colnames(tablemic), "_MIC")
-  breakpoints <- amrc_disc_diffusion_breakpoints()
-  true_values <- amrc_true_value_long(tablemic, lab_ids)
+  id_col <- amrc_resolve_id_col(tablemic_meta, id_col = id_col)
+  lab_ids <- as.character(tablemic_meta[[id_col]])
+  if (is.null(breakpoints)) {
+    breakpoints <- amrc_disc_diffusion_breakpoints()
+  }
+  missing_breakpoints <- setdiff(colnames(tablemic), names(breakpoints))
+  if (length(missing_breakpoints) > 0) {
+    stop(
+      "breakpoints must contain one named function per MIC column. Missing: ",
+      paste(missing_breakpoints, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  true_values <- amrc_true_value_long(tablemic, lab_ids, id_col = id_col)
 
   set.seed(seed)
   bootstrap_samples <- vector("list", n_samples)
@@ -646,8 +701,10 @@ amrc_disc_diffusion_study <- function(
   weight_matrices <- vector("list", n_samples)
   annotation_list <- vector("list", n_samples)
 
-  base_df <- cbind(data.frame(LABID = lab_ids), tablemic)
-  base_df <- merge(base_df, mic_meta, by = "LABID", all.x = TRUE, sort = FALSE)
+  base_df <- cbind(amrc_id_frame(lab_ids, id_col = id_col), tablemic)
+  for (drug in colnames(tablemic)) {
+    base_df[[paste0(drug, "_MIC")]] <- tablemic[[drug]]
+  }
 
   for (i in seq_len(n_samples)) {
     sample_df <- base_df
@@ -661,11 +718,11 @@ amrc_disc_diffusion_study <- function(
     freq <- table(res_comb)
     eligible <- res_comb %in% names(freq[freq != 1])
 
-    eligible_ids <- sample_df$LABID[eligible]
+    eligible_ids <- sample_df[[id_col]][eligible]
     n_disc <- floor(sum(eligible) * disc_pct / 100)
     selected_ids <- if (n_disc > 0) sample(eligible_ids, size = n_disc) else character()
 
-    sample_numeric <- sample_df[!sample_df$LABID %in% selected_ids, c("LABID", colnames(tablemic), paste0(colnames(tablemic), "_MIC")), drop = FALSE]
+    sample_numeric <- sample_df[!sample_df[[id_col]] %in% selected_ids, c(id_col, colnames(tablemic), paste0(colnames(tablemic), "_MIC")), drop = FALSE]
     sample_numeric$res_comb <- apply(sample_numeric[, paste0(colnames(tablemic), "_MIC"), drop = FALSE], 1, paste, collapse = "_")
     sample_numeric$dist_comb <- apply(sample_numeric[, colnames(tablemic), drop = FALSE], 1, paste, collapse = "_")
 
@@ -675,12 +732,12 @@ amrc_disc_diffusion_study <- function(
       FUN = amrc_mode_string
     )
 
-    selected_rows <- sample_df[sample_df$LABID %in% selected_ids, c("LABID", paste0(colnames(tablemic), "_MIC")), drop = FALSE]
+    selected_rows <- sample_df[sample_df[[id_col]] %in% selected_ids, c(id_col, paste0(colnames(tablemic), "_MIC")), drop = FALSE]
     selected_rows$res_comb <- apply(selected_rows[, paste0(colnames(tablemic), "_MIC"), drop = FALSE], 1, paste, collapse = "_")
     selected_rows <- merge(selected_rows, combinations, by = "res_comb", all.x = TRUE, sort = FALSE)
     if (nrow(selected_rows) > 0 && anyNA(selected_rows$dist_comb)) {
       fallback <- apply(
-        sample_df[sample_df$LABID %in% selected_rows$LABID, colnames(tablemic), drop = FALSE],
+        sample_df[sample_df[[id_col]] %in% selected_rows[[id_col]], colnames(tablemic), drop = FALSE],
         1,
         paste,
         collapse = "_"
@@ -695,39 +752,37 @@ amrc_disc_diffusion_study <- function(
       for (drug in colnames(tablemic)) {
         reconstructed[[drug]] <- as.numeric(reconstructed[[drug]])
       }
-      selected_numeric <- cbind(data.frame(LABID = selected_rows$LABID), reconstructed)
+      selected_numeric <- cbind(amrc_id_frame(selected_rows[[id_col]], id_col = id_col), reconstructed)
     } else {
-      selected_numeric <- data.frame(LABID = character())
+      selected_numeric <- amrc_id_frame(character(), id_col = id_col)
       for (drug in colnames(tablemic)) {
         selected_numeric[[drug]] <- numeric()
       }
     }
 
     combined_sample <- rbind(
-      sample_df[!sample_df$LABID %in% selected_ids, c("LABID", colnames(tablemic)), drop = FALSE],
+      sample_df[!sample_df[[id_col]] %in% selected_ids, c(id_col, colnames(tablemic)), drop = FALSE],
       selected_numeric
     )
-    combined_sample <- merge(data.frame(LABID = lab_ids), combined_sample, by = "LABID", all.x = TRUE, sort = FALSE)
+    combined_sample <- merge(amrc_id_frame(lab_ids, id_col = id_col), combined_sample, by = id_col, all.x = TRUE, sort = FALSE)
 
     bootstrap_samples[[i]] <- combined_sample
     sample_distances[[i]] <- stats::dist(combined_sample[, colnames(tablemic), drop = FALSE])
 
     values_sample <- combined_sample
-    values_sample[values_sample$LABID %in% selected_ids, colnames(tablemic)] <- NA
+    values_sample[values_sample[[id_col]] %in% selected_ids, colnames(tablemic)] <- NA
     bootstrap_samples_2[[i]] <- values_sample
     weight_matrices[[i]] <- amrc_weight_matrix_from_na(values_sample[, colnames(tablemic), drop = FALSE], square = TRUE)
 
-    value_long <- amrc_long_table_values(values_sample[, colnames(tablemic), drop = FALSE], lab_ids, value_name = "MIC_value")
-    value_long <- merge(value_long, true_values, by = c("LABID", "drug"), all.x = TRUE, sort = FALSE)
+    value_long <- amrc_long_table_values(values_sample[, colnames(tablemic), drop = FALSE], lab_ids, value_name = "MIC_value", id_col = id_col)
+    value_long <- merge(value_long, true_values, by = c(id_col, "drug"), all.x = TRUE, sort = FALSE)
     value_long$sample_id <- i
     bootstrap_samples_values[[i]] <- value_long
 
-    disc_df <- data.frame(
-      LABID = lab_ids,
-      disc_diffusion_count = ifelse(lab_ids %in% selected_ids, ncol(tablemic), 0)
-    )
+    disc_df <- amrc_id_frame(lab_ids, id_col = id_col)
+    disc_df$disc_diffusion_count <- ifelse(lab_ids %in% selected_ids, ncol(tablemic), 0)
     annotation_list[[i]] <- disc_df
-    disc_diffusion_samples[[i]] <- data.frame(LABID = selected_ids)
+    disc_diffusion_samples[[i]] <- amrc_id_frame(selected_ids, id_col = id_col)
   }
 
   fits <- amrc_run_mds_collection(
@@ -738,15 +793,16 @@ amrc_disc_diffusion_study <- function(
     type = "ratio"
   )
 
-  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids)[, c("D1", "D2")]
-  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids)
+  reference_configuration <- amrc_reference_configuration(reference_mds, lab_ids, id_col = id_col)[, c("D1", "D2")]
+  procrustes <- amrc_compare_procrustes_collection(reference_configuration, fits, lab_ids, id_col = id_col)
   stress_values <- data.frame(value = vapply(fits, function(fit) fit$stress, numeric(1)))
-  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list)
+  stress_per_point <- amrc_collect_spp_annotations(fits, lab_ids, annotation_list = annotation_list, id_col = id_col)
 
   cross_validation <- amrc_cross_validate_robustness(
     sample_distances = sample_distances,
     reference_distance = stats::dist(tablemic),
     lab_ids = lab_ids,
+    id_col = id_col,
     weight_matrices = weight_matrices,
     dimensions = 1:4,
     n_samples = cross_validation_n,
@@ -792,10 +848,12 @@ amrc_disc_diffusion_study <- function(
 #'
 #' @param tablemic Numeric MIC table that has already been shifted onto a
 #'   positive scale where thresholded values equal `threshold_value`.
-#' @param tablemic_meta Metadata table containing `LABID`.
+#' @param tablemic_meta Metadata table containing an isolate identifier column.
 #' @param reference_mds Baseline MDS fit used as the reference map.
 #' @param threshold_value Numeric value denoting a thresholded MIC.
 #' @param weighted_repeats Number of repeated weighted fits to run.
+#' @param id_col Optional identifier column in `tablemic_meta`. When omitted,
+#'   the function looks for `isolate_id` and then `LABID`.
 #' @param seed Integer random seed.
 #'
 #' @return A structured list of threshold-related comparison fits and summary
@@ -807,11 +865,13 @@ amrc_threshold_effect_study <- function(
   reference_mds,
   threshold_value = 1,
   weighted_repeats = 10,
+  id_col = NULL,
   seed = 1234
 ) {
   tablemic <- as.data.frame(tablemic)
-  lab_ids <- as.character(tablemic_meta$LABID)
-  base_reference <- amrc_reference_configuration(reference_mds, lab_ids)[, c("LABID", "D1", "D2")]
+  id_col <- amrc_resolve_id_col(tablemic_meta, id_col = id_col)
+  lab_ids <- as.character(tablemic_meta[[id_col]])
+  base_reference <- amrc_reference_configuration(reference_mds, lab_ids, id_col = id_col)[, c(id_col, "D1", "D2")]
   threshold_count <- rowSums(tablemic == threshold_value, na.rm = TRUE)
   numeric_count <- rowSums(tablemic != threshold_value, na.rm = TRUE)
 
@@ -829,9 +889,14 @@ amrc_threshold_effect_study <- function(
   exclude_two <- fit_subset(numeric_count >= 2)
 
   compare_subset <- function(subset_fit) {
-    ref_subset <- base_reference[base_reference$LABID %in% subset_fit$lab_ids, , drop = FALSE]
-    ref_subset <- ref_subset[match(subset_fit$lab_ids, ref_subset$LABID), c("D1", "D2"), drop = FALSE]
-    amrc_compare_procrustes_collection(ref_subset, list(amrc_simplify_mds_fit(subset_fit$fit, lab_ids = subset_fit$lab_ids)), subset_fit$lab_ids)
+    ref_subset <- base_reference[base_reference[[id_col]] %in% subset_fit$lab_ids, , drop = FALSE]
+    ref_subset <- ref_subset[match(subset_fit$lab_ids, ref_subset[[id_col]]), c("D1", "D2"), drop = FALSE]
+    amrc_compare_procrustes_collection(
+      ref_subset,
+      list(amrc_simplify_mds_fit(subset_fit$fit, lab_ids = subset_fit$lab_ids)),
+      subset_fit$lab_ids,
+      id_col = id_col
+    )
   }
 
   metric_subset_all <- compare_subset(exclude_all)
@@ -875,17 +940,20 @@ amrc_threshold_effect_study <- function(
   metric_weight_comparison <- amrc_compare_procrustes_collection(
     base_metric_conf,
     list(weighted_metric_best),
-    lab_ids
+    lab_ids,
+    id_col = id_col
   )
   ordinal_weight_comparison <- amrc_compare_procrustes_collection(
     base_ordinal_conf,
     list(weighted_ordinal_best),
-    lab_ids
+    lab_ids,
+    id_col = id_col
   )
   metric_ordinal_comparison <- amrc_compare_procrustes_collection(
     base_metric_conf,
     list(amrc_simplify_mds_fit(ordinal_fit, lab_ids = lab_ids)),
-    lab_ids
+    lab_ids,
+    id_col = id_col
   )
 
   list(

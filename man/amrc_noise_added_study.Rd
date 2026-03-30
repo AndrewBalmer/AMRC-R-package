@@ -12,6 +12,7 @@ amrc_noise_added_study(
   perturb_pct = 10,
   threshold_value = 1,
   cross_validation_n = 25,
+  id_col = NULL,
   seed = 1234
 )
 }
@@ -19,7 +20,7 @@ amrc_noise_added_study(
 \item{tablemic}{Numeric MIC table that has already been shifted onto a
 positive scale where thresholded values equal \code{threshold_value}.}
 
-\item{tablemic_meta}{Metadata table containing \code{LABID}.}
+\item{tablemic_meta}{Metadata table containing an isolate identifier column.}
 
 \item{reference_mds}{Baseline MDS fit used as the reference map.}
 
@@ -33,11 +34,15 @@ not be perturbed.}
 \item{cross_validation_n}{Number of samples used for dimensional
 cross-validation.}
 
+\item{id_col}{Optional identifier column in \code{tablemic_meta}. When omitted,
+the function looks for \code{isolate_id} and then \code{LABID}.}
+
 \item{seed}{Integer random seed.}
 }
 \value{
 A structured list containing perturbed datasets, fitted maps, and
-summary tables suitable for plotting.
+summary tables suitable for plotting. Long-form outputs preserve the
+identifier column supplied through \code{id_col}.
 }
 \description{
 Run the Noise-Added Robustness Analysis

@@ -11,4 +11,4 @@
 #' @keywords internal
 "_PACKAGE"
 
-utils::globalVariables(c("value"))
+utils::globalVariables(c(".amrc_cluster", ".amrc_x", ".amrc_y", ".data", "value"))

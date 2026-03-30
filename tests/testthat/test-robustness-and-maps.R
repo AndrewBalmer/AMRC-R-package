@@ -167,6 +167,7 @@ test_that("comparison and clustering helpers return reusable canonical tables", 
 
   tablemic <- toy_amrc_table()
   meta <- toy_amrc_meta(tablemic)
+  rownames(tablemic) <- meta$LABID
   phenotype_fit <- amrc_compute_mds(stats::dist(tablemic), itmax = 50, eps = 1e-04)
   genotype_fit <- amrc_compute_mds(stats::dist(tablemic), itmax = 50, eps = 1e-04)
 
@@ -216,7 +217,7 @@ test_that("comparison and clustering helpers return reusable canonical tables", 
   )
 
   expect_true(all(c("phen_distance", "gen_distance") %in% names(ref_distance)))
-  expect_true(all(c("cluster", "mean_phenotypic_distance", "mean_genetic_distance") %in% names(ref_summary$summary)))
+  expect_true(all(c("cluster", "mean_phenotypic_distance", "mean_external_distance") %in% names(ref_summary$summary)))
 })
 
 test_that("plotting helpers accept numeric cluster identifiers", {
@@ -248,4 +249,32 @@ test_that("plotting helpers accept numeric cluster identifiers", {
   )
   expect_s3_class(distance_plot, "ggplot")
   expect_no_error(ggplot2::ggplot_build(distance_plot))
+})
+
+test_that("dimension-comparison helpers preserve configurable identifier columns", {
+  skip_if_not_installed("smacof")
+
+  tablemic <- toy_amrc_table()
+  ids <- paste0("iso", seq_len(nrow(tablemic)))
+  rownames(tablemic) <- ids
+
+  fit_2d <- amrc_compute_mds(stats::dist(tablemic), ndim = 2, itmax = 50, eps = 1e-04)
+  fit_3d <- amrc_compute_mds(stats::dist(tablemic), ndim = 3, itmax = 50, eps = 1e-04)
+
+  adjacent <- amrc_compare_adjacent_dimensions(
+    mds_fits = list("2" = fit_2d, "3" = fit_3d),
+    lab_ids = ids,
+    compare_dims = 3,
+    id_col = "isolate_id"
+  )
+
+  one_vs_two <- amrc_compare_one_and_two_dimensional_maps(
+    one_dim_fit = amrc_compute_mds(stats::dist(tablemic), ndim = 1, itmax = 50, eps = 1e-04),
+    two_dim_fit = fit_2d,
+    lab_ids = ids,
+    id_col = "isolate_id"
+  )
+
+  expect_true("isolate_id" %in% names(adjacent$projection_distances))
+  expect_true("isolate_id" %in% names(one_vs_two$comparison))
 })

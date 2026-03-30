@@ -17,10 +17,5 @@ target.
 \author{
 \strong{Maintainer}: Andrew Balmer \email{ab69@sanger.ac.uk}
 
-Other contributors:
-\itemize{
-  \item OpenAI [contributor]
-}
-
 }
 \keyword{internal}

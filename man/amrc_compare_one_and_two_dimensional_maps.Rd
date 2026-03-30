@@ -9,7 +9,8 @@ amrc_compare_one_and_two_dimensional_maps(
   two_dim_fit,
   lab_ids,
   rotation_degrees = 326,
-  dedupe_digits = 10
+  dedupe_digits = 10,
+  id_col = "LABID"
 )
 }
 \arguments{
@@ -23,6 +24,9 @@ amrc_compare_one_and_two_dimensional_maps(
 
 \item{dedupe_digits}{Number of digits used when collapsing identical 2D
 phenotypes.}
+
+\item{id_col}{Output column name used for isolate identifiers in the
+comparison tables.}
 }
 \value{
 A list containing the \code{procrustes} fit, the full per-isolate

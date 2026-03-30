@@ -740,8 +740,8 @@ amrc_resolve_distance_column <- function(data, explicit, candidates, arg_name) {
 #' @param reference_col Column used to identify the reference row or group. When
 #'   omitted, the function falls back to `PBP_type` for case-study
 #'   compatibility.
-#' @param phenotype_cols Length-2 character vector for phenotype coordinates.
-#' @param external_cols Length-2 character vector for external coordinates.
+#' @param phenotype_cols Character vector for phenotype coordinates.
+#' @param external_cols Character vector for external coordinates.
 #' @param genotype_cols Legacy alias for `external_cols` retained for the
 #'   pneumococcal case study.
 #' @param phenotype_reference_cols Optional alternate phenotype coordinate
@@ -760,6 +760,12 @@ amrc_resolve_distance_column <- function(data, explicit, candidates, arg_name) {
 #'
 #' @return A data frame of per-row phenotype and external distances from the
 #'   chosen reference entry.
+#'
+#' @details
+#' When `reference_col` matches multiple rows, the function uses the centroid of
+#' those rows to define the phenotype and external reference positions. This
+#' avoids order-dependent behaviour when the reference group contains multiple
+#' isolates.
 #' @export
 amrc_compute_reference_distance_table <- function(
   data,
@@ -832,9 +838,14 @@ amrc_compute_reference_distance_table <- function(
     stop("reference_value was not found in reference_col.", call. = FALSE)
   }
 
-  reference_row <- reference_rows[1, , drop = FALSE]
-  phenotype_reference <- as.numeric(reference_row[1, phenotype_reference_cols, drop = TRUE])
-  external_reference <- as.numeric(reference_row[1, external_cols, drop = TRUE])
+  phenotype_reference <- colMeans(
+    as.matrix(reference_rows[, phenotype_reference_cols, drop = FALSE]),
+    na.rm = TRUE
+  )
+  external_reference <- colMeans(
+    as.matrix(reference_rows[, external_cols, drop = FALSE]),
+    na.rm = TRUE
+  )
 
   result <- list()
   if (!is.null(id_col)) {
@@ -850,13 +861,14 @@ amrc_compute_reference_distance_table <- function(
     }
   }
 
+  phenotype_matrix <- as.matrix(data[, phenotype_cols, drop = FALSE])
+  external_matrix <- as.matrix(data[, external_cols, drop = FALSE])
+
   result[[phenotype_distance_col]] <- sqrt(
-    (data[[phenotype_cols[[1]]]] - phenotype_reference[[1]])^2 +
-      (data[[phenotype_cols[[2]]]] - phenotype_reference[[2]])^2
+    rowSums((sweep(phenotype_matrix, 2, phenotype_reference, "-"))^2)
   )
   result[[external_distance_col]] <- sqrt(
-    (data[[external_cols[[1]]]] - external_reference[[1]])^2 +
-      (data[[external_cols[[2]]]] - external_reference[[2]])^2
+    rowSums((sweep(external_matrix, 2, external_reference, "-"))^2)
   )
 
   as.data.frame(result, stringsAsFactors = FALSE, check.names = FALSE)
@@ -877,8 +889,9 @@ amrc_compute_reference_distance_table <- function(
 #' @param digits Number of digits used when rounding the summary tables.
 #'
 #' @return A list containing the raw `distance_table`, grouped `summary`,
-#'   `summary_with_overall` rows, a linear-model fit, and a Spearman
-#'   correlation test.
+#'   separate `overall_summary`, `average_row`, and `sd_row` summaries, a
+#'   compatibility `summary_with_overall` table, a linear-model fit, and a
+#'   Spearman correlation test.
 #' @export
 amrc_summarise_reference_distance_table <- function(
   distance_table,
@@ -923,6 +936,9 @@ amrc_summarise_reference_distance_table <- function(
     )
     rounded_summary <- summary
     rounded_summary[, 2:4] <- round(rounded_summary[, 2:4, drop = FALSE], digits = digits)
+    rounded_overall <- rounded_summary
+    rounded_average <- NULL
+    rounded_sd <- NULL
     rounded_with_overall <- rounded_summary
   } else {
     phen_means <- stats::aggregate(
@@ -963,9 +979,23 @@ amrc_summarise_reference_distance_table <- function(
 
     rounded_summary <- summary
     rounded_summary[, 2:4] <- round(rounded_summary[, 2:4, drop = FALSE], digits = digits)
+    rounded_average <- average_row
+    rounded_average[, 2:4] <- round(rounded_average[, 2:4, drop = FALSE], digits = digits)
+    rounded_sd <- sd_row
+    rounded_sd[, 2:4] <- round(rounded_sd[, 2:4, drop = FALSE], digits = digits)
+    rounded_overall <- data.frame(
+      cluster = "Overall",
+      mean_phenotypic_distance = round(mean(distance_table[[phenotype_distance_col]]), digits = digits),
+      mean_external_distance = round(mean(distance_table[[external_distance_col]]), digits = digits),
+      external_to_phenotypic_ratio = round(
+        mean(distance_table[[external_distance_col]]) /
+          mean(distance_table[[phenotype_distance_col]]),
+        digits = digits
+      ),
+      stringsAsFactors = FALSE
+    )
 
-    rounded_with_overall <- rbind(rounded_summary, average_row, sd_row)
-    rounded_with_overall[, 2:4] <- round(rounded_with_overall[, 2:4, drop = FALSE], digits = digits)
+    rounded_with_overall <- rbind(rounded_summary, rounded_average, rounded_sd)
   }
 
   fit_formula <- stats::as.formula(
@@ -982,6 +1012,9 @@ amrc_summarise_reference_distance_table <- function(
   list(
     distance_table = distance_table,
     summary = rounded_summary,
+    overall_summary = rounded_overall,
+    average_row = rounded_average,
+    sd_row = rounded_sd,
     summary_with_overall = rounded_with_overall,
     fit = fit,
     correlation = correlation

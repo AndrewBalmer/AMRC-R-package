@@ -201,6 +201,8 @@ amrc_one_dimensional_noise_study <- function(
 #' @param rotation_degrees Optional post-calibration rotation for the 2D map.
 #' @param dedupe_digits Number of digits used when collapsing identical 2D
 #'   phenotypes.
+#' @param id_col Output column name used for isolate identifiers in the
+#'   comparison tables.
 #'
 #' @return A list containing the `procrustes` fit, the full per-isolate
 #'   `comparison` table, and a `unique_phenotypes` subset.
@@ -210,7 +212,8 @@ amrc_compare_one_and_two_dimensional_maps <- function(
   two_dim_fit,
   lab_ids,
   rotation_degrees = 326,
-  dedupe_digits = 10
+  dedupe_digits = 10,
+  id_col = "LABID"
 ) {
   if (!requireNamespace("smacof", quietly = TRUE)) {
     stop(
@@ -239,7 +242,7 @@ amrc_compare_one_and_two_dimensional_maps <- function(
     (pairwise$X_axis_2D_map - pairwise$X_axis_1D_map)^2 +
       (pairwise$Y_axis_2D_map - pairwise$Y_axis_1D_map)^2
   )
-  pairwise$LABID <- lab_ids
+  pairwise[[id_col]] <- lab_ids
   pairwise$spp_2D <- as.numeric(two_dim_fit$spp)
   pairwise$spp_1D <- as.numeric(one_dim_fit$spp)
 

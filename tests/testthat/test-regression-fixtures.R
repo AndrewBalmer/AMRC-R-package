@@ -67,6 +67,10 @@ test_that("preprocessing outputs match frozen fixtures", {
     check.names = FALSE
   )
 
+  rownames(expected_mic) <- expected_meta$LABID
+  rownames(expected_meta) <- expected_meta$LABID
+  rownames(expected_gen_meta) <- expected_gen_meta$LABID
+
   expect_equal(phen$mic, expected_mic)
   expect_equal(phen$metadata, expected_meta)
   expected_gen_meta[, c("S1", "S2", "S3")] <- lapply(
