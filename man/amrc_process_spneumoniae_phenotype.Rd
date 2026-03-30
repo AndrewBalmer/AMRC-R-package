@@ -52,5 +52,7 @@ This is an example-specific wrapper retained for the packaged
 \code{\link[=amrc_standardise_mic_data]{amrc_standardise_mic_data()}} and \code{\link[=amrc_compute_mic_distance]{amrc_compute_mic_distance()}}.
 
 Lifecycle note: this function remains exported for case-study compatibility,
-but it is not intended to define the long-term generic package API.
+but it is not intended to define the long-term generic package API. In the
+\verb{0.1.0} public milestone it should be read as a supported case-study helper,
+not as the recommended entry point for new analyses.
 }

@@ -5,6 +5,8 @@ This checklist is for the first usable public release of `amrcartography` and fo
 ## Before Version Bump
 
 - Confirm the exported API still matches the workflow described in the vignette and README.
+- Confirm the generic-first story is still the package identity and the
+  pneumococcal material is still framed as a case study.
 - Confirm the current scope still excludes the deferred external-variable notebook.
 - Check that all generated example files referenced in the package are present and use the short portable filenames.
 - Keep the interactive app out of scope unless the manuscript workflow and exported API have clearly stabilised.
@@ -20,10 +22,13 @@ This checklist is for the first usable public release of `amrcartography` and fo
 ## Validation
 
 - Run `testthat::test_local(".")`.
-- Run `R CMD build --no-build-vignettes .` locally if `pandoc` is unavailable.
-- Run `R CMD check --no-manual --ignore-vignettes amrcartography_*.tar.gz` locally if `pandoc` is unavailable.
+- Run `R CMD build .` locally when `pandoc` is available.
+- Run `R CMD check --as-cran --no-manual amrcartography_*.tar.gz` locally when `pandoc` is available.
+- If `pandoc` is unavailable, fall back to `R CMD build --no-build-vignettes .`
+  and `R CMD check --no-manual --ignore-vignettes amrcartography_*.tar.gz`.
 - Confirm GitHub Actions `R-CMD-check` is green on `main`.
-- Confirm the vignette builds successfully in CI with pandoc.
+- Confirm the docs/example sanity workflow is green on `main`.
+- Confirm the vignette rebuild succeeds in CI with pandoc.
 
 ## NEWS
 
@@ -49,7 +54,8 @@ This checklist is for the first usable public release of `amrcartography` and fo
 ## GitHub Release
 
 - Tag the release from the validated commit.
-- Draft GitHub release notes from `NEWS.md`.
+- Draft GitHub release notes from `NEWS.md` or the prepared release-note draft
+  under `docs/`.
 - Link the release notes to the manuscript/preprint if available.
 - If branch protection is enabled, confirm required checks passed before tagging.
 
@@ -57,4 +63,4 @@ This checklist is for the first usable public release of `amrcartography` and fo
 
 - Check that installation from GitHub still works from a clean R session.
 - Check that the vignette and README render correctly on GitHub.
-- Open the next `Unreleased` section in [NEWS.md](/Users/ab69/AMRC-R-package/NEWS.md).
+- Open the next `Unreleased` or next-version section in [NEWS.md](/Users/ab69/AMRC-R-package/NEWS.md).

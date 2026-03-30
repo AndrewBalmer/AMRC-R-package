@@ -13,7 +13,9 @@
 #' while the generic package story is moving toward user-supplied external
 #' distance structures and helper functions such as
 #' [amrc_compute_external_distance()] and
-#' [amrc_compute_external_feature_distance()].
+#' [amrc_compute_external_feature_distance()]. In the `0.1.0` public milestone
+#' it should be read as a supported case-study helper, not as the recommended
+#' entry point for new analyses.
 #'
 #' @param input_dir Directory containing the raw genotype CSV files.
 #' @param sequence_files Length-2 character vector of genotype file names.

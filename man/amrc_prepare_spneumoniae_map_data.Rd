@@ -55,5 +55,7 @@ generic replacement target is a dataset-agnostic \code{amrc_prepare_map_data()}
 workflow.
 
 Lifecycle note: this function remains exported for case-study compatibility,
-but new analyses should prefer \code{\link[=amrc_prepare_map_data]{amrc_prepare_map_data()}}.
+but new analyses should prefer \code{\link[=amrc_prepare_map_data]{amrc_prepare_map_data()}}. In the \verb{0.1.0}
+public milestone it should be read as a supported case-study helper, not as
+the recommended entry point for new analyses.
 }

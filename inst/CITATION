@@ -5,5 +5,5 @@ bibentry(
   title = "amrcartography: Reproducible antimicrobial resistance cartography from MIC data",
   author = person("Andrew", "Balmer"),
   year = "2026",
-  note = "R package version 0.0.0.9000"
+  note = "R package version 0.1.0"
 )

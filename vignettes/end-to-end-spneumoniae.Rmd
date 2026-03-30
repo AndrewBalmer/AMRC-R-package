@@ -24,6 +24,9 @@ fast and deterministic. That is intentional: the full notebook-scale
 *S. pneumoniae* workflow is much slower, and it is not a good default example
 for learning the package API. A second non-evaluated chunk shows how to scale
 the same workflow up to the larger case-study data in a local source checkout.
+For the generic package entry points, start with
+`vignette("using-your-own-mic-data")` and
+`vignette("external-data-structures")`.
 
 ## Load the package and locate the example inputs
 

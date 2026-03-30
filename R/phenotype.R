@@ -22,7 +22,9 @@ amrc_check_files_exist <- function(paths) {
 #' [amrc_standardise_mic_data()] and [amrc_compute_mic_distance()].
 #'
 #' Lifecycle note: this function remains exported for case-study compatibility,
-#' but it is not intended to define the long-term generic package API.
+#' but it is not intended to define the long-term generic package API. In the
+#' `0.1.0` public milestone it should be read as a supported case-study helper,
+#' not as the recommended entry point for new analyses.
 #'
 #' @param input_dir Directory containing the raw phenotype CSV files.
 #' @param mic_files Length-2 character vector of phenotype file names.

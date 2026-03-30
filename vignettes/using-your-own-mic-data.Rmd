@@ -21,7 +21,9 @@ and reference-distance summaries.
 
 The example uses a small synthetic dataset so the workflow stays fast and easy
 to adapt to your own data. The organism-specific *S. pneumoniae* case study is
-available separately in `vignette("end-to-end-spneumoniae")`.
+available separately in `vignette("end-to-end-spneumoniae")`. If you want a
+closer look at the different kinds of external structure the package can
+accept, also see `vignette("external-data-structures")`.
 
 ## Load the package
 

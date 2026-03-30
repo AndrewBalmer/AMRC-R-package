@@ -14,6 +14,10 @@ The main user-facing workflow should now be the generic vignette:
 
 [using-your-own-mic-data.Rmd](/Users/ab69/AMRC-R-package/vignettes/using-your-own-mic-data.Rmd)
 
+The supporting generic external-data story should now be the second vignette:
+
+[external-data-structures.Rmd](/Users/ab69/AMRC-R-package/vignettes/external-data-structures.Rmd)
+
 The `S. pneumoniae` workflow remains important, but it should be framed as the
 secondary case-study/validation path rather than the package identity:
 
@@ -27,14 +31,18 @@ The manuscript should explain the package around this generic sequence:
 4. compare map structure and cluster-level relationships
 5. demonstrate the approach on the `S. pneumoniae` case study
 
-The manuscript software baseline is now fixed at:
+The manuscript should now move away from citing an intermediate development
+commit and instead cite the first tagged public package release. The current
+release target is:
 
-- commit: `7a96194`
-- package version: `0.0.0.9000`
-- CI validation: GitHub Actions `R-CMD-check` run `23740539045` passed on 2026-03-30
+- target software release: `v0.1.0`
+- package version in the release-prep tree: `0.1.0`
+- citation policy: cite the first green tagged release rather than an older
+  development commit
 
-Keep the manuscript drafting centered on the vignette structure, and cite this
-commit/version pair unless a later validated release supersedes it.
+Keep the manuscript drafting centered on the vignette structure, and update the
+final software citation to the validated release tag once the GitHub release is
+cut.
 
 ## Draft Abstract
 
@@ -112,4 +120,4 @@ studies.
 - tighten the abstract once the target journal is chosen
 - add references for MDS, MIC analysis, and AMR cartography framing
 - decide whether to position this as a methods/software paper or as a companion software note to the main AMR cartography manuscript
-- add citation/repository/version text for commit `7a96194` / version `0.0.0.9000`
+- add citation/repository/version text for the first tagged package release

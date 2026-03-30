@@ -14,6 +14,14 @@ phenotype-vs-external comparison workflows, while the historical
 \verb{S. pneumoniae} analysis remains as a worked case study and regression
 target.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/AndrewBalmer/AMRC-R-package}
+  \item Report bugs at \url{https://github.com/AndrewBalmer/AMRC-R-package/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Andrew Balmer \email{ab69@sanger.ac.uk}
 

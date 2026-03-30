@@ -38,6 +38,22 @@ replacements are mature and well documented:
 - `amrc_process_spneumoniae_genotype()`
 - `amrc_prepare_spneumoniae_map_data()`
 
+For the `0.1.0` public milestone, these wrappers are in a soft-deprecation
+state:
+
+- they remain fully supported for the case-study workflow
+- they are still documented and tested
+- they should not be introduced as the primary API in new user-facing docs
+- new analyses should prefer the generic replacements listed below
+
+### Generic replacement path
+
+| Transitional wrapper | Generic replacement path |
+| --- | --- |
+| `amrc_process_spneumoniae_phenotype()` | `amrc_standardise_mic_data()` + `amrc_compute_mic_distance()` |
+| `amrc_process_spneumoniae_genotype()` | `amrc_standardise_external_data()` + `amrc_compute_external_distance()` or `amrc_compute_external_feature_distance()` |
+| `amrc_prepare_spneumoniae_map_data()` | `amrc_prepare_map_data()` |
+
 ## Case-study-specific helper functions
 
 These functions are still useful for the pneumococcal case study, but they are
@@ -85,3 +101,6 @@ following are true:
 - avoid adding new organism-specific public functions
 - prefer adding generic helpers even when the motivating use case comes from the
   pneumococcal analysis
+- do not add runtime deprecation warnings to the transitional wrappers until
+  the generic replacement story is stable enough that existing notebook users
+  have a clear migration path

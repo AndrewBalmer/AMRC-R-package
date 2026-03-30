@@ -1,45 +1,64 @@
 # amrcartography news
 
-## 0.1.0.9000
+## 0.1.0 (2026-03-30)
 
-First usable package-development release of `amrcartography`.
+First public GitHub release of `amrcartography` as a generic MIC cartography
+toolkit, with the `S. pneumoniae` workflow retained as a worked example and
+regression target rather than the package’s primary identity.
+
+### Generic-first API
+
+- Added generic MIC validation, standardisation, and distance helpers for
+  arbitrary isolate-by-drug MIC tables.
+- Added generic external-data helpers for precomputed distance matrices,
+  aligned numeric feature tables, and aligned character-state feature tables.
+- Added reusable map-comparison, clustering, calibration, robustness, and
+  reference-distance helpers designed to work across datasets rather than only
+  the pneumococcal case study.
+- Updated the robustness and dimensionality helpers so isolate identifiers are
+  no longer silently hard-coded as `LABID`.
+
+### Case-study lifecycle
+
+- Kept `amrc_process_spneumoniae_phenotype()`,
+  `amrc_process_spneumoniae_genotype()`, and
+  `amrc_prepare_spneumoniae_map_data()` as supported case-study wrappers for
+  compatibility.
+- Clarified in the README and lifecycle docs that those pneumococcal wrappers
+  are example-facing compatibility helpers rather than the long-term primary
+  analysis API.
+- Kept the `S. pneumoniae` example-build helpers public as permanent
+  case-study infrastructure.
+
+### Validation, testing, and CI
+
+- Fixed the audit issues in the generic workflow, robustness, plotting, and
+  reference-distance code paths.
+- Expanded deterministic and fixture-based tests, including generic workflow
+  coverage that now runs locally on macOS as well as in CI.
+- Added stronger local and hosted validation of vignette rebuilding and
+  documentation-facing workflows.
+- Local validation for this release passes with:
+  - `testthat::test_local(".")`
+  - full vignette-inclusive `R CMD build`
+  - full `R CMD check --as-cran --no-manual`
+
+### Documentation and examples
+
+- Rewrote the README around the generic “bring your own MIC table” story.
+- Added the generic vignette `using-your-own-mic-data`.
+- Added the generic vignette `external-data-structures`.
+- Kept `end-to-end-spneumoniae` as a separate case-study vignette.
+- Added explicit object-contract documentation for the package’s core data and
+  result structures.
+- Added release-facing metadata, citation cleanup, and release-note scaffolding
+  for a tagged public milestone.
 
 ### Reproducibility and infrastructure
 
-- Formalised the repository as an R package with `DESCRIPTION`, `NAMESPACE`, generated man pages, tests, and packaged example data.
-- Captured the project environment with `renv` and added environment/bootstrap helpers under `tools/`.
-- Added GitHub Actions `R-CMD-check` for hosted build/check validation.
-- Added a release checklist and manuscript scaffold in `docs/`.
-
-### Data and preprocessing
-
-- Made phenotype preprocessing canonical with `amrc_process_spneumoniae_phenotype()`.
-- Made genotype preprocessing canonical with `amrc_process_spneumoniae_genotype()`.
-- Frozen external/generated data provenance in `docs/DATA_PROVENANCE.md` and `data-raw/data-provenance.csv`.
-- Shortened packaged generated genotype-distance filenames to portable names and added backward-compatible path lookup helpers.
-- Added bundled mini raw-input example files and packaged generated example paths.
-
-### Analysis API
-
-- Added reusable MDS, calibration, goodness-of-fit, robustness, clustering, dimensionality, and phenotype/genotype comparison helpers.
-- Added shared plotting helpers so notebooks can call package code instead of carrying private plotting logic.
-- Added packaged helpers for locating example inputs and outputs.
-
-### Notebook migration
-
-- Rebuilt the phenotype/genotype map-generation workflow around package helpers.
-- Migrated the dimensionality, clustering, and side-by-side phenotype/genotype comparison notebooks onto the package API.
-- Reduced remaining dependence on hard-coded paths and notebook-local data assembly.
-
-### Testing and validation
-
-- Added deterministic unit tests for map-building, robustness, and the new clustering/comparison helpers.
-- Added fixture-based regression tests for preprocessing outputs, map summaries, goodness-of-fit summaries, and robustness summaries.
-- Local validation now passes with `testthat::test_local(".")` and `R CMD check --no-manual --ignore-vignettes`.
-
-### Documentation
-
-- Rewrote the README around installation, examples, runtime expectations, provenance, and release-facing guidance.
-- Added the user-facing end-to-end vignette `end-to-end-spneumoniae`.
-- Added manuscript planning and release-checklist documents.
-- Added `CITATION.cff`, a standard `inst/CITATION`, and README citation guidance.
+- Formalised the repository as an R package with generated man pages, tests,
+  packaged example data, and a reproducible `renv` environment.
+- Frozen external/generated data provenance in `docs/DATA_PROVENANCE.md` and
+  `data-raw/data-provenance.csv`.
+- Added release checklist, API lifecycle notes, manuscript draft scaffolding,
+  and first-release GitHub notes under `docs/`.

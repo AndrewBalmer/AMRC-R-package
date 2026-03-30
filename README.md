@@ -19,16 +19,18 @@ The package is now at the point where it has:
 - a locked package identity and reproducible environment setup
 - generic MIC validation, standardisation, and distance helpers
 - reusable MDS, robustness, clustering, calibration, and comparison helpers
+- explicit support for precomputed, numeric-feature, and character-feature
+  external data structures
 - a package-backed *S. pneumoniae* case study for example and regression use
 - deterministic and fixture-based regression tests
 
 ## Status
 
-This is still a development release rather than a CRAN release, and the
-repository should be used as-is. The exported API is now usable, but some
-notebook migrations, generic-first documentation changes, and release-facing
-cleanup are still ongoing, so interfaces and bundled examples may still
-change. This repository is also separate from the related manuscript
+This is still a GitHub release rather than a CRAN release, and the repository
+should be used as-is. The current public milestone is `0.1.0`: the generic API
+is now intentionally usable, but the package is still being prepared for
+manuscript-centered release and long-term API stabilisation. This repository is
+also separate from the related manuscript
 repository: it contains the package, migrated analysis code, and development
 documentation, not the manuscript submission source itself. The long-term
 package goal is a generic MIC cartography toolkit; the current
@@ -61,6 +63,13 @@ Start with the generic vignette if you want to use your own MIC table:
 vignette("using-your-own-mic-data", package = "amrcartography")
 ```
 
+If you want help choosing and preparing the external structure that will be
+compared to a phenotype map, use:
+
+```r
+vignette("external-data-structures", package = "amrcartography")
+```
+
 The *S. pneumoniae* case-study vignette is still available separately:
 
 ```r
@@ -79,6 +88,9 @@ The `mini_raw` example is a tiny raw-input workflow intended for the
 case-study vignette and CI. The larger notebook-scale generated outputs are not
 bundled in the installed package; build them locally when you need the full
 repository workflow.
+
+The core object contracts used throughout these workflows are documented in
+[docs/OBJECT_CONTRACTS.md](docs/OBJECT_CONTRACTS.md).
 
 ## Generic Workflow
 
@@ -136,6 +148,21 @@ reference_distances <- amrc_compute_reference_distance_table(
 If you only need phenotype cartography, you can stop after the MIC
 standardisation, distance, and phenotype-map steps.
 
+## External Data Formats
+
+The package currently supports three generic ways to bring in the non-MIC
+structure you want to compare against the phenotype map:
+
+- a precomputed external distance matrix via `amrc_compute_external_distance()`
+- an aligned numeric feature table via `amrc_standardise_external_data()` and
+  `amrc_compute_external_feature_distance()`
+- an aligned character-state feature table via
+  `amrc_standardise_external_data(feature_mode = "character")` and
+  `amrc_compute_external_feature_distance()`
+
+The dedicated external-data vignette walks through those options with small
+reproducible examples.
+
 ## S. pneumoniae Case Study
 
 The organism-specific `S. pneumoniae` helpers remain in the package as
@@ -151,7 +178,9 @@ The main case-study wrappers are:
 - `amrc_prepare_spneumoniae_map_data()`
 
 Those functions remain supported for compatibility, but they should be read as
-example-specific wrappers rather than the long-term primary API.
+example-specific wrappers rather than the long-term primary API. In `0.1.0`
+they remain documented and supported, but they are soft-deprecated as the
+recommended entry points for new analyses.
 
 For lightweight case-study runs, prefer the bundled `mini_raw` example or the
 `sample_n` arguments in the case-study preprocessing wrappers rather than the
@@ -199,12 +228,14 @@ The package now separates what ships in the repository from what is downloaded o
 - Package conversion roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Script-by-script migration audit: [docs/SCRIPT_AUDIT.md](docs/SCRIPT_AUDIT.md)
 - Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
+- Object contracts: [docs/OBJECT_CONTRACTS.md](docs/OBJECT_CONTRACTS.md)
+- GitHub release notes draft: [docs/RELEASE_NOTES_0.1.0.md](docs/RELEASE_NOTES_0.1.0.md)
 - Manuscript scaffold: [docs/MANUSCRIPT_DRAFT.md](docs/MANUSCRIPT_DRAFT.md)
 - API lifecycle notes: [docs/API_LIFECYCLE.md](docs/API_LIFECYCLE.md)
 
 ## How To Cite
 
-The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For now, cite the package/software record; once the package manuscript is finalized, the README and citation text should be updated to cite both the software and the paper.
+The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current publication workflow, the package should be cited as the `0.1.0` software release; once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
 
 ## Repository Layout
 

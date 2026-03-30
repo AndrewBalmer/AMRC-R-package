@@ -8,5 +8,5 @@ authors:
     given-names: Andrew
     email: ab69@sanger.ac.uk
 repository-code: "https://github.com/AndrewBalmer/AMRC-R-package"
-abstract: "amrcartography is an R package for reproducible antimicrobial resistance cartography workflows, including MIC preprocessing, map fitting, robustness analyses, clustering, and phenotype-versus-genotype comparison."
-version: 0.0.0.9000
+abstract: "amrcartography is an R package for generic antimicrobial resistance cartography workflows, including MIC preprocessing, external-distance integration, map fitting, robustness analyses, clustering, and phenotype-versus-external comparison."
+version: 0.1.0

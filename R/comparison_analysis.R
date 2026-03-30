@@ -393,7 +393,9 @@ amrc_prepare_map_data <- function(
 #' workflow.
 #'
 #' Lifecycle note: this function remains exported for case-study compatibility,
-#' but new analyses should prefer [amrc_prepare_map_data()].
+#' but new analyses should prefer [amrc_prepare_map_data()]. In the `0.1.0`
+#' public milestone it should be read as a supported case-study helper, not as
+#' the recommended entry point for new analyses.
 #'
 #' @param tablemic_meta Processed metadata table containing at least `LABID` and
 #'   `PT`.
