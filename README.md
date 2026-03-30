@@ -2,6 +2,10 @@
 
 [![R-CMD-check](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/AndrewBalmer/AMRC-R-package/actions/workflows/r-cmd-check.yaml)
 
+> Work-in-progress notice: this repository is under active development and is provided as-is. It may change substantially, and it should not yet be treated as a stable release.
+>
+> This is the package/code repository only. It is not the source repository for the related manuscript, which is maintained separately.
+
 `amrcartography` is an R package for reproducible AMR cartography workflows. It is being extracted from the legacy AMR cartography analysis repository so that other users can preprocess MIC data, build phenotype and genotype maps, and reproduce the comparison analyses without relying on project-specific paths or manually created `.RData` files.
 
 The package is now at the point where it has:
@@ -14,7 +18,7 @@ The package is now at the point where it has:
 
 ## Status
 
-This is still a development release rather than a CRAN release. The exported API is now usable, but some manuscript-era notebooks are still being migrated and the external-variable notebook still depends on metadata that are not yet in the repository. Any interactive app remains explicitly deferred until the manuscript workflow and exported API stop moving.
+This is still a development release rather than a CRAN release, and the repository should be used as-is. The exported API is now usable, but some notebook migrations and release-facing cleanup are still ongoing, so interfaces and bundled examples may still change. This repository is also separate from the related manuscript repository: it contains the package, migrated analysis code, and development documentation, not the manuscript submission source itself. Any interactive app remains explicitly deferred until the manuscript workflow and exported API stop moving.
 
 ## Installation
 
