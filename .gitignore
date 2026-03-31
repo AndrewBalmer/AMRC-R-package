@@ -16,6 +16,10 @@ inst/extdata/generated/
 *_files/
 *.html
 end-to-end-spneumoniae.R
+using-your-own-mic-data.R
+external-data-structures.R
+advanced-feature-and-mixed-model-analysis.R
+tests/testthat/Rplots.pdf
 *.tar.gz
 *.Rcheck/
 inst/extdata/examples/spneumoniae-mini/generated/

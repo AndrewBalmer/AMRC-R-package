@@ -46,8 +46,14 @@ Usage notes:
 
 - use `amrc_compute_external_feature_distance()` to convert this object into a
   distance structure
+- use `amrc_compute_sequence_distance()` when the aligned feature table should
+  be treated as sequence or allele states and passed through
+  `ape::dist.gene()`
 - use `amrc_compute_external_distance()` when you already have a precomputed
   distance matrix instead of raw features
+- for organism-specific raw genotype inputs, the parsing/alignment step still
+  happens upstream; the generic package API begins once you have an aligned
+  table or a distance matrix
 
 ## Distance bundle
 
@@ -153,6 +159,11 @@ Usage notes:
   helpers
 - `group_data` is the standard input when clustering distinct lineages, PBP
   types, or other grouped structures
+- use `amrc_compute_group_centroids()` when you need a reusable grouped summary
+  table for arbitrary metadata classifications
+- use `amrc_compute_group_distance_summary()` when you need sample-level
+  within-group or between-group phenotype/external summaries rather than
+  centroid-only summaries
 
 ## Reference-distance summary outputs
 
@@ -186,3 +197,66 @@ Usage notes:
 - `overall_summary`, `average_row`, and `sd_row` are now broken out explicitly
 - `summary_with_overall` is retained as a compatibility table for notebook-era
   reporting code
+- `amrc_compute_group_pairwise_distances()` and
+  `amrc_summarise_nested_group_pairwise_distances()` extend this grouped
+  comparison story to arbitrary metadata groups and nested subgroup structures
+- `amrc_compare_cluster_assignments()` provides a reusable cross-tabulation and
+  purity summary for phenotype-cluster versus genotype/external-cluster
+  comparisons
+
+## Feature-association outputs
+
+Returned by:
+
+- `amrc_fit_multivariate_linear_model()`
+- `amrc_scan_single_feature_associations()`
+- `amrc_fit_linear_mixed_model()`
+- `amrc_scan_single_feature_mixed_models()`
+- `amrc_write_limix_mvlmm_inputs()`
+- `amrc_run_limix_lmm_scan()`
+- `amrc_run_limix_mvlmm()`
+- `amrc_run_limix_heritability()`
+- `amrc_run_limix_variance_decomposition()`
+- `amrc_generate_epistatic_markers()`
+- `amrc_run_limix_epistatic_scan()`
+- `amrc_run_limix_permutation_scan()`
+- `amrc_fit_kinship_blup()`
+- `amrc_cross_validate_kinship_blup()`
+
+Association object expectations:
+
+- response columns must be numeric
+- scanned feature columns are currently expected to be binary
+- multivariate fits use `lm(cbind(...))` plus MANOVA-style summaries
+- mixed-model fits use `lme4::lmer()` with a random intercept
+- optional LIMIX scans use a staged CSV-input contract plus an external Python
+  environment with `limix`
+- BLUP helpers use a kinship matrix plus explicit train/test or CV structure
+
+Summary object elements:
+
+- `feature_summary`: one row per scanned feature with absent/present counts and
+  multivariate p-values
+- `response_summary`: one row per feature-response pair with mean and median
+  shifts plus univariate p-values
+- `response_path`, `marker_path`, `covariate_path`, `kinship_path`: staged CSV
+  inputs for LIMIX-backed scans
+- `stats_path`, `effects_path`, `args`: prepared outputs and command metadata
+  for LIMIX-backed scans
+- `epistatic_markers`: generated interaction-marker table for epistatic scans
+- `predictions`, `predictive_sd`, `fold_summary`, `overall`: prediction and
+  cross-validation outputs for BLUP-style helpers
+
+Usage notes:
+
+- these helpers are intended for generic single-feature scans such as gene
+  presence/absence or single substitution indicators
+- they are designed to sit downstream of the generic external-data preparation
+  helpers rather than replace organism-specific raw variant calling
+- the R-native helpers cover the simple fixed-effect and random-intercept use
+  cases directly inside the package
+- the LIMIX helpers are the optional route when users want the manuscript-style
+  multivariate mixed-model workflow on generic inputs
+- the epistatic, permutation, heritability, variance-decomposition, and
+  kinship-BLUP helpers extend that advanced layer into the other reusable parts
+  of the original Python workflow

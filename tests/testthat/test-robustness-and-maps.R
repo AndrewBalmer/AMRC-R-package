@@ -251,6 +251,67 @@ test_that("plotting helpers accept numeric cluster identifiers", {
   expect_no_error(ggplot2::ggplot_build(distance_plot))
 })
 
+test_that("generic map plotting helpers support metadata colouring, gridlines, marginals, and biplot vectors", {
+  skip_if_not_installed("ggplot2")
+
+  plot_data <- data.frame(
+    isolate_id = paste0("iso", 1:6),
+    x = c(0, 1, 2, 0, 1, 2),
+    y = c(0, 0, 0, 1, 1, 1),
+    lineage = c("L1", "L1", "L2", "L2", "L3", "L3"),
+    penicillin = c(0.5, 1, 2, 2, 4, 8),
+    cefotaxime = c(0.25, 0.5, 1, 2, 4, 4),
+    stringsAsFactors = FALSE
+  )
+
+  map_plot <- amrc_plot_map(
+    data = plot_data,
+    x = "x",
+    y = "y",
+    fill_col = "lineage",
+    grid_spacing = 1,
+    density = "contour",
+    use_cartography_theme = TRUE,
+    show_legend = TRUE
+  )
+  expect_s3_class(map_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(map_plot))
+
+  vectors <- amrc_compute_biplot_vectors(
+    data = plot_data,
+    x = "x",
+    y = "y",
+    variable_cols = c("penicillin", "cefotaxime")
+  )
+  expect_true(all(c("variable", "x", "y", "xend", "yend", "r_squared") %in% names(vectors)))
+
+  biplot <- amrc_add_biplot_vectors(map_plot, vectors)
+  expect_s3_class(biplot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(biplot))
+
+  calibrated_axes <- amrc_compute_calibrated_biplot_axes(
+    data = plot_data,
+    x = "x",
+    y = "y",
+    variable_cols = c("penicillin", "cefotaxime")
+  )
+  expect_true(all(c("axes", "ticks", "fits") %in% names(calibrated_axes)))
+
+  calibrated_plot <- amrc_add_calibrated_biplot_axes(map_plot, calibrated_axes)
+  expect_s3_class(calibrated_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(calibrated_plot))
+
+  skip_if_not_installed("ggExtra")
+  expect_no_error(
+    amrc_add_marginal_distribution(
+      map_plot,
+      type = "histogram",
+      group_fill = TRUE,
+      group_colour = TRUE
+    )
+  )
+})
+
 test_that("dimension-comparison helpers preserve configurable identifier columns", {
   skip_if_not_installed("smacof")
 

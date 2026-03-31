@@ -13,7 +13,8 @@
 #' while the generic package story is moving toward user-supplied external
 #' distance structures and helper functions such as
 #' [amrc_compute_external_distance()] and
-#' [amrc_compute_external_feature_distance()]. In the `0.1.0` public milestone
+#' [amrc_compute_external_feature_distance()], plus aligned-sequence helpers
+#' such as [amrc_compute_sequence_distance()]. In the `0.1.0` public milestone
 #' it should be read as a supported case-study helper, not as the recommended
 #' entry point for new analyses.
 #'

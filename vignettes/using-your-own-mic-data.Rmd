@@ -92,9 +92,15 @@ Here we load a small generic numeric-feature table, but in a real analysis this
 could come from genotype-derived features, a phylogenetic embedding, or any
 other aligned external measurements. If you already have a precomputed external
 distance matrix, use `amrc_compute_external_distance()` directly. If your
-external features are aligned character states, call
+external features are aligned character states and you want a simple mismatch
+distance, call
 `amrc_standardise_external_data(feature_mode = "character")` and then
-`amrc_compute_external_feature_distance()`.
+`amrc_compute_external_feature_distance()` or `amrc_compute_hamming_distance()`.
+If the raw genotype/external features arrive as several tables, use
+`amrc_bind_external_tables()` or `amrc_prepare_external_features()` first. If
+you already have an aligned sequence or allele table and want the
+`ape::dist.gene()` route used in the original genotype workflow, use
+`amrc_compute_sequence_distance()` instead.
 
 ```{r}
 external_features <- amrc_example_data("external_numeric")
@@ -210,6 +216,226 @@ amrc_plot_reference_distance_relationship(
   xlab = "External distance",
   ylab = "Phenotype distance"
 )
+```
+
+## Build a generic metadata-coloured map
+
+Once you have a comparison table, you can also use the generic plotting
+helpers directly. Here the phenotype map is coloured by lineage, overlaid with
+one-unit grid spacing, and annotated with simple biplot-style arrows for the
+three drug variables.
+
+```{r}
+map_plot <- amrc_plot_map(
+  data = comparison_bundle$data,
+  x = "D1",
+  y = "D2",
+  fill_col = "lineage",
+  grid_spacing = 1,
+  use_cartography_theme = TRUE,
+  show_legend = TRUE
+)
+
+drug_vectors <- amrc_compute_biplot_vectors(
+  data = cbind(comparison_bundle$data, mic_data$mic),
+  x = "D1",
+  y = "D2",
+  variable_cols = c("drug_a", "drug_b", "drug_c")
+)
+
+amrc_add_biplot_vectors(map_plot, drug_vectors)
+```
+
+If you want calibrated tick-mark axes rather than simple arrows, use the
+calibrated-axis helpers:
+
+```{r}
+drug_axes <- amrc_compute_calibrated_biplot_axes(
+  data = cbind(comparison_bundle$data, mic_data$mic),
+  x = "D1",
+  y = "D2",
+  variable_cols = c("drug_a", "drug_b")
+)
+
+amrc_add_calibrated_biplot_axes(map_plot, drug_axes)
+```
+
+The same generic plotting layer also supports faceting and ellipse-style group
+envelopes.
+
+```{r}
+facet_plot <- amrc_plot_map(
+  data = comparison_bundle$data,
+  x = "D1",
+  y = "D2",
+  fill_col = "lineage",
+  facet_by = "lineage",
+  facet_ncol = 2
+)
+
+amrc_add_group_envelopes(
+  plot = facet_plot,
+  data = comparison_bundle$data,
+  x = "D1",
+  y = "D2",
+  group_col = "lineage"
+)
+```
+
+## Summarise distances between metadata groups
+
+The generic comparison helpers can also summarise phenotype-versus-external
+relationships at the level of arbitrary metadata groups.
+
+```{r}
+group_pairwise <- amrc_compute_group_pairwise_distances(
+  data = comparison_bundle$data,
+  group_col = "lineage",
+  phenotype_cols = c("D1", "D2"),
+  external_cols = c("E1", "E2"),
+  summary_fun = "median"
+)
+
+group_pairwise
+```
+
+If you want sample-level within/between summaries rather than centroid-only
+comparisons, use:
+
+```{r}
+group_distance_summary <- amrc_compute_group_distance_summary(
+  data = comparison_bundle$data,
+  group_col = "lineage",
+  phenotype_cols = c("D1", "D2"),
+  external_cols = c("E1", "E2")
+)
+
+group_distance_summary
+```
+
+## Scan binary genotype or gene features against phenotype responses
+
+The same generic workflow can be used for simple gene presence/absence or
+single-feature association scans.
+
+```{r}
+association_input <- cbind(
+  comparison_bundle$data,
+  mic_data$mic,
+  has_gene_x = c(0, 0, 1, 1, 1, 1)
+)
+
+feature_scan <- amrc_scan_single_feature_associations(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  feature_cols = "has_gene_x",
+  min_group_size = 2
+)
+
+feature_scan$feature_summary
+feature_scan$response_summary
+```
+
+If you want a true mixed-effects option with a random intercept, use the LMM
+helpers. Here the random effect is just a toy grouping variable so the example
+stays small.
+
+```{r}
+association_input$batch <- c("B1", "B1", "B2", "B2", "B3", "B3")
+association_input$has_gene_y <- c(0, 1, 0, 1, 0, 1)
+
+if (requireNamespace("lme4", quietly = TRUE)) {
+  mixed_scan <- amrc_scan_single_feature_mixed_models(
+    data = association_input,
+    response_cols = c("drug_a", "drug_b", "drug_c"),
+    feature_cols = "has_gene_x",
+    random_effect_col = "batch",
+    min_group_size = 2
+  )
+
+  mixed_scan$feature_summary
+}
+```
+
+If you want the manuscript-style LIMIX mixed-model route, the package can also
+stage and optionally run generic Python/LIMIX scans. This is the true
+multivariate mixed-model option, but it requires a Python environment with
+`limix`, `numpy`, and `pandas`, so the example below is shown without
+execution.
+
+```{r eval=FALSE}
+limix_mv <- amrc_run_limix_mvlmm(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  marker_cols = "has_gene_x",
+  covariate_cols = "lineage",
+  id_col = "isolate_id",
+  execute = FALSE
+)
+
+limix_uv <- amrc_run_limix_lmm_scan(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  marker_cols = "has_gene_x",
+  covariate_cols = "lineage",
+  id_col = "isolate_id",
+  execute = FALSE
+)
+
+limix_mv$args
+limix_uv$args
+```
+
+The same optional LIMIX layer also supports the other reusable pieces from the
+old mixed-model workflow, again on generic inputs:
+
+```{r eval=FALSE}
+kinship <- as.matrix(stats::dist(external_numeric[, c("feature_1", "feature_2")]))
+rownames(kinship) <- external_numeric$isolate_id
+colnames(kinship) <- external_numeric$isolate_id
+
+amrc_run_limix_heritability(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  kinship_matrix = kinship,
+  id_col = "isolate_id",
+  execute = FALSE
+)
+
+amrc_run_limix_variance_decomposition(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  kinship_components = list(component_a = kinship, component_b = kinship),
+  id_col = "isolate_id",
+  execute = FALSE
+)
+
+amrc_run_limix_epistatic_scan(
+  data = association_input,
+  response_cols = c("drug_a", "drug_b", "drug_c"),
+  feature_cols = c("has_gene_x", "has_gene_y"),
+  id_col = "isolate_id",
+  execute = FALSE
+)
+```
+
+For lighter-weight prediction workflows that do not require Python, the package
+also includes generic kinship-BLUP helpers:
+
+```{r}
+toy_kinship <- as.matrix(stats::dist(as.matrix(external_numeric[, c("feature_1", "feature_2")])))
+
+split <- amrc_make_train_test_split(nrow(association_input), proportion = 0.75, seed = 1)
+
+blup_fit <- amrc_fit_kinship_blup(
+  response = association_input$drug_a,
+  kinship_matrix = toy_kinship,
+  train = split$train,
+  test = split$test,
+  lambda = 0.5
+)
+
+blup_fit$predictions
 ```
 
 ## What to adapt for your own dataset

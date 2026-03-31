@@ -46,13 +46,56 @@ amrc_within_cluster_inertia <- function(coords, clusters) {
 amrc_between_group_distances <- function(group_a, group_b) {
   group_a <- as.matrix(group_a)
   group_b <- as.matrix(group_b)
+  if (ncol(group_a) != ncol(group_b)) {
+    stop("group_a and group_b must have the same number of columns.", call. = FALSE)
+  }
 
-  distances <- sqrt(
-    outer(group_a[, 1], group_b[, 1], "-")^2 +
-      outer(group_a[, 2], group_b[, 2], "-")^2
-  )
+  distances <- vapply(seq_len(nrow(group_a)), function(i) {
+    sqrt(rowSums((group_b - matrix(
+      group_a[i, ],
+      nrow = nrow(group_b),
+      ncol = ncol(group_b),
+      byrow = TRUE
+    ))^2))
+  }, numeric(nrow(group_b)))
 
   as.vector(distances)
+}
+
+amrc_summary_function <- function(summary_fun) {
+  if (is.function(summary_fun)) {
+    return(summary_fun)
+  }
+
+  if (is.character(summary_fun) && length(summary_fun) == 1L && !is.na(summary_fun)) {
+    if (identical(summary_fun, "median")) {
+      return(stats::median)
+    }
+    if (identical(summary_fun, "mean")) {
+      return(base::mean)
+    }
+  }
+
+  stop("summary_fun must be a function or one of 'median' or 'mean'.", call. = FALSE)
+}
+
+amrc_resolve_optional_external_cols <- function(data, external_cols = NULL, genotype_cols = NULL) {
+  if (!is.null(external_cols) || !is.null(genotype_cols)) {
+    return(amrc_resolve_external_coord_cols(
+      data = data,
+      external_cols = external_cols,
+      genotype_cols = genotype_cols
+    ))
+  }
+
+  if (all(c("E1", "E2") %in% colnames(data))) {
+    return(c("E1", "E2"))
+  }
+  if (all(c("G1", "G2") %in% colnames(data))) {
+    return(c("G1", "G2"))
+  }
+
+  NULL
 }
 
 amrc_mds_labels <- function(mds_result) {
@@ -444,6 +487,464 @@ amrc_prepare_spneumoniae_map_data <- function(
     pbp_data = comparison_bundle$group_data,
     phenotype_calibration = comparison_bundle$phenotype_calibration,
     genotype_calibration = comparison_bundle$external_calibration
+  )
+}
+
+#' Compute Generic Group Centroids from a Comparison Table
+#'
+#' Aggregates phenotype and optional external map coordinates to one row per
+#' metadata group or nested group. This is the generic form of the centroid
+#' calculations used repeatedly in the manuscript notebooks for PBP types,
+#' MLSTs, and similar classifications.
+#'
+#' @param data A comparison table, typically produced by
+#'   [amrc_prepare_map_data()].
+#' @param group_cols Character vector naming one or more grouping columns.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param summary_fun Summary function used for each coordinate. May be a
+#'   function or one of `"median"` or `"mean"`.
+#' @param phenotype_output_cols Output column names for the aggregated phenotype
+#'   coordinates. Defaults to `paste0(phenotype_cols, "_centroid")`.
+#' @param external_output_cols Output column names for the aggregated external
+#'   coordinates. Defaults to `paste0(external_cols, "_centroid")`.
+#'
+#' @return A `data.frame` with one row per group.
+#' @export
+amrc_compute_group_centroids <- function(
+  data,
+  group_cols,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  summary_fun = "median",
+  phenotype_output_cols = paste0(phenotype_cols, "_centroid"),
+  external_output_cols = NULL
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_column_set(group_cols, data, arg_name = "group_cols")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+
+  external_cols <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+  if (!is.null(external_cols)) {
+    amrc_require_coordinate_columns(data, external_cols)
+  }
+
+  if (length(phenotype_output_cols) != length(phenotype_cols)) {
+    stop(
+      "phenotype_output_cols must have the same length as phenotype_cols.",
+      call. = FALSE
+    )
+  }
+
+  if (!is.null(external_cols)) {
+    if (is.null(external_output_cols)) {
+      external_output_cols <- paste0(external_cols, "_centroid")
+    }
+    if (length(external_output_cols) != length(external_cols)) {
+      stop(
+        "external_output_cols must have the same length as external_cols.",
+        call. = FALSE
+      )
+    }
+  }
+
+  summary_fun <- amrc_summary_function(summary_fun)
+
+  summarise_coords <- function(coord_cols, output_cols) {
+    aggregated <- stats::aggregate(
+      data[, coord_cols, drop = FALSE],
+      by = data[, group_cols, drop = FALSE],
+      FUN = summary_fun,
+      na.rm = TRUE
+    )
+    colnames(aggregated) <- c(group_cols, output_cols)
+    aggregated
+  }
+
+  centroid_table <- summarise_coords(phenotype_cols, phenotype_output_cols)
+
+  if (!is.null(external_cols)) {
+    external_table <- summarise_coords(external_cols, external_output_cols)
+    centroid_table <- merge(
+      centroid_table,
+      external_table,
+      by = group_cols,
+      sort = FALSE
+    )
+  }
+
+  centroid_table
+}
+
+#' Compute Pairwise Distances Between Metadata Groups
+#'
+#' Builds a one-row-per-pair table of phenotype and optional external distances
+#' between metadata-group centroids.
+#'
+#' @param data A comparison table, typically produced by
+#'   [amrc_prepare_map_data()].
+#' @param group_col Metadata grouping column.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param summary_fun Summary function used when building group centroids.
+#' @param group_pair_col_names Length-2 character vector naming the output group
+#'   columns.
+#' @param phenotype_distance_col Output column name for phenotype distances.
+#' @param external_distance_col Output column name for external distances.
+#'
+#' @return A `data.frame` with one row per pair of groups.
+#' @export
+amrc_compute_group_pairwise_distances <- function(
+  data,
+  group_col,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  summary_fun = "median",
+  group_pair_col_names = c("group_1", "group_2"),
+  phenotype_distance_col = "phenotype_distance",
+  external_distance_col = "external_distance"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  if (length(group_pair_col_names) != 2L) {
+    stop("group_pair_col_names must contain exactly two column names.", call. = FALSE)
+  }
+
+  external_cols_resolved <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+
+  centroids <- amrc_compute_group_centroids(
+    data = data,
+    group_cols = group_col,
+    phenotype_cols = phenotype_cols,
+    external_cols = external_cols_resolved,
+    summary_fun = summary_fun,
+    phenotype_output_cols = phenotype_cols,
+    external_output_cols = external_cols_resolved
+  )
+
+  if (nrow(centroids) < 2) {
+    out <- data.frame(stringsAsFactors = FALSE, check.names = FALSE)
+    out[[group_pair_col_names[[1]]]] <- character()
+    out[[group_pair_col_names[[2]]]] <- character()
+    out[[phenotype_distance_col]] <- numeric()
+    if (!is.null(external_cols_resolved)) {
+      out[[external_distance_col]] <- numeric()
+    }
+    return(out)
+  }
+
+  group_pairs <- utils::combn(as.character(centroids[[group_col]]), 2, simplify = FALSE)
+  phenotype_matrix <- as.matrix(centroids[, phenotype_cols, drop = FALSE])
+  rownames(phenotype_matrix) <- as.character(centroids[[group_col]])
+
+  external_matrix <- NULL
+  if (!is.null(external_cols_resolved)) {
+    external_matrix <- as.matrix(centroids[, external_cols_resolved, drop = FALSE])
+    rownames(external_matrix) <- as.character(centroids[[group_col]])
+  }
+
+  pair_rows <- lapply(group_pairs, function(group_pair) {
+    row <- data.frame(
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+    row <- as.data.frame(setNames(
+      list(
+        group_pair[[1]],
+        group_pair[[2]],
+        sqrt(sum((phenotype_matrix[group_pair[[1]], ] - phenotype_matrix[group_pair[[2]], ])^2))
+      ),
+      c(group_pair_col_names[[1]], group_pair_col_names[[2]], phenotype_distance_col)
+    ), stringsAsFactors = FALSE, check.names = FALSE)
+    if (!is.null(external_matrix)) {
+      row[[external_distance_col]] <- sqrt(sum((external_matrix[group_pair[[1]], ] - external_matrix[group_pair[[2]], ])^2))
+    }
+    row
+  })
+
+  do.call(rbind, pair_rows)
+}
+
+#' Summarise Within-Group Pairwise Distances Across Nested Subgroups
+#'
+#' Computes phenotype and optional external pairwise distances among subgroup
+#' centroids within each outer metadata group. This generalises the manuscript
+#' summaries that were originally written for distances among PBP centroids
+#' within each MLST.
+#'
+#' @param data A comparison table, typically produced by
+#'   [amrc_prepare_map_data()].
+#' @param group_col Outer grouping column, for example `MLST`.
+#' @param subgroup_col Nested grouping column, for example `PBP_type`.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param summary_fun Summary function used to build subgroup centroids.
+#'
+#' @return A `data.frame` with within-group pairwise distance summaries.
+#' @export
+amrc_summarise_nested_group_pairwise_distances <- function(
+  data,
+  group_col,
+  subgroup_col,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  summary_fun = "median"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_assert_single_column_name(subgroup_col, data, arg_name = "subgroup_col")
+
+  external_cols_resolved <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+
+  centroids <- amrc_compute_group_centroids(
+    data = data,
+    group_cols = c(group_col, subgroup_col),
+    phenotype_cols = phenotype_cols,
+    external_cols = external_cols_resolved,
+    summary_fun = summary_fun,
+    phenotype_output_cols = phenotype_cols,
+    external_output_cols = external_cols_resolved
+  )
+
+  split_centroids <- split(centroids, centroids[[group_col]])
+  summary_rows <- lapply(names(split_centroids), function(group_value) {
+    group_data <- split_centroids[[group_value]]
+
+    phen_dists <- if (nrow(group_data) < 2) {
+      numeric(0)
+    } else {
+      as.numeric(stats::dist(group_data[, phenotype_cols, drop = FALSE]))
+    }
+
+    row <- data.frame(
+      setNames(
+        list(
+          group_value,
+          nrow(group_data),
+          if (length(phen_dists) == 0) 0 else mean(phen_dists, na.rm = TRUE),
+          if (length(phen_dists) == 0) 0 else stats::median(phen_dists, na.rm = TRUE),
+          if (length(phen_dists) <= 1) 0 else stats::sd(phen_dists, na.rm = TRUE)
+        ),
+        c(
+          group_col,
+          "n_subgroups",
+          "phenotype_pairwise_mean",
+          "phenotype_pairwise_median",
+          "phenotype_pairwise_sd"
+        )
+      ),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+
+    if (!is.null(external_cols_resolved)) {
+      ext_dists <- if (nrow(group_data) < 2) {
+        numeric(0)
+      } else {
+        as.numeric(stats::dist(group_data[, external_cols_resolved, drop = FALSE]))
+      }
+      row[["external_pairwise_mean"]] <- if (length(ext_dists) == 0) 0 else mean(ext_dists, na.rm = TRUE)
+      row[["external_pairwise_median"]] <- if (length(ext_dists) == 0) 0 else stats::median(ext_dists, na.rm = TRUE)
+      row[["external_pairwise_sd"]] <- if (length(ext_dists) <= 1) 0 else stats::sd(ext_dists, na.rm = TRUE)
+    }
+
+    row
+  })
+
+  do.call(rbind, summary_rows)
+}
+
+#' Summarise Pairwise Distances Between Metadata Groups
+#'
+#' Computes within-group and/or between-group pairwise distances directly from
+#' isolate-level phenotype and optional external map coordinates, then reports
+#' mean, median, and standard deviation summaries for each pair of metadata
+#' groups.
+#'
+#' @param data A comparison table, typically produced by
+#'   [amrc_prepare_map_data()].
+#' @param group_col Metadata grouping column.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param include_within Logical; include within-group summaries.
+#' @param include_between Logical; include between-group summaries.
+#' @param group_pair_col_names Length-2 character vector naming the output group
+#'   columns.
+#'
+#' @return A `data.frame` with one row per group pair summary.
+#' @export
+amrc_compute_group_distance_summary <- function(
+  data,
+  group_col,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  include_within = TRUE,
+  include_between = TRUE,
+  group_pair_col_names = c("group_1", "group_2")
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+  if (length(group_pair_col_names) != 2L) {
+    stop("group_pair_col_names must contain exactly two column names.", call. = FALSE)
+  }
+
+  external_cols_resolved <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+  if (!is.null(external_cols_resolved)) {
+    amrc_require_coordinate_columns(data, external_cols_resolved)
+  }
+
+  split_groups <- split(data, as.character(data[[group_col]]))
+  group_names <- names(split_groups)
+  summary_rows <- list()
+
+  add_summary_row <- function(group_a_name, group_b_name, relation, phen_values, ext_values = NULL) {
+    row <- data.frame(
+      relation = relation,
+      n_pairs = length(phen_values),
+      phenotype_distance_mean = if (length(phen_values) == 0) 0 else mean(phen_values, na.rm = TRUE),
+      phenotype_distance_median = if (length(phen_values) == 0) 0 else stats::median(phen_values, na.rm = TRUE),
+      phenotype_distance_sd = if (length(phen_values) <= 1) 0 else stats::sd(phen_values, na.rm = TRUE),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+    row[[group_pair_col_names[[1]]]] <- group_a_name
+    row[[group_pair_col_names[[2]]]] <- group_b_name
+    row <- row[, c(group_pair_col_names[[1]], group_pair_col_names[[2]], "relation", "n_pairs",
+                   "phenotype_distance_mean", "phenotype_distance_median", "phenotype_distance_sd"), drop = FALSE]
+
+    if (!is.null(ext_values)) {
+      row[["external_distance_mean"]] <- if (length(ext_values) == 0) 0 else mean(ext_values, na.rm = TRUE)
+      row[["external_distance_median"]] <- if (length(ext_values) == 0) 0 else stats::median(ext_values, na.rm = TRUE)
+      row[["external_distance_sd"]] <- if (length(ext_values) <= 1) 0 else stats::sd(ext_values, na.rm = TRUE)
+      row[["mean_external_to_phenotypic_ratio"]] <- if (row[["phenotype_distance_mean"]] == 0) NA_real_ else row[["external_distance_mean"]] / row[["phenotype_distance_mean"]]
+      row[["median_external_to_phenotypic_ratio"]] <- if (row[["phenotype_distance_median"]] == 0) NA_real_ else row[["external_distance_median"]] / row[["phenotype_distance_median"]]
+    }
+
+    row
+  }
+
+  if (isTRUE(include_within)) {
+    for (group_name in group_names) {
+      group_data <- split_groups[[group_name]]
+      phen_values <- if (nrow(group_data) < 2) numeric(0) else as.numeric(stats::dist(group_data[, phenotype_cols, drop = FALSE]))
+      ext_values <- NULL
+      if (!is.null(external_cols_resolved)) {
+        ext_values <- if (nrow(group_data) < 2) numeric(0) else as.numeric(stats::dist(group_data[, external_cols_resolved, drop = FALSE]))
+      }
+      summary_rows[[length(summary_rows) + 1L]] <- add_summary_row(group_name, group_name, "within", phen_values, ext_values)
+    }
+  }
+
+  if (isTRUE(include_between) && length(group_names) > 1) {
+    group_pairs <- utils::combn(group_names, 2, simplify = FALSE)
+    for (group_pair in group_pairs) {
+      group_a <- split_groups[[group_pair[[1]]]]
+      group_b <- split_groups[[group_pair[[2]]]]
+
+      phen_values <- amrc_between_group_distances(
+        group_a[, phenotype_cols, drop = FALSE],
+        group_b[, phenotype_cols, drop = FALSE]
+      )
+
+      ext_values <- NULL
+      if (!is.null(external_cols_resolved)) {
+        ext_values <- amrc_between_group_distances(
+          group_a[, external_cols_resolved, drop = FALSE],
+          group_b[, external_cols_resolved, drop = FALSE]
+        )
+      }
+
+      summary_rows[[length(summary_rows) + 1L]] <- add_summary_row(
+        group_pair[[1]],
+        group_pair[[2]],
+        "between",
+        phen_values,
+        ext_values
+      )
+    }
+  }
+
+  do.call(rbind, summary_rows)
+}
+
+#' Compare Two Cluster Assignments
+#'
+#' Builds a contingency table and simple agreement summaries for any two
+#' clusterings or categorical partitionings, such as phenotype-defined clusters
+#' versus genotype-defined clusters.
+#'
+#' @param data A data frame containing both clustering columns.
+#' @param cluster_col_1 First cluster column.
+#' @param cluster_col_2 Second cluster column.
+#'
+#' @return A list containing the raw `table`, a long-form `counts` table, and
+#'   per-cluster purity summaries for both directions.
+#' @export
+amrc_compare_cluster_assignments <- function(
+  data,
+  cluster_col_1,
+  cluster_col_2
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(cluster_col_1, data, arg_name = "cluster_col_1")
+  amrc_assert_single_column_name(cluster_col_2, data, arg_name = "cluster_col_2")
+
+  complete <- stats::complete.cases(data[, c(cluster_col_1, cluster_col_2), drop = FALSE])
+  aligned <- data[complete, c(cluster_col_1, cluster_col_2), drop = FALSE]
+
+  contingency <- table(aligned[[cluster_col_1]], aligned[[cluster_col_2]])
+  counts <- as.data.frame(contingency, stringsAsFactors = FALSE)
+  colnames(counts) <- c(cluster_col_1, cluster_col_2, "n")
+  counts <- counts[counts$n > 0, , drop = FALSE]
+
+  purity_1 <- stats::aggregate(
+    counts$n,
+    by = list(cluster = counts[[cluster_col_1]]),
+    FUN = function(x) max(x) / sum(x)
+  )
+  colnames(purity_1) <- c(cluster_col_1, "dominant_fraction_in_second")
+
+  purity_2 <- stats::aggregate(
+    counts$n,
+    by = list(cluster = counts[[cluster_col_2]]),
+    FUN = function(x) max(x) / sum(x)
+  )
+  colnames(purity_2) <- c(cluster_col_2, "dominant_fraction_in_first")
+
+  list(
+    table = contingency,
+    counts = counts,
+    cluster_1_purity = purity_1,
+    cluster_2_purity = purity_2
   )
 }
 

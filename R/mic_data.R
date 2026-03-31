@@ -268,6 +268,124 @@ amrc_external_feature_frame <- function(data, feature_cols, feature_mode = c("nu
   feature_data
 }
 
+amrc_normalise_external_strings <- function(data, id_col = NULL) {
+  normalised <- data
+  target_cols <- setdiff(colnames(normalised), id_col)
+
+  for (column_name in target_cols) {
+    column <- normalised[[column_name]]
+
+    if (is.logical(column)) {
+      column <- ifelse(is.na(column), NA_character_, ifelse(column, "T", "F"))
+    } else if (is.factor(column)) {
+      column <- as.character(column)
+    }
+
+    if (is.character(column)) {
+      trimmed <- trimws(column)
+      lower <- tolower(trimmed)
+      trimmed[trimmed == ""] <- NA_character_
+      trimmed[lower %in% c("true", "1", "yes")] <- "T"
+      trimmed[lower %in% c("false", "0", "no")] <- "F"
+      column <- trimmed
+    }
+
+    normalised[[column_name]] <- column
+  }
+
+  normalised
+}
+
+amrc_coerce_external_input <- function(x, reader, ...) {
+  if (is.character(x) && length(x) == 1L && file.exists(x)) {
+    return(reader(x, stringsAsFactors = FALSE, ...))
+  }
+  if (is.matrix(x)) {
+    return(as.data.frame(x, check.names = FALSE, stringsAsFactors = FALSE))
+  }
+  if (is.data.frame(x)) {
+    return(x)
+  }
+
+  stop(
+    "Each external input must be a data.frame, matrix, or existing file path.",
+    call. = FALSE
+  )
+}
+
+amrc_bind_with_fill <- function(tables) {
+  all_cols <- unique(unlist(lapply(tables, colnames), use.names = FALSE))
+
+  aligned <- lapply(tables, function(table) {
+    missing_cols <- setdiff(all_cols, colnames(table))
+    if (length(missing_cols) > 0) {
+      for (column_name in missing_cols) {
+        table[[column_name]] <- NA
+      }
+    }
+    table[, all_cols, drop = FALSE]
+  })
+
+  do.call(rbind, aligned)
+}
+
+#' Bind Multiple External Feature Tables
+#'
+#' Reads and row-binds a set of genotype or external-feature tables from file
+#' paths, matrices, or data frames. This generalises the manuscript genotype
+#' preprocessing pattern where multiple aligned feature tables were stacked
+#' before distance calculation.
+#'
+#' @param inputs A list of data frames, matrices, and/or file paths, or a single
+#'   character vector of file paths.
+#' @param fill Logical; when `TRUE`, row-bind tables using the union of all
+#'   columns and fill missing columns with `NA`.
+#' @param reader Function used to read file-path inputs. Defaults to
+#'   [utils::read.csv()].
+#' @param ... Additional arguments passed to `reader` for file-path inputs.
+#'
+#' @return A bound `data.frame`.
+#' @export
+amrc_bind_external_tables <- function(
+  inputs,
+  fill = FALSE,
+  reader = utils::read.csv,
+  ...
+) {
+  if (is.character(inputs) && !is.list(inputs)) {
+    inputs <- as.list(inputs)
+  } else if (!is.list(inputs)) {
+    inputs <- list(inputs)
+  }
+
+  if (length(inputs) == 0) {
+    stop("inputs must contain at least one external table.", call. = FALSE)
+  }
+
+  tables <- lapply(inputs, amrc_coerce_external_input, reader = reader, ...)
+  tables <- lapply(tables, function(table) {
+    as.data.frame(table, check.names = FALSE, stringsAsFactors = FALSE)
+  })
+
+  if (!isTRUE(fill)) {
+    reference_cols <- colnames(tables[[1]])
+    mismatched <- vapply(tables[-1], function(table) {
+      !identical(colnames(table), reference_cols)
+    }, logical(1))
+
+    if (any(mismatched)) {
+      stop(
+        "All external tables must have identical columns unless fill = TRUE.",
+        call. = FALSE
+      )
+    }
+
+    return(do.call(rbind, tables))
+  }
+
+  amrc_bind_with_fill(tables)
+}
+
 amrc_mismatch_distance <- function(feature_data, normalise = TRUE) {
   feature_matrix <- as.matrix(feature_data)
   n <- nrow(feature_matrix)
@@ -655,6 +773,343 @@ amrc_standardise_external_data <- function(
       excluded_rows = excluded_rows
     ),
     class = "amrc_external_data"
+  )
+}
+
+#' Prepare Generic External or Genotype Feature Data
+#'
+#' Convenience wrapper for common raw genotype/external preprocessing patterns:
+#' reading and binding multiple feature tables, normalising logical-like strings
+#' such as `TRUE`/`FALSE`, optionally aligning the feature table to a metadata
+#' table, excluding selected isolate identifiers, and returning a standardised
+#' object of class `amrc_external_data`.
+#'
+#' This is the generic replacement for the useful parsing behaviour that had
+#' previously been embedded inside organism-specific preprocessing scripts.
+#'
+#' @param data A data frame, matrix, file path, or list of such objects.
+#' @param id_col Name of the isolate identifier column in the external feature
+#'   table.
+#' @param feature_cols Optional character vector naming feature columns.
+#' @param metadata Optional metadata `data.frame` to align against.
+#' @param metadata_id_col Identifier column in `metadata`.
+#' @param metadata_cols Optional metadata columns to retain. When `NULL`, all
+#'   metadata columns are kept.
+#' @param join How to combine `metadata` with the external feature table.
+#'   `"left"` keeps metadata order, `"inner"` keeps shared IDs only, and
+#'   `"none"` ignores `metadata`.
+#' @param feature_mode Passed to [amrc_standardise_external_data()].
+#' @param exclude_ids Optional character vector of isolate identifiers to drop.
+#' @param normalise_strings Logical; convert blanks to `NA` and common
+#'   TRUE/FALSE spellings to `T`/`F`.
+#' @param drop_incomplete Logical; drop rows with incomplete features.
+#' @param allow_duplicate_ids Logical; allow duplicate isolate identifiers.
+#' @param fill_tables Logical; when `TRUE`, allow bound tables with different
+#'   columns.
+#' @param reader Function used to read file-path inputs.
+#' @param ... Additional arguments passed to `reader`.
+#'
+#' @return An object of class `amrc_external_data`.
+#' @export
+amrc_prepare_external_features <- function(
+  data,
+  id_col,
+  feature_cols = NULL,
+  metadata = NULL,
+  metadata_id_col = id_col,
+  metadata_cols = NULL,
+  join = c("left", "inner", "none"),
+  feature_mode = c("numeric", "character"),
+  exclude_ids = NULL,
+  normalise_strings = TRUE,
+  drop_incomplete = TRUE,
+  allow_duplicate_ids = FALSE,
+  fill_tables = FALSE,
+  reader = utils::read.csv,
+  ...
+) {
+  join <- match.arg(join)
+  feature_mode <- match.arg(feature_mode)
+
+  if (is.list(data) || (is.character(data) && length(data) > 1L) || (is.character(data) && length(data) == 1L && file.exists(data))) {
+    feature_data <- amrc_bind_external_tables(
+      inputs = data,
+      fill = fill_tables,
+      reader = reader,
+      ...
+    )
+  } else if (is.matrix(data)) {
+    feature_data <- as.data.frame(data, check.names = FALSE, stringsAsFactors = FALSE)
+  } else {
+    feature_data <- as.data.frame(data, check.names = FALSE, stringsAsFactors = FALSE)
+  }
+
+  amrc_assert_single_column_name(id_col, feature_data, arg_name = "id_col")
+
+  if (isTRUE(normalise_strings)) {
+    feature_data <- amrc_normalise_external_strings(feature_data, id_col = id_col)
+  }
+
+  if (!is.null(exclude_ids)) {
+    feature_data <- feature_data[!(as.character(feature_data[[id_col]]) %in% exclude_ids), , drop = FALSE]
+  }
+
+  if (is.null(metadata) || identical(join, "none")) {
+    return(amrc_standardise_external_data(
+      data = feature_data,
+      id_col = id_col,
+      feature_cols = feature_cols,
+      metadata_cols = metadata_cols,
+      feature_mode = feature_mode,
+      drop_incomplete = drop_incomplete,
+      allow_duplicate_ids = allow_duplicate_ids
+    ))
+  }
+
+  amrc_assert_is_data_frame(metadata, arg_name = "metadata")
+  amrc_assert_single_column_name(metadata_id_col, metadata, arg_name = "metadata_id_col")
+  if (!is.null(metadata_cols)) {
+    amrc_assert_column_set(metadata_cols, metadata, arg_name = "metadata_cols")
+  }
+
+  feature_ids <- as.character(feature_data[[id_col]])
+  if (!isTRUE(allow_duplicate_ids) && anyDuplicated(feature_ids) > 0) {
+    stop("The external feature table contains duplicate isolate identifiers.", call. = FALSE)
+  }
+
+  metadata_keep <- if (is.null(metadata_cols)) {
+    metadata
+  } else {
+    metadata[, unique(c(metadata_id_col, metadata_cols)), drop = FALSE]
+  }
+
+  if (identical(join, "left")) {
+    aligned_index <- match(as.character(metadata_keep[[metadata_id_col]]), feature_ids)
+    feature_keep_cols <- if (is.null(feature_cols)) {
+      setdiff(colnames(feature_data), id_col)
+    } else {
+      feature_cols
+    }
+    merged <- cbind(
+      metadata_keep,
+      feature_data[aligned_index, feature_keep_cols, drop = FALSE]
+    )
+    rownames(merged) <- NULL
+    id_col_out <- metadata_id_col
+  } else {
+    merged <- merge(
+      metadata_keep,
+      feature_data,
+      by.x = metadata_id_col,
+      by.y = id_col,
+      all = FALSE,
+      sort = FALSE
+    )
+    id_col_out <- metadata_id_col
+  }
+
+  merged <- amrc_normalise_external_strings(merged, id_col = id_col_out)
+
+  standardised_feature_cols <- if (is.null(feature_cols)) {
+    setdiff(colnames(merged), unique(c(id_col_out, colnames(metadata_keep))))
+  } else {
+    setdiff(feature_cols, id_col)
+  }
+
+  amrc_standardise_external_data(
+    data = merged,
+    id_col = id_col_out,
+    feature_cols = standardised_feature_cols,
+    metadata_cols = setdiff(colnames(metadata_keep), metadata_id_col),
+    feature_mode = feature_mode,
+    drop_incomplete = drop_incomplete,
+    allow_duplicate_ids = allow_duplicate_ids
+  )
+}
+
+#' Compute a Distance Matrix from Aligned Sequence or Allele Data
+#'
+#' Builds an external distance structure from an aligned character-state table
+#' using [ape::dist.gene()]. This is the generic route for genotype-style
+#' inputs when users have one row per isolate and one column per aligned
+#' sequence or allele position.
+#'
+#' If your non-MIC structure is already summarised as numeric coordinates or a
+#' precomputed distance matrix, prefer [amrc_compute_external_feature_distance()]
+#' or [amrc_compute_external_distance()]. If your raw genotype data still need
+#' organism-specific parsing and cleaning before they become an aligned table,
+#' do that preprocessing first and then pass the aligned result here.
+#'
+#' @param data An `amrc_external_data` object with `feature_mode = "character"`,
+#'   or a `data.frame`/matrix containing one row per isolate and one column per
+#'   aligned sequence or allele position.
+#' @param id_col Name of the isolate identifier column when `data` is a
+#'   `data.frame`.
+#' @param sequence_cols Character vector naming the aligned sequence or allele
+#'   columns when `data` is a `data.frame`. When `NULL`, all non-identifier,
+#'   non-metadata columns are used.
+#' @param metadata_cols Optional metadata columns to ignore when inferring
+#'   `sequence_cols`.
+#' @param drop_incomplete Logical; drop rows with incomplete aligned states
+#'   before distance computation.
+#' @param allow_duplicate_ids Logical; allow duplicate isolate identifiers when
+#'   `TRUE`.
+#' @param method Distance method passed to [ape::dist.gene()].
+#' @param pairwise.deletion Logical; passed to [ape::dist.gene()].
+#' @param variance Logical; passed to [ape::dist.gene()].
+#'
+#' @return A `dist` object aligned to isolate IDs.
+#' @export
+amrc_compute_sequence_distance <- function(
+  data,
+  id_col = NULL,
+  sequence_cols = NULL,
+  metadata_cols = NULL,
+  drop_incomplete = TRUE,
+  allow_duplicate_ids = FALSE,
+  method = "pairwise",
+  pairwise.deletion = FALSE,
+  variance = FALSE
+) {
+  if (!requireNamespace("ape", quietly = TRUE)) {
+    stop(
+      "Package 'ape' is required to compute aligned sequence distances.",
+      call. = FALSE
+    )
+  }
+
+  if (inherits(data, "amrc_external_data")) {
+    if (!identical(data$feature_mode, "character")) {
+      stop(
+        "amrc_compute_sequence_distance() requires character-state features. ",
+        "Use amrc_standardise_external_data(feature_mode = \"character\") first.",
+        call. = FALSE
+      )
+    }
+    aligned <- data
+  } else {
+    if (is.matrix(data)) {
+      data <- as.data.frame(data, check.names = FALSE, stringsAsFactors = FALSE)
+      if (is.null(id_col)) {
+        data$isolate_id <- rownames(data)
+        id_col <- "isolate_id"
+        data <- data[, c("isolate_id", setdiff(colnames(data), "isolate_id")), drop = FALSE]
+      }
+    }
+
+    if (is.null(id_col)) {
+      stop(
+        "id_col must be supplied when data is not already an amrc_external_data object.",
+        call. = FALSE
+      )
+    }
+
+    aligned <- amrc_standardise_external_data(
+      data = data,
+      id_col = id_col,
+      feature_cols = sequence_cols,
+      metadata_cols = metadata_cols,
+      feature_mode = "character",
+      drop_incomplete = drop_incomplete,
+      allow_duplicate_ids = allow_duplicate_ids
+    )
+  }
+
+  sequence_matrix <- as.matrix(aligned$features)
+  rownames(sequence_matrix) <- aligned$isolate_ids
+
+  distance_matrix <- ape::dist.gene(
+    sequence_matrix,
+    method = method,
+    pairwise.deletion = pairwise.deletion,
+    variance = variance
+  )
+
+  amrc_compute_external_distance(
+    distance_matrix,
+    isolate_ids = aligned$isolate_ids
+  )
+}
+
+#' Compute a Hamming-Style Distance Matrix from Aligned Character Features
+#'
+#' Builds an external distance structure from an aligned character-state or
+#' allele table by counting per-column mismatches. This is the generic
+#' Hamming-style route for genotype-like inputs when users have one row per
+#' isolate and one column per aligned state.
+#'
+#' If you want the `ape::dist.gene()` behaviour used in the original genotype
+#' workflow, prefer [amrc_compute_sequence_distance()]. Use this helper when a
+#' plain mismatch/Hamming summary is the distance you want.
+#'
+#' @param data An `amrc_external_data` object with `feature_mode = "character"`,
+#'   or a `data.frame`/matrix containing one row per isolate and one column per
+#'   aligned sequence, allele, or character-state position.
+#' @param id_col Name of the isolate identifier column when `data` is a
+#'   `data.frame`.
+#' @param feature_cols Character vector naming the aligned character-state
+#'   columns when `data` is a `data.frame`. When `NULL`, all non-identifier,
+#'   non-metadata columns are used.
+#' @param metadata_cols Optional metadata columns to ignore when inferring
+#'   `feature_cols`.
+#' @param normalise Logical; divide mismatch counts by the number of feature
+#'   columns when `TRUE`.
+#' @param drop_incomplete Logical; drop rows with incomplete aligned states
+#'   before distance computation.
+#' @param allow_duplicate_ids Logical; allow duplicate isolate identifiers when
+#'   `TRUE`.
+#'
+#' @return A `dist` object aligned to isolate IDs.
+#' @export
+amrc_compute_hamming_distance <- function(
+  data,
+  id_col = NULL,
+  feature_cols = NULL,
+  metadata_cols = NULL,
+  normalise = TRUE,
+  drop_incomplete = TRUE,
+  allow_duplicate_ids = FALSE
+) {
+  if (inherits(data, "amrc_external_data")) {
+    if (!identical(data$feature_mode, "character")) {
+      stop(
+        "amrc_compute_hamming_distance() requires character-state features. ",
+        "Use amrc_standardise_external_data(feature_mode = \"character\") first.",
+        call. = FALSE
+      )
+    }
+    aligned <- data
+  } else {
+    if (is.matrix(data)) {
+      data <- as.data.frame(data, check.names = FALSE, stringsAsFactors = FALSE)
+      if (is.null(id_col)) {
+        data$isolate_id <- rownames(data)
+        id_col <- "isolate_id"
+        data <- data[, c("isolate_id", setdiff(colnames(data), "isolate_id")), drop = FALSE]
+      }
+    }
+
+    if (is.null(id_col)) {
+      stop(
+        "id_col must be supplied when data is not already an amrc_external_data object.",
+        call. = FALSE
+      )
+    }
+
+    aligned <- amrc_standardise_external_data(
+      data = data,
+      id_col = id_col,
+      feature_cols = feature_cols,
+      metadata_cols = metadata_cols,
+      feature_mode = "character",
+      drop_incomplete = drop_incomplete,
+      allow_duplicate_ids = allow_duplicate_ids
+    )
+  }
+
+  amrc_compute_external_feature_distance(
+    data = aligned,
+    normalise_mismatch = normalise
   )
 }
 

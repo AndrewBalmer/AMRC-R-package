@@ -1,5 +1,6 @@
 vignettes <- c(
   "vignettes/using-your-own-mic-data.Rmd",
+  "vignettes/advanced-feature-and-mixed-model-analysis.Rmd",
   "vignettes/external-data-structures.Rmd",
   "vignettes/end-to-end-spneumoniae.Rmd"
 )

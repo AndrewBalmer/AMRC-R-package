@@ -275,6 +275,85 @@ test_that("generic external feature tables can be standardised for numeric and c
   expect_equal(as.matrix(mismatch_distance)[1, 3], 2 / 3)
 })
 
+test_that("aligned sequence or allele tables can be converted with ape::dist.gene", {
+  skip_if_not_installed("ape")
+
+  allele_table <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3"),
+    lineage = c("L1", "L1", "L2"),
+    allele_a = c("A", "A", "T"),
+    allele_b = c("C", "G", "G"),
+    allele_c = c("T", "T", "T"),
+    stringsAsFactors = FALSE
+  )
+
+  aligned_distance <- amrc_compute_sequence_distance(
+    data = allele_table,
+    id_col = "isolate_id",
+    sequence_cols = c("allele_a", "allele_b", "allele_c"),
+    metadata_cols = "lineage"
+  )
+
+  expected_distance <- ape::dist.gene(
+    as.matrix(allele_table[, c("allele_a", "allele_b", "allele_c"), drop = FALSE]),
+    method = "pairwise",
+    pairwise.deletion = FALSE,
+    variance = FALSE
+  )
+
+  expect_s3_class(aligned_distance, "dist")
+  expect_equal(attr(aligned_distance, "Labels"), c("iso1", "iso2", "iso3"))
+  expect_equal(
+    unname(as.matrix(aligned_distance)),
+    unname(as.matrix(expected_distance))
+  )
+
+  standardised_character <- amrc_standardise_external_data(
+    data = allele_table,
+    id_col = "isolate_id",
+    feature_cols = c("allele_a", "allele_b", "allele_c"),
+    metadata_cols = "lineage",
+    feature_mode = "character"
+  )
+
+  expect_equal(
+    unname(as.matrix(amrc_compute_sequence_distance(standardised_character))),
+    unname(as.matrix(expected_distance))
+  )
+})
+
+test_that("aligned character-state tables can be converted with explicit Hamming distance", {
+  allele_table <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3"),
+    allele_a = c("A", "A", "T"),
+    allele_b = c("C", "G", "G"),
+    allele_c = c("T", "T", "T"),
+    stringsAsFactors = FALSE
+  )
+
+  hamming_distance <- amrc_compute_hamming_distance(
+    data = allele_table,
+    id_col = "isolate_id",
+    feature_cols = c("allele_a", "allele_b", "allele_c"),
+    normalise = TRUE
+  )
+
+  expect_s3_class(hamming_distance, "dist")
+  expect_equal(attr(hamming_distance, "Labels"), c("iso1", "iso2", "iso3"))
+  expect_equal(
+    unname(as.matrix(hamming_distance)),
+    matrix(
+      c(
+        0, 1 / 3, 2 / 3,
+        1 / 3, 0, 1 / 3,
+        2 / 3, 1 / 3, 0
+      ),
+      nrow = 3,
+      byrow = TRUE
+    )
+  )
+})
+
 test_that("generic map preparation aligns metadata and external structures by isolate id", {
   metadata <- data.frame(
     isolate_id = c("iso1", "iso2", "iso3", "iso4"),
@@ -438,6 +517,64 @@ test_that("generic reference-distance helpers work with arbitrary reference colu
   )
 
   expect_equal(overall_summary$summary$cluster, "Overall")
+})
+
+test_that("generic group centroid and pairwise distance summaries work for arbitrary metadata groups", {
+  comparison_data <- data.frame(
+    isolate_id = c("iso1", "iso2", "iso3", "iso4", "iso5", "iso6"),
+    lineage = c("L1", "L1", "L2", "L2", "L3", "L3"),
+    subtype = c("A", "B", "A", "B", "A", "B"),
+    D1 = c(0, 1, 2, 3, 4, 5),
+    D2 = c(0, 0, 1, 1, 2, 2),
+    E1 = c(10, 11, 20, 21, 30, 31),
+    E2 = c(0, 0, 2, 2, 4, 4),
+    stringsAsFactors = FALSE
+  )
+
+  centroids <- amrc_compute_group_centroids(
+    data = comparison_data,
+    group_cols = c("lineage", "subtype"),
+    phenotype_cols = c("D1", "D2"),
+    external_cols = c("E1", "E2"),
+    summary_fun = "median"
+  )
+
+  expect_true(all(c(
+    "lineage", "subtype",
+    "D1_centroid", "D2_centroid",
+    "E1_centroid", "E2_centroid"
+  ) %in% colnames(centroids)))
+  expect_equal(nrow(centroids), 6L)
+
+  between_groups <- amrc_compute_group_pairwise_distances(
+    data = comparison_data,
+    group_col = "lineage",
+    phenotype_cols = c("D1", "D2"),
+    external_cols = c("E1", "E2"),
+    summary_fun = "median"
+  )
+
+  expect_true(all(c("group_1", "group_2", "phenotype_distance", "external_distance") %in% names(between_groups)))
+  expect_equal(nrow(between_groups), 3L)
+
+  nested_summary <- amrc_summarise_nested_group_pairwise_distances(
+    data = comparison_data,
+    group_col = "lineage",
+    subgroup_col = "subtype",
+    phenotype_cols = c("D1", "D2"),
+    external_cols = c("E1", "E2"),
+    summary_fun = "median"
+  )
+
+  expect_true(all(c(
+    "lineage",
+    "n_subgroups",
+    "phenotype_pairwise_mean",
+    "phenotype_pairwise_median",
+    "external_pairwise_mean",
+    "external_pairwise_median"
+  ) %in% names(nested_summary)))
+  expect_equal(nested_summary$n_subgroups, c(2, 2, 2))
 })
 
 test_that("reference-distance plotting works with generic column names", {

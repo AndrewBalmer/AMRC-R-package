@@ -21,6 +21,11 @@ The package is now at the point where it has:
 - reusable MDS, robustness, clustering, calibration, and comparison helpers
 - explicit support for precomputed, numeric-feature, and character-feature
   external data structures
+- generic preparation helpers for bound feature tables, aligned sequence data,
+  Hamming-style genotype distances, and binary feature scans
+- generic plotting helpers for metadata-coloured maps, MIC-style grid spacing,
+  density overlays, marginal distributions, faceting, group envelopes, and
+  biplot-style vectors
 - a package-backed *S. pneumoniae* case study for example and regression use
 - deterministic and fixture-based regression tests
 
@@ -70,6 +75,14 @@ compared to a phenotype map, use:
 vignette("external-data-structures", package = "amrcartography")
 ```
 
+If you want the advanced feature-analysis layer, including mixed models,
+epistasis, heritability, variance decomposition, permutation scans, and
+BLUP-style prediction, use:
+
+```r
+vignette("advanced-feature-and-mixed-model-analysis", package = "amrcartography")
+```
+
 The *S. pneumoniae* case-study vignette is still available separately:
 
 ```r
@@ -108,11 +121,12 @@ This is the generic package workflow for an arbitrary MIC table:
 1. Validate and standardise the MIC table with `amrc_standardise_mic_data()`.
 2. Build a phenotype distance matrix with `amrc_compute_mic_distance()`.
 3. Fit and diagnose a phenotype map with `amrc_compute_mds()` and `amrc_map_fit_report()`.
-4. Optionally standardise an external distance structure with `amrc_compute_external_distance()` or build one from aligned feature data with `amrc_compute_external_feature_distance()`.
+4. Optionally prepare external/genotype features with `amrc_prepare_external_features()` and then build an external distance structure with `amrc_compute_external_distance()`, `amrc_compute_external_feature_distance()`, `amrc_compute_hamming_distance()`, or `amrc_compute_sequence_distance()`.
 5. Fit an external map with `amrc_compute_mds()`.
 6. Build a shared phenotype/external comparison table with `amrc_prepare_map_data()`.
 7. Cluster either map with `amrc_cluster_map()` and attach labels with `amrc_add_cluster_assignments()`.
 8. Summarise distances from a chosen reference entry with `amrc_compute_reference_distance_table()` and `amrc_summarise_reference_distance_table()`.
+9. Plot maps generically with `amrc_plot_map()`, `amrc_add_marginal_distribution()`, and `amrc_add_biplot_vectors()`.
 
 For example:
 
@@ -133,9 +147,10 @@ phenotype_distance <- amrc_compute_mic_distance(mic_data)
 phenotype_map <- amrc_compute_mds(phenotype_distance)
 phenotype_report <- amrc_map_fit_report(phenotype_map)
 
-external_distance <- amrc_compute_external_feature_distance(
-  data = my_external_feature_table,
-  id_col = "isolate_id"
+external_distance <- amrc_compute_sequence_distance(
+  data = my_aligned_sequence_table,
+  id_col = "isolate_id",
+  sequence_cols = c("locus_1", "locus_2", "locus_3")
 )
 external_map <- amrc_compute_mds(external_distance)
 
@@ -168,18 +183,105 @@ the qualifier and keep the reported number, or `less_than = "half"` /
 
 ## External Data Formats
 
-The package currently supports three generic ways to bring in the non-MIC
+The package currently supports four generic ways to bring in the non-MIC
 structure you want to compare against the phenotype map:
 
 - a precomputed external distance matrix via `amrc_compute_external_distance()`
+- bound or metadata-aligned feature tables via `amrc_bind_external_tables()`
+  and `amrc_prepare_external_features()`
 - an aligned numeric feature table via `amrc_standardise_external_data()` and
   `amrc_compute_external_feature_distance()`
 - an aligned character-state feature table via
   `amrc_standardise_external_data(feature_mode = "character")` and
   `amrc_compute_external_feature_distance()`
+- an aligned sequence or allele table via `amrc_compute_sequence_distance()`
+- an explicit Hamming-style mismatch distance via `amrc_compute_hamming_distance()`
+
+This means the package is already usable for non-pneumococcal datasets such as
+*E. coli* or *Klebsiella* when you can supply aligned sequence/allele data,
+gene presence/absence features, numeric feature tables, or a precomputed
+distance matrix. The package now includes generic feature-table preparation, so
+the remaining non-generic step is mostly only the very upstream parsing when
+your starting point is organism-specific raw genotype files such as bespoke
+FASTA or VCF exports. In those cases, convert the raw genotype data into
+either:
+
+- a precomputed isolate-by-isolate distance matrix
+- an aligned numeric feature table
+- an aligned character-state or allele table
+
+and then use the generic API from that point onward.
 
 The dedicated external-data vignette walks through those options with small
 reproducible examples.
+
+## Plotting
+
+The package now includes generic plotting helpers for the main map workflows:
+
+- `amrc_plot_map()` for metadata-coloured maps with optional `grid_spacing = 1`
+  when the coordinates have already been calibrated onto MIC units
+- `amrc_add_group_envelopes()` for ellipse-style group outlines or filled
+  envelopes
+- `amrc_add_marginal_distribution()` for histogram or density marginals
+- `amrc_compute_biplot_vectors()` and `amrc_add_biplot_vectors()` for
+  biplot-style overlays of numeric metadata variables
+- `amrc_compute_calibrated_biplot_axes()` and
+  `amrc_add_calibrated_biplot_axes()` for calibrated tick-mark biplot axes
+- `amrc_plot_cluster_map()`, `amrc_plot_cluster_elbow()`,
+  `amrc_plot_distance_histogram()`, and
+  `amrc_plot_reference_distance_relationship()` for the main comparison and
+  clustering plots
+
+For group-level phenotype-versus-external summaries, the generic comparison
+layer also now includes:
+
+- `amrc_compute_group_centroids()`
+- `amrc_compute_group_pairwise_distances()`
+- `amrc_compute_group_distance_summary()`
+- `amrc_summarise_nested_group_pairwise_distances()`
+- `amrc_compare_cluster_assignments()`
+- `amrc_scan_single_feature_associations()`
+- `amrc_fit_multivariate_linear_model()`
+- `amrc_fit_linear_mixed_model()`
+- `amrc_scan_single_feature_mixed_models()`
+- `amrc_write_limix_mvlmm_inputs()`
+- `amrc_run_limix_lmm_scan()`
+- `amrc_run_limix_mvlmm()`
+
+These are the generic building blocks for workflows like “compare MLST groups”,
+“compare lineages”, “summarise distances among subtypes within each gene
+background”, “scan gene presence/absence markers against multiple phenotype
+responses”, fit grouped random-intercept LMMs, or run manuscript-style LIMIX
+mixed-model scans in a reusable generic form.
+
+The package now offers four association-analysis tiers:
+
+- simple fixed-effect feature scans with
+  `amrc_scan_single_feature_associations()`
+- direct multivariate linear models with `amrc_fit_multivariate_linear_model()`
+- R-native mixed models with `amrc_fit_linear_mixed_model()` and
+  `amrc_scan_single_feature_mixed_models()`
+- optional Python/LIMIX scans with `amrc_run_limix_lmm_scan()` and
+  `amrc_run_limix_mvlmm()` for users who want a true multivariate mixed-model
+  route
+
+The LIMIX helpers are optional advanced tooling. They require a working Python
+environment with `limix`, `numpy`, and `pandas`, but they accept the same kind
+of generic marker matrices that the simpler R-side association helpers use.
+
+That same advanced layer now also exposes the other reusable manuscript-era
+mixed-model ideas in generic form:
+
+- heritability estimation with `amrc_run_limix_heritability()`
+- variance decomposition across multiple kinship components with
+  `amrc_run_limix_variance_decomposition()`
+- pairwise interaction scans with `amrc_generate_epistatic_markers()` and
+  `amrc_run_limix_epistatic_scan()`
+- permutation scans with `amrc_run_limix_permutation_scan()`
+- BLUP-style kinship prediction helpers with `amrc_make_train_test_split()`,
+  `amrc_make_cv_folds()`, `amrc_fit_kinship_blup()`, and
+  `amrc_cross_validate_kinship_blup()`
 
 ## S. pneumoniae Case Study
 
@@ -199,6 +301,16 @@ Those functions remain supported for compatibility, but they should be read as
 example-specific wrappers rather than the long-term primary API. In `0.1.0`
 they remain documented and supported, but they are soft-deprecated as the
 recommended entry points for new analyses.
+
+The organism-agnostic comparison methods are already available in the generic
+API. For example, phenotype-versus-genotype or phenotype-versus-external
+comparison workflows are handled by:
+
+- `amrc_prepare_map_data()`
+- `amrc_cluster_map()`
+- `amrc_add_cluster_assignments()`
+- `amrc_compute_reference_distance_table()`
+- `amrc_summarise_reference_distance_table()`
 
 For lightweight case-study runs, prefer the bundled `mini_raw` example or the
 `sample_n` arguments in the case-study preprocessing wrappers rather than the

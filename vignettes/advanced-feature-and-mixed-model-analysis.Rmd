@@ -1,0 +1,250 @@
+---
+title: "Advanced Feature and Mixed-Model Analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Advanced Feature and Mixed-Model Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(amrcartography)
+```
+
+## Why this vignette exists
+
+The main package vignette focuses on the shortest generic workflow from a MIC
+table to a map and optional external comparison. This vignette covers the more
+advanced feature-analysis layer:
+
+- gene presence/absence scans
+- single-substitution style binary feature scans
+- epistatic interaction markers
+- mixed-model routes
+- heritability and variance decomposition
+- permutation scans
+- kinship-BLUP style prediction
+
+Most of the LIMIX-backed examples are shown with `execute = FALSE` so the
+vignette stays lightweight and does not require a local Python/LIMIX
+installation just to read the package documentation.
+
+## A tiny generic fixture
+
+```{r}
+analysis_data <- data.frame(
+  isolate_id = paste0("iso", 1:8),
+  lineage = c("L1", "L1", "L1", "L2", "L2", "L3", "L3", "L3"),
+  batch = c("B1", "B1", "B2", "B2", "B3", "B3", "B4", "B4"),
+  map_x = c(0, 0.5, 1, 2, 2.5, 4, 4.5, 5),
+  map_y = c(0, 0.4, 1, 2, 2.2, 4, 4.3, 5),
+  drug_a = c(0.5, 1, 2, 2.5, 3, 4, 5, 5.5),
+  drug_b = c(1, 1.5, 2.5, 2.8, 3.1, 4.2, 4.8, 5.1),
+  gene_a = c(0, 0, 1, 0, 1, 1, 1, 1),
+  gene_b = c(0, 1, 1, 0, 0, 1, 1, 1),
+  gene_c = c(1, 0, 0, 1, 1, 0, 0, 1),
+  stringsAsFactors = FALSE
+)
+
+kinship <- as.matrix(stats::dist(as.matrix(analysis_data[, c("map_x", "map_y")])))
+rownames(kinship) <- analysis_data$isolate_id
+colnames(kinship) <- analysis_data$isolate_id
+```
+
+## Simple gene or substitution scans
+
+For fixed-effect scans against one or more responses, use the generic binary
+feature scan helper:
+
+```{r}
+feature_scan <- amrc_scan_single_feature_associations(
+  data = analysis_data,
+  response_cols = c("drug_a", "drug_b"),
+  feature_cols = c("gene_a", "gene_b"),
+  covariate_cols = "lineage",
+  min_group_size = 2
+)
+
+feature_scan$feature_summary
+```
+
+## Random-intercept mixed models
+
+If you want a grouped random-intercept model directly in R:
+
+```{r}
+if (requireNamespace("lme4", quietly = TRUE)) {
+  mixed_scan <- amrc_scan_single_feature_mixed_models(
+    data = analysis_data,
+    response_cols = c("drug_a", "drug_b"),
+    feature_cols = c("gene_a", "gene_b"),
+    random_effect_col = "batch",
+    covariate_cols = "lineage",
+    min_group_size = 2
+  )
+
+  mixed_scan$feature_summary
+}
+```
+
+## Epistatic markers
+
+The package can build pairwise interaction markers generically from binary
+feature columns:
+
+```{r}
+epi_markers <- amrc_generate_epistatic_markers(
+  data = analysis_data,
+  feature_cols = c("gene_a", "gene_b", "gene_c"),
+  id_col = "isolate_id"
+)
+
+epi_markers
+```
+
+## Optional LIMIX multivariate and epistatic scans
+
+The manuscript-era multivariate mixed-model workflow is available as an
+optional advanced route through the packaged Python/LIMIX script.
+
+```{r eval = FALSE}
+mv_scan <- amrc_run_limix_mvlmm(
+  data = analysis_data,
+  response_cols = c("drug_a", "drug_b"),
+  marker_cols = c("gene_a", "gene_b", "gene_c"),
+  covariate_cols = "lineage",
+  id_col = "isolate_id",
+  kinship_matrix = kinship,
+  execute = TRUE
+)
+
+epi_scan <- amrc_run_limix_epistatic_scan(
+  data = analysis_data,
+  response_cols = c("drug_a", "drug_b"),
+  feature_cols = c("gene_a", "gene_b", "gene_c"),
+  covariate_cols = "lineage",
+  id_col = "isolate_id",
+  kinship_matrix = kinship,
+  execute = TRUE
+)
+```
+
+If the scan has already been executed and written result files, use the summary
+helpers:
+
+```{r eval = FALSE}
+epi_summary <- amrc_summarise_limix_epistatic_scan(epi_scan)
+epi_summary$summary
+```
+
+## Heritability and variance decomposition
+
+The same optional LIMIX layer also exposes heritability estimation and
+multi-component variance decomposition:
+
+```{r eval = FALSE}
+heritability <- amrc_run_limix_heritability(
+  data = analysis_data,
+  response_cols = c("map_x", "map_y"),
+  kinship_matrix = kinship,
+  id_col = "isolate_id",
+  execute = TRUE
+)
+
+variance_parts <- amrc_run_limix_variance_decomposition(
+  data = analysis_data,
+  response_cols = c("map_x", "map_y"),
+  kinship_components = list(
+    component_a = kinship,
+    component_b = kinship
+  ),
+  id_col = "isolate_id",
+  execute = TRUE
+)
+```
+
+## Permutation scans
+
+For empirical null distributions, the package can stage or run response
+permutations while keeping the marker matrix fixed.
+
+```{r eval = FALSE}
+perm_runs <- amrc_run_limix_permutation_scan(
+  data = analysis_data,
+  response_cols = c("map_x", "map_y"),
+  marker_cols = c("gene_a", "gene_b", "gene_c"),
+  covariate_cols = "lineage",
+  id_col = "isolate_id",
+  kinship_matrix = kinship,
+  n_permutations = 10,
+  execute = TRUE
+)
+
+perm_summary <- amrc_summarise_limix_permutation_scan(perm_runs)
+perm_summary$permutation_summary
+```
+
+If you want the manuscript-style “sample a subset of interaction markers per
+repeat” behavior, use `marker_sample_size`:
+
+```{r eval = FALSE}
+perm_runs <- amrc_run_limix_permutation_scan(
+  data = analysis_data,
+  response_cols = c("map_x", "map_y"),
+  marker_cols = names(epi_markers)[-1],
+  id_col = "isolate_id",
+  n_permutations = 10,
+  marker_sample_size = 2,
+  execute = TRUE
+)
+```
+
+## BLUP-style prediction
+
+For a lighter-weight prediction workflow that stays in R:
+
+```{r}
+split <- amrc_make_train_test_split(nrow(analysis_data), proportion = 0.75, seed = 1)
+
+blup_fit <- amrc_fit_kinship_blup(
+  response = analysis_data$drug_a,
+  kinship_matrix = kinship,
+  train = split$train,
+  test = split$test,
+  lambda = 0.5,
+  return_sd = TRUE
+)
+
+blup_fit$predictions
+blup_fit$predictive_sd
+```
+
+Or use simple cross-validation:
+
+```{r}
+cv <- amrc_cross_validate_kinship_blup(
+  response = analysis_data$drug_a,
+  kinship_matrix = kinship,
+  n_folds = 4,
+  seed = 1,
+  lambda = 0.5
+)
+
+cv$fold_summary
+cv$overall
+```
+
+## Choosing among the options
+
+- Use `amrc_scan_single_feature_associations()` for a quick generic scan.
+- Use `amrc_scan_single_feature_mixed_models()` when you need a grouped random
+  intercept and want to stay in R.
+- Use the LIMIX wrappers when you specifically want the manuscript-style
+  multivariate mixed-model route, permutation scans, heritability estimation,
+  or multi-component variance decomposition.
+- Use the BLUP helpers when your goal is prediction rather than association
+  testing.

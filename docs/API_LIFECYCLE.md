@@ -51,7 +51,7 @@ state:
 | Transitional wrapper | Generic replacement path |
 | --- | --- |
 | `amrc_process_spneumoniae_phenotype()` | `amrc_standardise_mic_data()` + `amrc_compute_mic_distance()` |
-| `amrc_process_spneumoniae_genotype()` | `amrc_standardise_external_data()` + `amrc_compute_external_distance()` or `amrc_compute_external_feature_distance()` |
+| `amrc_process_spneumoniae_genotype()` | `amrc_standardise_external_data()` + `amrc_compute_external_distance()`, `amrc_compute_external_feature_distance()`, or `amrc_compute_sequence_distance()` |
 | `amrc_prepare_spneumoniae_map_data()` | `amrc_prepare_map_data()` |
 
 ## Case-study-specific helper functions
@@ -76,6 +76,7 @@ The package should increasingly lead new users toward these functions instead:
 - `amrc_standardise_external_data()`
 - `amrc_compute_external_distance()`
 - `amrc_compute_external_feature_distance()`
+- `amrc_compute_sequence_distance()`
 - `amrc_prepare_map_data()`
 - `amrc_compute_reference_distance_table()`
 - `amrc_summarise_reference_distance_table()`
