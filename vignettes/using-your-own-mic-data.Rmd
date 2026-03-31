@@ -390,9 +390,9 @@ The same optional LIMIX layer also supports the other reusable pieces from the
 old mixed-model workflow, again on generic inputs:
 
 ```{r eval=FALSE}
-kinship <- as.matrix(stats::dist(external_numeric[, c("feature_1", "feature_2")]))
-rownames(kinship) <- external_numeric$isolate_id
-colnames(kinship) <- external_numeric$isolate_id
+kinship <- as.matrix(stats::dist(external_features[, c("feature_1", "feature_2")]))
+rownames(kinship) <- external_features$isolate_id
+colnames(kinship) <- external_features$isolate_id
 
 amrc_run_limix_heritability(
   data = association_input,
@@ -423,7 +423,7 @@ For lighter-weight prediction workflows that do not require Python, the package
 also includes generic kinship-BLUP helpers:
 
 ```{r}
-toy_kinship <- as.matrix(stats::dist(as.matrix(external_numeric[, c("feature_1", "feature_2")])))
+toy_kinship <- as.matrix(stats::dist(as.matrix(external_features[, c("feature_1", "feature_2")])))
 
 split <- amrc_make_train_test_split(nrow(association_input), proportion = 0.75, seed = 1)
 
