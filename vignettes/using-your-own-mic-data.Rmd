@@ -225,7 +225,7 @@ helpers directly. Here the phenotype map is coloured by lineage, overlaid with
 one-unit grid spacing, and annotated with simple biplot-style arrows for the
 three drug variables.
 
-```{r}
+```{r eval=FALSE}
 map_plot <- amrc_plot_map(
   data = comparison_bundle$data,
   x = "D1",
@@ -249,7 +249,7 @@ amrc_add_biplot_vectors(map_plot, drug_vectors)
 If you want calibrated tick-mark axes rather than simple arrows, use the
 calibrated-axis helpers:
 
-```{r}
+```{r eval=FALSE}
 drug_axes <- amrc_compute_calibrated_biplot_axes(
   data = cbind(comparison_bundle$data, mic_data$mic),
   x = "D1",
@@ -263,7 +263,7 @@ amrc_add_calibrated_biplot_axes(map_plot, drug_axes)
 The same generic plotting layer also supports faceting and ellipse-style group
 envelopes.
 
-```{r}
+```{r eval=FALSE}
 facet_plot <- amrc_plot_map(
   data = comparison_bundle$data,
   x = "D1",
@@ -287,7 +287,7 @@ amrc_add_group_envelopes(
 The generic comparison helpers can also summarise phenotype-versus-external
 relationships at the level of arbitrary metadata groups.
 
-```{r}
+```{r eval=FALSE}
 group_pairwise <- amrc_compute_group_pairwise_distances(
   data = comparison_bundle$data,
   group_col = "lineage",
@@ -302,7 +302,7 @@ group_pairwise
 If you want sample-level within/between summaries rather than centroid-only
 comparisons, use:
 
-```{r}
+```{r eval=FALSE}
 group_distance_summary <- amrc_compute_group_distance_summary(
   data = comparison_bundle$data,
   group_col = "lineage",
@@ -318,7 +318,7 @@ group_distance_summary
 The same generic workflow can be used for simple gene presence/absence or
 single-feature association scans.
 
-```{r}
+```{r eval=FALSE}
 association_input <- cbind(
   comparison_bundle$data,
   mic_data$mic,
@@ -340,7 +340,7 @@ If you want a true mixed-effects option with a random intercept, use the LMM
 helpers. Here the random effect is just a toy grouping variable so the example
 stays small.
 
-```{r}
+```{r eval=FALSE}
 association_input$batch <- c("B1", "B1", "B2", "B2", "B3", "B3")
 association_input$has_gene_y <- c(0, 1, 0, 1, 0, 1)
 
@@ -422,7 +422,7 @@ amrc_run_limix_epistatic_scan(
 For lighter-weight prediction workflows that do not require Python, the package
 also includes generic kinship-BLUP helpers:
 
-```{r}
+```{r eval=FALSE}
 toy_kinship <- as.matrix(stats::dist(as.matrix(external_features[, c("feature_1", "feature_2")])))
 
 split <- amrc_make_train_test_split(nrow(association_input), proportion = 0.75, seed = 1)
@@ -437,6 +437,11 @@ blup_fit <- amrc_fit_kinship_blup(
 
 blup_fit$predictions
 ```
+
+The executed sections above cover the minimal generic cartography workflow.
+For the richer plotting, grouped summaries, feature scans, LIMIX mixed-model
+routes, and BLUP-style prediction helpers, see
+`vignette("advanced-feature-and-mixed-model-analysis")`.
 
 ## What to adapt for your own dataset
 
