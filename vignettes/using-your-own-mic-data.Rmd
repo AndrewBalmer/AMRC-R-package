@@ -33,35 +33,36 @@ if (!"package:amrcartography" %in% search()) {
 }
 ```
 
-## Create a simple MIC table
+## Load a simple MIC table
 
 The package expects one row per isolate, an isolate identifier column, and one
 column per drug. Extra metadata columns can be carried through the workflow.
+This bundled example also includes common raw MIC censoring prefixes such as
+`<`, `<=`, `>`, and `>=`. The generic parser also tolerates extra symbol clutter
+around those values, for example `~0.5`, `-1`, or `<_0.25`.
 
 ```{r}
-mic_table <- data.frame(
-  isolate_id = paste0("iso", 1:6),
-  lineage = c("L1", "L1", "L2", "L2", "L3", "L3"),
-  country = c("UK", "UK", "KE", "KE", "BR", "BR"),
-  drug_a = c(0.5, 1, 2, 2, 4, 8),
-  drug_b = c(1, 1, 2, 4, 4, 8),
-  drug_c = c(0.25, 0.5, 1, 2, 4, 4),
-  check.names = FALSE,
-  stringsAsFactors = FALSE
-)
+mic_table <- amrc_example_data("mic_raw")
 
 mic_table
 ```
 
 ## Standardise the MIC data
 
+By default the standardisation helpers strip censoring prefixes and keep the
+reported numeric values. If your workflow prefers one dilution lower for `<`
+values and one dilution higher for `>` values, use `less_than = "half"` and
+`greater_than = "double"` as shown here.
+
 ```{r}
 mic_data <- amrc_standardise_mic_data(
   data = mic_table,
   id_col = "isolate_id",
   mic_cols = c("drug_a", "drug_b", "drug_c"),
-  metadata_cols = c("lineage", "country"),
-  transform = "log2"
+  metadata_cols = c("lineage", "source"),
+  transform = "log2",
+  less_than = "half",
+  greater_than = "double"
 )
 
 mic_data$metadata
@@ -87,21 +88,16 @@ phenotype_report$stress_summary
 
 ## Add an optional external distance structure
 
-Here we create a small synthetic external feature table, but in a real analysis
-this could come from genotype-derived features, a phylogenetic embedding, or
-any other aligned external measurements. If you already have a precomputed
-external distance matrix, use `amrc_compute_external_distance()` directly. If
-your external features are aligned character states, call
+Here we load a small generic numeric-feature table, but in a real analysis this
+could come from genotype-derived features, a phylogenetic embedding, or any
+other aligned external measurements. If you already have a precomputed external
+distance matrix, use `amrc_compute_external_distance()` directly. If your
+external features are aligned character states, call
 `amrc_standardise_external_data(feature_mode = "character")` and then
 `amrc_compute_external_feature_distance()`.
 
 ```{r}
-external_features <- data.frame(
-  isolate_id = c("iso3", "iso1", "iso2", "iso4", "iso6", "iso5"),
-  axis1 = c(0.0, 0.1, 0.3, 1.2, 2.2, 2.0),
-  axis2 = c(0.0, 0.2, 0.1, 1.0, 2.1, 1.8),
-  stringsAsFactors = FALSE
-)
+external_features <- amrc_example_data("external_numeric")
 
 external_distance <- amrc_compute_external_feature_distance(
   data = external_features,
@@ -127,7 +123,7 @@ comparison_bundle <- amrc_prepare_map_data(
 )
 
 comparison_bundle$data[, c(
-  "isolate_id", "lineage", "country", "D1", "D2", "E1", "E2"
+  "isolate_id", "lineage", "source", "D1", "D2", "E1", "E2"
 )]
 ```
 
@@ -224,6 +220,8 @@ In a real analysis, the main things you would replace are:
 - `id_col`: your isolate identifier column
 - `mic_cols`: the drug columns to include
 - `metadata_cols`: the metadata you want to carry through the workflow
+- `less_than` and `greater_than`: how to interpret censored MIC strings before
+  numeric coercion and log transformation
 - `external_distance` or `external_features`: an optional aligned external
   structure
 

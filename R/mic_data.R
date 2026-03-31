@@ -65,6 +65,145 @@ amrc_numeric_coercion <- function(x, column_name) {
   out
 }
 
+amrc_normalise_mic_strings <- function(x) {
+  x_chr <- trimws(as.character(x))
+  x_chr[x_chr %in% c("", "NA", "N/A", "na", "n/a", "NULL", "null")] <- NA_character_
+  x_chr <- gsub("\u2264", "<=", x_chr, fixed = TRUE)
+  x_chr <- gsub("\u2265", ">=", x_chr, fixed = TRUE)
+  placeholder_only <- !is.na(x_chr) & grepl("^[[:space:][:punct:]]+$", x_chr)
+  x_chr[placeholder_only] <- NA_character_
+  x_chr
+}
+
+#' Clean Raw MIC Values
+#'
+#' Parses common raw MIC strings into numeric values. This is useful for
+#' generic MIC tables that include censoring prefixes such as `<`, `<=`, `>`,
+#' or `>=` before a later log transform.
+#'
+#' By default the function strips the qualifier and keeps the reported numeric
+#' value. If you want to interpret censored values as one dilution lower or
+#' higher, use `less_than = "half"` and/or `greater_than = "double"`.
+#'
+#' @param x A vector of raw MIC values.
+#' @param less_than How to interpret `<` and `<=` values: keep the reported
+#'   number (`"numeric"`) or divide it by two (`"half"`).
+#' @param greater_than How to interpret `>` and `>=` values: keep the reported
+#'   number (`"numeric"`) or multiply it by two (`"double"`).
+#'
+#' @return A numeric vector.
+#' @export
+amrc_clean_mic_values <- function(
+  x,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
+) {
+  less_than <- match.arg(less_than)
+  greater_than <- match.arg(greater_than)
+
+  if (is.numeric(x)) {
+    return(as.numeric(x))
+  }
+
+  x_chr <- amrc_normalise_mic_strings(x)
+  out <- rep(NA_real_, length(x_chr))
+
+  keep <- !is.na(x_chr)
+  if (!any(keep)) {
+    return(out)
+  }
+
+  parse_one <- function(value) {
+    numeric_match <- regexpr("[0-9]*\\.?[0-9]+(?:[eE][+-]?[0-9]+)?", value, perl = TRUE)
+    if (identical(numeric_match[[1]], -1L)) {
+      if (grepl("[[:alpha:]]", value)) {
+        stop(
+          "MIC values could not be coerced to numeric: ",
+          value,
+          call. = FALSE
+        )
+      }
+      return(NA_real_)
+    }
+
+    start <- as.integer(numeric_match[[1]])
+    length_match <- attr(numeric_match, "match.length")
+    numeric_text <- substr(value, start, start + length_match - 1L)
+    prefix <- substr(value, 1L, start - 1L)
+    suffix <- substr(value, start + length_match, nchar(value))
+
+    if (grepl("[[:alpha:]]", prefix) || grepl("[[:alpha:]]", suffix)) {
+      stop(
+        "MIC values could not be coerced to numeric: ",
+        value,
+        call. = FALSE
+      )
+    }
+
+    has_less <- grepl("<", prefix, fixed = TRUE)
+    has_greater <- grepl(">", prefix, fixed = TRUE)
+    if (has_less && has_greater) {
+      stop(
+        "MIC values contain conflicting censoring qualifiers: ",
+        value,
+        call. = FALSE
+      )
+    }
+
+    parsed_value <- as.numeric(numeric_text)
+    if (is.na(parsed_value)) {
+      stop(
+        "MIC values could not be coerced to numeric: ",
+        value,
+        call. = FALSE
+      )
+    }
+
+    if (has_less && identical(less_than, "half")) {
+      parsed_value <- parsed_value / 2
+    }
+
+    if (has_greater && identical(greater_than, "double")) {
+      parsed_value <- parsed_value * 2
+    }
+
+    parsed_value
+  }
+
+  values <- vapply(x_chr[keep], parse_one, numeric(1))
+
+  out[keep] <- values
+  out
+}
+
+amrc_mic_numeric_coercion <- function(
+  x,
+  column_name,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
+) {
+  out <- amrc_clean_mic_values(
+    x = x,
+    less_than = less_than,
+    greater_than = greater_than
+  )
+
+  bad <- !is.na(amrc_normalise_mic_strings(x)) & is.na(out)
+  if (any(bad)) {
+    bad_values <- unique(amrc_normalise_mic_strings(x)[bad])
+    bad_values <- bad_values[seq_len(min(length(bad_values), 5L))]
+    stop(
+      "MIC column '",
+      column_name,
+      "' contains values that could not be coerced to numeric: ",
+      paste(bad_values, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  out
+}
+
 amrc_resolve_metadata_cols <- function(data, id_col, mic_cols, metadata_cols = NULL) {
   if (is.null(metadata_cols)) {
     return(setdiff(colnames(data), mic_cols))
@@ -169,6 +308,9 @@ amrc_mismatch_distance <- function(feature_data, normalise = TRUE) {
 #'   `TRUE`.
 #' @param require_complete_mic Logical; fail validation if any MIC value is
 #'   missing.
+#' @param less_than How to interpret `<` and `<=` MIC strings before coercion.
+#' @param greater_than How to interpret `>` and `>=` MIC strings before
+#'   coercion.
 #'
 #' @return A named list describing the validated schema.
 #' @export
@@ -178,8 +320,12 @@ amrc_validate_mic_data <- function(
   mic_cols,
   metadata_cols = NULL,
   allow_duplicate_ids = FALSE,
-  require_complete_mic = FALSE
+  require_complete_mic = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 ) {
+  less_than <- match.arg(less_than)
+  greater_than <- match.arg(greater_than)
   amrc_assert_is_data_frame(data)
   amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
   amrc_assert_column_set(mic_cols, data, arg_name = "mic_cols")
@@ -203,7 +349,13 @@ amrc_validate_mic_data <- function(
     stop("The isolate identifier column contains duplicate values.", call. = FALSE)
   }
 
-  mic <- amrc_extract_mic_matrix(data, mic_cols = mic_cols, transform = "none")
+  mic <- amrc_extract_mic_matrix(
+    data,
+    mic_cols = mic_cols,
+    transform = "none",
+    less_than = less_than,
+    greater_than = greater_than
+  )
   complete_rows <- stats::complete.cases(mic)
   if (isTRUE(require_complete_mic) && any(!complete_rows)) {
     stop("MIC columns contain missing values.", call. = FALSE)
@@ -230,6 +382,9 @@ amrc_validate_mic_data <- function(
 #' @param mic_cols Character vector naming the MIC measurement columns.
 #' @param transform Either `"none"` or `"log2"`.
 #' @param log2_round Logical; round transformed values after applying `log2()`.
+#' @param less_than How to interpret `<` and `<=` MIC strings before coercion.
+#' @param greater_than How to interpret `>` and `>=` MIC strings before
+#'   coercion.
 #'
 #' @return A numeric `data.frame` containing only MIC columns.
 #' @export
@@ -237,15 +392,26 @@ amrc_extract_mic_matrix <- function(
   data,
   mic_cols,
   transform = c("none", "log2"),
-  log2_round = FALSE
+  log2_round = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 ) {
   transform <- match.arg(transform)
+  less_than <- match.arg(less_than)
+  greater_than <- match.arg(greater_than)
   amrc_assert_is_data_frame(data)
   amrc_assert_column_set(mic_cols, data, arg_name = "mic_cols")
 
   mic <- as.data.frame(
     Map(
-      function(column, name) amrc_numeric_coercion(column, name),
+      function(column, name) {
+        amrc_mic_numeric_coercion(
+          column,
+          name,
+          less_than = less_than,
+          greater_than = greater_than
+        )
+      },
       data[, mic_cols, drop = FALSE],
       mic_cols
     ),
@@ -317,6 +483,9 @@ amrc_extract_isolate_metadata <- function(
 #' @param drop_incomplete Logical; drop rows with incomplete MIC profiles.
 #' @param allow_duplicate_ids Logical; allow duplicate isolate identifiers when
 #'   `TRUE`.
+#' @param less_than How to interpret `<` and `<=` MIC strings before coercion.
+#' @param greater_than How to interpret `>` and `>=` MIC strings before
+#'   coercion.
 #'
 #' @return An `amrc_mic_data` object.
 #' @export
@@ -328,9 +497,13 @@ amrc_standardise_mic_data <- function(
   transform = c("none", "log2"),
   log2_round = FALSE,
   drop_incomplete = TRUE,
-  allow_duplicate_ids = FALSE
+  allow_duplicate_ids = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 ) {
   transform <- match.arg(transform)
+  less_than <- match.arg(less_than)
+  greater_than <- match.arg(greater_than)
 
   validation <- amrc_validate_mic_data(
     data = data,
@@ -338,7 +511,9 @@ amrc_standardise_mic_data <- function(
     mic_cols = mic_cols,
     metadata_cols = metadata_cols,
     allow_duplicate_ids = allow_duplicate_ids,
-    require_complete_mic = FALSE
+    require_complete_mic = FALSE,
+    less_than = less_than,
+    greater_than = greater_than
   )
 
   ids <- validation$isolate_ids
@@ -346,7 +521,9 @@ amrc_standardise_mic_data <- function(
     data = data,
     mic_cols = mic_cols,
     transform = transform,
-    log2_round = log2_round
+    log2_round = log2_round,
+    less_than = less_than,
+    greater_than = greater_than
   )
   metadata <- amrc_extract_isolate_metadata(
     data = data,

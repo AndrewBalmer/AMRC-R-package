@@ -1,0 +1,7 @@
+isolate_id,lineage,allele_a,allele_b,allele_c
+iso1,L1,A,C,T
+iso2,L1,A,G,T
+iso3,L2,T,G,T
+iso4,L2,T,G,C
+iso5,L3,G,A,C
+iso6,L3,G,A,T

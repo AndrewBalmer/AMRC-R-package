@@ -21,8 +21,8 @@ that `amrcartography` can compare against a phenotype map:
 2. an aligned numeric feature table
 3. an aligned character-state feature table
 
-The example uses a tiny synthetic dataset so the workflow stays fast and easy
-to adapt to your own data.
+The example uses tiny bundled generic datasets so the workflow stays fast and
+easy to adapt to your own data.
 
 ## Load the package
 
@@ -33,21 +33,16 @@ library(amrcartography)
 ## Start from a small MIC table
 
 ```{r}
-mic_table <- data.frame(
-  isolate_id = paste0("iso", 1:5),
-  lineage = c("L1", "L1", "L2", "L3", "L3"),
-  drug_a = c(0.5, 1, 2, 4, 8),
-  drug_b = c(1, 1, 2, 4, 8),
-  drug_c = c(0.25, 0.5, 1, 2, 4),
-  stringsAsFactors = FALSE
-)
+mic_table <- amrc_example_data("mic_raw")
 
 mic_data <- amrc_standardise_mic_data(
   data = mic_table,
   id_col = "isolate_id",
   mic_cols = c("drug_a", "drug_b", "drug_c"),
   metadata_cols = "lineage",
-  transform = "log2"
+  transform = "log2",
+  less_than = "half",
+  greater_than = "double"
 )
 
 phenotype_distance <- amrc_compute_mic_distance(mic_data)
@@ -60,18 +55,7 @@ If your external structure already exists as a distance matrix, standardise it
 directly and fit the map from that object.
 
 ```{r}
-precomputed_matrix <- matrix(
-  c(
-    0, 1, 2, 3, 4,
-    1, 0, 2, 3, 4,
-    2, 2, 0, 1, 2,
-    3, 3, 1, 0, 1,
-    4, 4, 2, 1, 0
-  ),
-  nrow = 5,
-  byrow = TRUE,
-  dimnames = list(mic_data$isolate_ids, mic_data$isolate_ids)
-)
+precomputed_matrix <- amrc_example_data("external_distance")
 
 external_distance_precomputed <- amrc_compute_external_distance(precomputed_matrix)
 as.matrix(external_distance_precomputed)
@@ -83,12 +67,7 @@ This is useful when your external measurements are already in a compact
 coordinate or feature representation.
 
 ```{r}
-numeric_features <- data.frame(
-  isolate_id = c("iso3", "iso1", "iso2", "iso4", "iso5"),
-  axis1 = c(1.1, 0.1, 0.2, 2.1, 2.4),
-  axis2 = c(0.2, 0.0, 0.1, 1.8, 2.0),
-  stringsAsFactors = FALSE
-)
+numeric_features <- amrc_example_data("external_numeric")
 
 external_numeric <- amrc_standardise_external_data(
   data = numeric_features,
@@ -106,13 +85,7 @@ This is useful when your external data are sequence- or allele-like aligned
 states rather than numeric coordinates.
 
 ```{r}
-character_features <- data.frame(
-  isolate_id = c("iso1", "iso2", "iso3", "iso4", "iso5"),
-  allele_1 = c("A", "A", "T", "T", "T"),
-  allele_2 = c("C", "G", "G", "G", "C"),
-  allele_3 = c("T", "T", "T", "C", "C"),
-  stringsAsFactors = FALSE
-)
+character_features <- amrc_example_data("external_character")
 
 external_character <- amrc_standardise_external_data(
   data = character_features,

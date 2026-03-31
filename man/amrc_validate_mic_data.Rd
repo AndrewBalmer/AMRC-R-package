@@ -10,7 +10,9 @@ amrc_validate_mic_data(
   mic_cols,
   metadata_cols = NULL,
   allow_duplicate_ids = FALSE,
-  require_complete_mic = FALSE
+  require_complete_mic = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 )
 }
 \arguments{
@@ -29,6 +31,11 @@ retain. When \code{NULL}, all non-MIC columns are treated as metadata.}
 
 \item{require_complete_mic}{Logical; fail validation if any MIC value is
 missing.}
+
+\item{less_than}{How to interpret \code{<} and \code{<=} MIC strings before coercion.}
+
+\item{greater_than}{How to interpret \code{>} and \code{>=} MIC strings before
+coercion.}
 }
 \value{
 A named list describing the validated schema.

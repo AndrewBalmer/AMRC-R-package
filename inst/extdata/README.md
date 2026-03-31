@@ -1,9 +1,13 @@
 # Example data
 
-This directory contains lightweight metadata and reproducibility artefacts for
-the example `S. pneumoniae` case study used in the legacy AMR cartography
-scripts.
+This directory contains two kinds of package example data.
 
-The raw source CSVs are not committed here by default. Use
-`tools/build_spneumoniae_example_data.R` to download and process the example
+- `examples/generic/` holds small generic MIC and external-data examples used in
+  the generic vignettes and tests.
+- the `spneumoniae_*` files and `generated/` layout support the worked
+  `S. pneumoniae` case study retained in the repository for validation and
+  regression purposes.
+
+The full raw `S. pneumoniae` source CSVs are not committed here by default. Use
+`tools/build_spneumoniae_example_data.R` to download and process the case-study
 data into `inst/extdata/generated/`.

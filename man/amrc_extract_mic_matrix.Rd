@@ -8,7 +8,9 @@ amrc_extract_mic_matrix(
   data,
   mic_cols,
   transform = c("none", "log2"),
-  log2_round = FALSE
+  log2_round = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 )
 }
 \arguments{
@@ -19,6 +21,11 @@ amrc_extract_mic_matrix(
 \item{transform}{Either \code{"none"} or \code{"log2"}.}
 
 \item{log2_round}{Logical; round transformed values after applying \code{log2()}.}
+
+\item{less_than}{How to interpret \code{<} and \code{<=} MIC strings before coercion.}
+
+\item{greater_than}{How to interpret \code{>} and \code{>=} MIC strings before
+coercion.}
 }
 \value{
 A numeric \code{data.frame} containing only MIC columns.

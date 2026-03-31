@@ -76,6 +76,15 @@ The *S. pneumoniae* case-study vignette is still available separately:
 vignette("end-to-end-spneumoniae", package = "amrcartography")
 ```
 
+For quick generic examples, you can load the bundled toy datasets directly:
+
+```r
+library(amrcartography)
+
+amrc_example_data("mic_raw")
+amrc_example_data("external_numeric")
+```
+
 You can also locate the bundled *S. pneumoniae* example files directly:
 
 ```r
@@ -115,7 +124,9 @@ mic_data <- amrc_standardise_mic_data(
   id_col = "isolate_id",
   mic_cols = c("drug_a", "drug_b", "drug_c"),
   metadata_cols = c("country", "lineage"),
-  transform = "log2"
+  transform = "log2",
+  less_than = "numeric",
+  greater_than = "numeric"
 )
 
 phenotype_distance <- amrc_compute_mic_distance(mic_data)
@@ -147,6 +158,13 @@ reference_distances <- amrc_compute_reference_distance_table(
 
 If you only need phenotype cartography, you can stop after the MIC
 standardisation, distance, and phenotype-map steps.
+
+Raw MIC tables often include censoring prefixes such as `<0.5` or `>=8`, and
+sometimes also carry extra symbol clutter such as `~0.5`, `-1`, or `<_0.25`.
+The generic MIC preprocessing helpers clean those values before the log
+transform. Use `less_than = "numeric"` / `greater_than = "numeric"` to strip
+the qualifier and keep the reported number, or `less_than = "half"` /
+`greater_than = "double"` to shift censored values by one doubling dilution.
 
 ## External Data Formats
 

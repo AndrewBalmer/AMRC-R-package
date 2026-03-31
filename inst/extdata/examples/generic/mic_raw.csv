@@ -1,0 +1,7 @@
+isolate_id,lineage,source,drug_a,drug_b,drug_c
+iso1,L1,ward,<0.5,1,0.25
+iso2,L1,ward,1,1,<=0.5
+iso3,L2,community,2,2,1
+iso4,L2,community,2,4,2
+iso5,L3,clinic,4,>4,4
+iso6,L3,clinic,>=8,8,4

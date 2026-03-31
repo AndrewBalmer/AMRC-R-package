@@ -62,6 +62,24 @@ test_that("generic MIC validation checks schema and duplicate isolate IDs", {
   )
 })
 
+test_that("raw MIC values can be cleaned before log transformation", {
+  raw_values <- c("<0.5", "<=1", "2", ">4", ">=8", "~0.5", "-1", "<_0.25", "", "~", "-", NA)
+
+  expect_equal(
+    amrc_clean_mic_values(raw_values),
+    c(0.5, 1, 2, 4, 8, 0.5, 1, 0.25, NA, NA, NA, NA)
+  )
+
+  expect_equal(
+    amrc_clean_mic_values(
+      raw_values,
+      less_than = "half",
+      greater_than = "double"
+    ),
+    c(0.25, 0.5, 2, 8, 16, 0.5, 1, 0.125, NA, NA, NA, NA)
+  )
+})
+
 test_that("generic MIC extraction and standardisation work on arbitrary datasets", {
   toy <- generic_mic_fixture()
 
@@ -89,6 +107,34 @@ test_that("generic MIC extraction and standardisation work on arbitrary datasets
   expect_equal(colnames(standardised$mic), c("drug_a", "drug_b", "drug_c"))
   expect_equal(colnames(standardised$metadata), c("isolate_id", "host", "lineage"))
   expect_equal(rownames(standardised$mic), c("iso1", "iso2", "iso4"))
+})
+
+test_that("generic MIC standardisation handles common censoring prefixes", {
+  toy <- amrc_example_data("mic_raw")
+
+  standardised <- amrc_standardise_mic_data(
+    data = toy,
+    id_col = "isolate_id",
+    mic_cols = c("drug_a", "drug_b", "drug_c"),
+    metadata_cols = c("lineage", "source"),
+    transform = "log2",
+    less_than = "half",
+    greater_than = "double"
+  )
+
+  expect_equal(standardised$isolate_ids, paste0("iso", 1:6))
+  expect_equal(
+    unname(as.numeric(standardised$mic$drug_a)),
+    c(-2, 0, 1, 1, 2, 4)
+  )
+  expect_equal(
+    unname(as.numeric(standardised$mic$drug_b)),
+    c(0, 0, 1, 2, 3, 3)
+  )
+  expect_equal(
+    unname(as.numeric(standardised$mic$drug_c)),
+    c(-2, -2, 0, 1, 2, 2)
+  )
 })
 
 test_that("generic MIC preprocessing rejects non-numeric MIC entries", {
@@ -168,6 +214,22 @@ test_that("generic external feature distances can be built from aligned feature 
 
   expect_s3_class(feature_distance, "dist")
   expect_equal(attr(feature_distance, "Labels"), c("iso3", "iso1", "iso2"))
+})
+
+test_that("bundled generic example datasets can be loaded", {
+  paths <- amrc_example_data_paths()
+
+  expect_true(file.exists(paths$mic_raw))
+  expect_true(file.exists(paths$external_numeric))
+  expect_true(file.exists(paths$external_character))
+  expect_true(file.exists(paths$external_distance))
+
+  mic_raw <- amrc_example_data("mic_raw")
+  external_distance <- amrc_example_data("external_distance")
+
+  expect_true(all(c("isolate_id", "drug_a", "drug_b", "drug_c") %in% colnames(mic_raw)))
+  expect_true(is.matrix(external_distance))
+  expect_equal(rownames(external_distance), colnames(external_distance))
 })
 
 test_that("generic external feature tables can be standardised for numeric and character data", {

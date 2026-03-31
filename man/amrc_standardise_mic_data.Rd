@@ -12,7 +12,9 @@ amrc_standardise_mic_data(
   transform = c("none", "log2"),
   log2_round = FALSE,
   drop_incomplete = TRUE,
-  allow_duplicate_ids = FALSE
+  allow_duplicate_ids = FALSE,
+  less_than = c("numeric", "half"),
+  greater_than = c("numeric", "double")
 )
 }
 \arguments{
@@ -34,6 +36,11 @@ retain. When \code{NULL}, all non-MIC columns are retained.}
 
 \item{allow_duplicate_ids}{Logical; allow duplicate isolate identifiers when
 \code{TRUE}.}
+
+\item{less_than}{How to interpret \code{<} and \code{<=} MIC strings before coercion.}
+
+\item{greater_than}{How to interpret \code{>} and \code{>=} MIC strings before
+coercion.}
 }
 \value{
 An \code{amrc_mic_data} object.
