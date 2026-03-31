@@ -8,6 +8,8 @@
 renv/library/
 renv/python/
 renv/staging/
+__pycache__/
+*.pyc
 
 data-raw/raw-data/
 inst/extdata/generated/
