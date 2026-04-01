@@ -662,7 +662,7 @@ amrc_compute_group_pairwise_distances <- function(
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
-    row <- as.data.frame(setNames(
+    row <- as.data.frame(stats::setNames(
       list(
         group_pair[[1]],
         group_pair[[2]],
@@ -738,7 +738,7 @@ amrc_summarise_nested_group_pairwise_distances <- function(
     }
 
     row <- data.frame(
-      setNames(
+      stats::setNames(
         list(
           group_value,
           nrow(group_data),

@@ -40,6 +40,8 @@ amrc_run_limix_permutation_scan(
   kinship_matrix = NULL,
   n_permutations = 100,
   mode = c("multivariate", "univariate"),
+  marker_sample_size = NULL,
+  marker_sample_replace = FALSE,
   seed = NULL,
   out_dir = tempdir(),
   prefix = "amrc_limix_perm",
@@ -74,6 +76,12 @@ covariate set before epistatic scanning.}
 \item{min_present}{Minimum present count required for interaction markers.}
 
 \item{n_permutations}{Number of phenotype permutations to stage or run.}
+
+\item{marker_sample_size}{Optional number of markers to sample per
+permutation. Useful for manuscript-style interaction-marker subsampling.}
+
+\item{marker_sample_replace}{Logical; sample markers with replacement when
+\code{marker_sample_size} is set.}
 
 \item{seed}{Optional random seed.}
 

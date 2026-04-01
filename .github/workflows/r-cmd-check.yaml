@@ -39,10 +39,11 @@ jobs:
           needs: check
 
       - name: Check package
-        uses: r-lib/actions/check-r-package@v2
-        with:
-          args: 'c("--no-manual")'
-          error-on: '"warning"'
+        run: >
+          Rscript -e
+          'rcmdcheck::rcmdcheck(args = c("--no-manual"),
+          build_args = c("--compact-vignettes=gs+qpdf"),
+          error_on = "warning")'
 
   docs-sanity:
     runs-on: ubuntu-latest
