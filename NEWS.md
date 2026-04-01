@@ -1,5 +1,37 @@
 # amrcartography news
 
+## 0.2.0 (2026-04-01)
+
+Minor release candidate that promotes the new generic genotype-to-phenotype
+postprocessing layer beyond the `0.1.x` patch line.
+
+### Generic group-contrast analysis
+
+- Added generic helpers for within-group metadata dispersion summaries.
+- Added generic one-feature contrast discovery and summarisation helpers.
+- Added generic cluster-difference feature summaries based on state-frequency
+  shifts.
+- Added informative-isolate selection helpers for two-cluster contrasts.
+
+### Generic association postprocessing
+
+- Added marker-matrix preprocessing helpers for invariant-marker filtering and
+  duplicate/inverse collapse handling.
+- Added model-comparison helpers for adjusted-versus-unadjusted association
+  scans, including explicit full-outer-join presence tracking.
+- Added long-form ranking and cross-method feature-overlap helpers.
+
+### Validation
+
+- Fixed the critical review issues in the new helper layer:
+  - missing-group validation for one-feature contrast summaries
+  - explicit identifier-column inference failure in informative-isolate
+    selection
+  - clearer outer-join semantics in association-model comparison
+- Added targeted error-path tests for the new helper functions.
+- Authoritative Linux CI passed for the feature commit that introduced this
+  layer: `62ef521` (`23848748302`).
+
 ## 0.1.1 (2026-04-01)
 
 Patch release that promotes the post-`v0.1.0` generic analysis additions to the
