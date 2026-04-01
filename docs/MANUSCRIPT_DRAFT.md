@@ -32,13 +32,14 @@ The manuscript should explain the package around this generic sequence:
 5. demonstrate the approach on the `S. pneumoniae` case study
 
 The manuscript should now move away from citing an intermediate development
-commit and instead cite the first tagged public package release. The current
-release target is:
+commit and instead cite the current tagged public package release. The current
+software baseline is:
 
-- target software release: `v0.1.0`
-- package version in the release-prep tree: `0.1.0`
-- citation policy: cite the first green tagged release rather than an older
-  development commit
+- target software release: `v0.1.1`
+- package version in the release-prep tree: `0.1.1`
+- validated baseline commit for the `0.1.1` release line: `345fba1`
+- citation policy: cite the tagged release rather than an older development
+  commit
 
 Keep the manuscript drafting centered on the vignette structure, and update the
 final software citation to the validated release tag once the GitHub release is

@@ -1,5 +1,32 @@
 # amrcartography news
 
+## 0.1.1 (2026-04-01)
+
+Patch release that promotes the post-`v0.1.0` generic analysis additions to the
+current validated public baseline.
+
+### Generic MIC data handling
+
+- Added more tolerant generic MIC cleaning for censored and irregular raw
+  values, including strings such as `<`, `<=`, `>`, `>=`, `~`, and similar
+  non-numeric prefixes around reported MIC values.
+- Added bundled generic example datasets for MIC tables, external numeric
+  features, external character-state features, and precomputed external
+  distances.
+
+### Advanced genotype-to-phenotype analysis
+
+- Added the advanced mixed-model and prediction toolkit, including generic
+  helpers for LIMIX-backed LMM/mvLMM workflows, permutation scans, epistatic
+  scans, heritability estimation, variance decomposition, and kinship-based
+  prediction utilities.
+
+### Validation and CI
+
+- Fixed the remaining Ubuntu `R-CMD-check` warnings in the release workflow.
+- Tightened vignette/check workflow handling so the Linux release leg is the
+  current authoritative validation baseline for this patch release.
+
 ## 0.1.0 (2026-03-30)
 
 First public GitHub release of `amrcartography` as a generic MIC cartography
