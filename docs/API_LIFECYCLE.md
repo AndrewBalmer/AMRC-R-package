@@ -38,7 +38,7 @@ replacements are mature and well documented:
 - `amrc_process_spneumoniae_genotype()`
 - `amrc_prepare_spneumoniae_map_data()`
 
-For the `0.1.0` public milestone, these wrappers are in a soft-deprecation
+For the `0.2.0` public milestone, these wrappers are in a soft-deprecation
 state:
 
 - they remain fully supported for the case-study workflow

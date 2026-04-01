@@ -32,7 +32,7 @@ The package is now at the point where it has:
 ## Status
 
 This is still a GitHub release rather than a CRAN release, and the repository
-should be used as-is. The current public milestone is `0.1.0`: the generic API
+should be used as-is. The current public milestone is `0.2.0`: the generic API
 is now intentionally usable, but the package is still being prepared for
 manuscript-centered release and long-term API stabilisation. This repository is
 also separate from the related manuscript
@@ -40,9 +40,10 @@ repository: it contains the package, migrated analysis code, and development
 documentation, not the manuscript submission source itself. The long-term
 package goal is a generic MIC cartography toolkit; the current
 *S. pneumoniae* workflow should be read as a worked example and validation
-case, not the permanent center of the public API. Any interactive app remains
-explicitly deferred until the manuscript workflow and exported API stop
-moving.
+case, not the permanent center of the public API. An experimental Streamlit
+prototype now lives in [streamlit_app](streamlit_app), but the package API
+remains the primary supported interface and the app should still be treated as
+an early convenience layer rather than the stable analysis surface.
 
 ## Installation
 
@@ -359,13 +360,13 @@ The package now separates what ships in the repository from what is downloaded o
 - Script-by-script migration audit: [docs/SCRIPT_AUDIT.md](docs/SCRIPT_AUDIT.md)
 - Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
 - Object contracts: [docs/OBJECT_CONTRACTS.md](docs/OBJECT_CONTRACTS.md)
-- GitHub release notes draft: [docs/RELEASE_NOTES_0.1.0.md](docs/RELEASE_NOTES_0.1.0.md)
+- GitHub release notes draft: [docs/RELEASE_NOTES_0.2.0.md](docs/RELEASE_NOTES_0.2.0.md)
 - Manuscript scaffold: [docs/MANUSCRIPT_DRAFT.md](docs/MANUSCRIPT_DRAFT.md)
 - API lifecycle notes: [docs/API_LIFECYCLE.md](docs/API_LIFECYCLE.md)
 
 ## How To Cite
 
-The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current publication workflow, the package should be cited as the `0.1.0` software release; once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
+The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current publication workflow, the package should be cited as the `v0.2.0` software release; once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
 
 ## Repository Layout
 

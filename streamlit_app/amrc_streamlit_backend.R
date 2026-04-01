@@ -1,0 +1,258 @@
+`%||%` <- function(x, y) {
+  if (is.null(x) || identical(x, "")) y else x
+}
+
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) != 1L) {
+  stop("Usage: Rscript streamlit_app/amrc_streamlit_backend.R <config.json>", call. = FALSE)
+}
+
+if (!requireNamespace("jsonlite", quietly = TRUE)) {
+  stop("Package 'jsonlite' is required for the Streamlit backend.", call. = FALSE)
+}
+
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  stop("Package 'ggplot2' is required for the Streamlit backend.", call. = FALSE)
+}
+
+config <- jsonlite::fromJSON(args[[1]], simplifyVector = TRUE)
+repo_root <- normalizePath(config$repo_root, mustWork = TRUE)
+output_dir <- normalizePath(config$output_dir, winslash = "/", mustWork = FALSE)
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+amrc_load_package <- function(repo_root) {
+  if (requireNamespace("pkgload", quietly = TRUE)) {
+    pkgload::load_all(
+      path = repo_root,
+      export_all = FALSE,
+      helpers = FALSE,
+      attach_testthat = FALSE,
+      quiet = TRUE
+    )
+
+    return(invisible(TRUE))
+  }
+
+  if (requireNamespace("amrcartography", quietly = TRUE)) {
+    return(invisible(TRUE))
+  }
+
+  stop(
+    "Neither pkgload nor an installed copy of amrcartography is available. ",
+    "Install pkgload to run the app from the repo checkout, or install the package first.",
+    call. = FALSE
+  )
+
+  invisible(TRUE)
+}
+
+amrc_load_package(repo_root)
+
+amrc_fn <- function(name) getExportedValue("amrcartography", name)
+
+read_csv_keep_names <- function(path) {
+  utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
+}
+
+write_plot <- function(plot, path, width = 7, height = 6) {
+  ggplot2::ggsave(
+    filename = path,
+    plot = plot,
+    width = width,
+    height = height,
+    dpi = 150
+  )
+}
+
+prepare_map_frame <- function(mds_result, metadata, id_col, prefix = "D") {
+  coords <- as.data.frame(mds_result$conf, stringsAsFactors = FALSE, check.names = FALSE)
+  colnames(coords) <- paste0(prefix, seq_len(ncol(coords)))
+
+  ids <- rownames(coords)
+  if (is.null(ids) || any(!nzchar(ids))) {
+    ids <- as.character(metadata[[id_col]])
+  }
+
+  coords[[id_col]] <- ids
+  metadata_aligned <- metadata[match(ids, metadata[[id_col]]), , drop = FALSE]
+  cbind(
+    coords[, c(id_col, setdiff(colnames(coords), id_col)), drop = FALSE],
+    metadata_aligned[, setdiff(colnames(metadata_aligned), id_col), drop = FALSE]
+  )
+}
+
+parse_precomputed_distance <- function(path, id_col) {
+  raw <- read_csv_keep_names(path)
+
+  if (!(id_col %in% colnames(raw))) {
+    stop("The external distance file is missing the selected ID column.", call. = FALSE)
+  }
+
+  row_ids <- as.character(raw[[id_col]])
+  matrix_df <- raw[, setdiff(colnames(raw), id_col), drop = FALSE]
+  distance_matrix <- as.matrix(matrix_df)
+  storage.mode(distance_matrix) <- "double"
+  rownames(distance_matrix) <- row_ids
+
+  if (nrow(distance_matrix) != ncol(distance_matrix)) {
+    stop(
+      "Precomputed external distance matrices must be square after removing the ID column.",
+      call. = FALSE
+    )
+  }
+
+  if (is.null(colnames(distance_matrix)) || any(!nzchar(colnames(distance_matrix)))) {
+    colnames(distance_matrix) <- row_ids
+  }
+
+  amrc_fn("amrc_compute_external_distance")(
+    distance_matrix,
+    isolate_ids = row_ids
+  )
+}
+
+id_col <- config$phenotype$id_col
+metadata_cols <- config$phenotype$metadata_cols %||% character()
+fill_col <- config$plot$fill_col %||% NULL
+facet_by <- config$plot$facet_by %||% NULL
+group_col <- config$comparison$group_col %||% NULL
+grid_spacing <- if (isTRUE(config$plot$grid_spacing_one)) 1 else NULL
+density_mode <- if (isTRUE(config$plot$density)) "contour" else "none"
+
+phenotype_data <- read_csv_keep_names(config$phenotype$path)
+
+mic_data <- amrc_fn("amrc_standardise_mic_data")(
+  data = phenotype_data,
+  id_col = id_col,
+  mic_cols = config$phenotype$mic_cols,
+  metadata_cols = metadata_cols,
+  transform = config$phenotype$transform,
+  drop_incomplete = isTRUE(config$phenotype$drop_incomplete),
+  less_than = config$phenotype$less_than,
+  greater_than = config$phenotype$greater_than
+)
+
+phenotype_distance <- amrc_fn("amrc_compute_mic_distance")(mic_data)
+phenotype_map <- amrc_fn("amrc_compute_mds")(phenotype_distance)
+phenotype_plot_data <- prepare_map_frame(
+  mds_result = phenotype_map,
+  metadata = mic_data$metadata,
+  id_col = id_col,
+  prefix = "D"
+)
+
+phenotype_plot <- amrc_fn("amrc_plot_map")(
+  data = phenotype_plot_data,
+  x = "D1",
+  y = "D2",
+  fill_col = fill_col,
+  facet_by = facet_by,
+  grid_spacing = grid_spacing,
+  density = density_mode
+)
+
+write_plot(phenotype_plot, file.path(output_dir, "phenotype_map.png"))
+utils::write.csv(
+  phenotype_plot_data,
+  file = file.path(output_dir, "phenotype_map_data.csv"),
+  row.names = FALSE
+)
+
+summary <- list(
+  package_release_target = "v0.2.0",
+  phenotype = list(
+    n_isolates = nrow(phenotype_plot_data),
+    n_drugs = ncol(mic_data$mic),
+    stress = unname(phenotype_map$stress %||% NA_real_)
+  ),
+  external = NULL
+)
+
+if (isTRUE(config$external$enabled)) {
+  mode <- config$external$mode
+  external_path <- config$external$path
+  external_id_col <- config$external$id_col
+  external_feature_cols <- config$external$feature_cols %||% character()
+
+  if (identical(mode, "precomputed_distance")) {
+    external_distance <- parse_precomputed_distance(
+      path = external_path,
+      id_col = external_id_col
+    )
+  } else if (identical(mode, "numeric_features")) {
+    external_raw <- read_csv_keep_names(external_path)
+    external_standardised <- amrc_fn("amrc_standardise_external_data")(
+      data = external_raw,
+      id_col = external_id_col,
+      feature_cols = external_feature_cols,
+      feature_mode = "numeric",
+      drop_incomplete = TRUE
+    )
+    external_distance <- amrc_fn("amrc_compute_external_feature_distance")(external_standardised)
+  } else if (identical(mode, "character_features")) {
+    external_raw <- read_csv_keep_names(external_path)
+    external_standardised <- amrc_fn("amrc_standardise_external_data")(
+      data = external_raw,
+      id_col = external_id_col,
+      feature_cols = external_feature_cols,
+      feature_mode = "character",
+      drop_incomplete = TRUE
+    )
+    external_distance <- amrc_fn("amrc_compute_external_feature_distance")(external_standardised)
+  } else if (identical(mode, "sequence_alleles")) {
+    external_raw <- read_csv_keep_names(external_path)
+    external_distance <- amrc_fn("amrc_compute_sequence_distance")(
+      data = external_raw,
+      id_col = external_id_col,
+      sequence_cols = external_feature_cols
+    )
+  } else {
+    stop("Unsupported external mode: ", mode, call. = FALSE)
+  }
+
+  external_map <- amrc_fn("amrc_compute_mds")(external_distance)
+  comparison_bundle <- amrc_fn("amrc_prepare_map_data")(
+    metadata = mic_data$metadata,
+    phenotype_mds = phenotype_map,
+    external_mds = external_map,
+    id_col = id_col,
+    group_col = group_col
+  )
+
+  external_plot <- amrc_fn("amrc_plot_map")(
+    data = comparison_bundle$data,
+    x = "E1",
+    y = "E2",
+    fill_col = fill_col,
+    facet_by = facet_by,
+    grid_spacing = grid_spacing,
+    density = density_mode
+  )
+  side_plot <- amrc_fn("amrc_plot_side_by_side_maps")(
+    data = comparison_bundle$data,
+    fill_col = fill_col,
+    grid_spacing = grid_spacing
+  )
+
+  write_plot(external_plot, file.path(output_dir, "external_map.png"))
+  write_plot(side_plot, file.path(output_dir, "side_by_side_maps.png"), width = 10, height = 5)
+  utils::write.csv(
+    comparison_bundle$data,
+    file = file.path(output_dir, "comparison_data.csv"),
+    row.names = FALSE
+  )
+
+  summary$external <- list(
+    mode = mode,
+    n_isolates = nrow(comparison_bundle$data),
+    stress = unname(external_map$stress %||% NA_real_)
+  )
+}
+
+jsonlite::write_json(
+  summary,
+  path = file.path(output_dir, "summary.json"),
+  auto_unbox = TRUE,
+  pretty = TRUE
+)

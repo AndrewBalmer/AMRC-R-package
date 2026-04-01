@@ -35,9 +35,9 @@ The manuscript should now move away from citing an intermediate development
 commit and instead cite the current tagged public package release. The current
 software baseline is:
 
-- target software release: `v0.1.1`
-- package version in the release-prep tree: `0.1.1`
-- validated baseline commit for the `0.1.1` release line: `345fba1`
+- target software release: `v0.2.0`
+- package version in the release-prep tree: `0.2.0`
+- validated baseline commit for the `0.2.0` release line: `7dc9c8a`
 - citation policy: cite the tagged release rather than an older development
   commit
 
