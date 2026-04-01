@@ -416,3 +416,245 @@ test_that("map plotting supports faceting and group envelopes", {
   expect_s3_class(envelope_plot, "ggplot")
   expect_no_error(ggplot2::ggplot_build(envelope_plot))
 })
+
+test_that("within-group dispersion and one-feature contrast helpers work generically", {
+  fixture <- generic_analysis_fixture()
+
+  dispersion <- amrc_summarise_within_group_dispersion(
+    data = fixture,
+    group_col = "lineage",
+    phenotype_cols = c("phen_x", "phen_y"),
+    external_cols = c("ext_x", "ext_y"),
+    threshold = 1
+  )
+
+  expect_true(all(c(
+    "lineage", "n_members", "n_pairs",
+    "phenotype_distance_median", "phenotype_prop_below_threshold",
+    "external_distance_median"
+  ) %in% names(dispersion)))
+  expect_equal(nrow(dispersion), 3)
+
+  group_profiles <- data.frame(
+    profile = c("A", "B", "C", "D"),
+    feature_1 = c("x", "x", "y", "y"),
+    feature_2 = c("m", "n", "n", "m"),
+    phen_x = c(0, 1, 2, 3),
+    phen_y = c(0, 0, 0, 0),
+    ext_x = c(0, 1.2, 2.4, 3.1),
+    ext_y = c(0, 0, 0, 0),
+    n_isolates = c(10, 8, 9, 7),
+    stringsAsFactors = FALSE
+  )
+
+  pairs <- amrc_identify_single_feature_pairs(
+    data = group_profiles,
+    group_col = "profile",
+    feature_cols = c("feature_1", "feature_2")
+  )
+
+  expect_equal(nrow(pairs), 4)
+  expect_true(all(pairs$n_feature_differences == 1L))
+
+  contrasts <- amrc_summarise_single_feature_contrasts(
+    data = group_profiles,
+    group_col = "profile",
+    feature_cols = c("feature_1", "feature_2"),
+    phenotype_cols = c("phen_x", "phen_y"),
+    external_cols = c("ext_x", "ext_y"),
+    count_col = "n_isolates",
+    pair_table = pairs
+  )
+
+  expect_true(all(c(
+    "relative_comparison", "changed_feature", "phenotype_distance",
+    "external_distance", "n_group_1", "n_group_2"
+  ) %in% names(contrasts)))
+  expect_equal(nrow(contrasts), 4)
+
+  duplicated_profiles <- rbind(group_profiles, group_profiles[1, , drop = FALSE])
+  duplicated_profiles$profile[[5]] <- "A"
+  expect_error(
+    amrc_identify_single_feature_pairs(
+      data = duplicated_profiles,
+      group_col = "profile",
+      feature_cols = c("feature_1", "feature_2")
+    ),
+    "unique values in group_col"
+  )
+
+  bad_pairs <- pairs
+  bad_pairs$group_2[[1]] <- "missing_group"
+  expect_error(
+    amrc_summarise_single_feature_contrasts(
+      data = group_profiles,
+      group_col = "profile",
+      feature_cols = c("feature_1", "feature_2"),
+      phenotype_cols = c("phen_x", "phen_y"),
+      external_cols = c("ext_x", "ext_y"),
+      pair_table = bad_pairs
+    ),
+    "pair_table references groups not present"
+  )
+})
+
+test_that("cluster-difference and informative-isolate helpers are generic", {
+  fixture <- generic_analysis_fixture()
+  fixture$cluster <- c("C1", "C1", "C1", "C2", "C2", "C3", "C3", "C3")
+
+  differentiating <- amrc_find_cluster_differentiating_features(
+    data = fixture,
+    cluster_col = "cluster",
+    feature_cols = c("gene_a", "gene_b"),
+    cluster_pairs = list(c("C1", "C2")),
+    top_n = 2
+  )
+
+  expect_true(all(c(
+    "cluster_1", "cluster_2", "feature",
+    "most_shifted_state", "max_state_frequency_shift"
+  ) %in% names(differentiating)))
+  expect_true(nrow(differentiating) >= 1)
+
+  informative <- amrc_select_informative_isolates(
+    data = fixture,
+    cluster_col = "cluster",
+    focal_clusters = c("C1", "C2"),
+    feature_cols = c("gene_a", "gene_b"),
+    id_col = "isolate_id",
+    differentiating_features = differentiating,
+    max_features = 1
+  )
+
+  expect_true("feature_profile" %in% names(informative$data))
+  expect_length(informative$selected_features, 1)
+  expect_true(all(informative$data$cluster %in% c("C1", "C2")))
+
+  missing_id_fixture <- fixture
+  missing_id_fixture$isolate_id <- NULL
+  expect_error(
+    amrc_select_informative_isolates(
+      data = missing_id_fixture,
+      cluster_col = "cluster",
+      focal_clusters = c("C1", "C2"),
+      feature_cols = c("gene_a", "gene_b")
+    ),
+    "id_col could not be inferred"
+  )
+
+  expect_error(
+    amrc_select_informative_isolates(
+      data = fixture,
+      cluster_col = "cluster",
+      focal_clusters = c("C1", "missing_cluster"),
+      feature_cols = c("gene_a", "gene_b"),
+      id_col = "isolate_id"
+    ),
+    "focal_clusters were not found"
+  )
+})
+
+test_that("marker preprocessing, model comparison, and overlap helpers work", {
+  marker_data <- data.frame(
+    isolate_id = paste0("iso", 1:4),
+    marker_1 = c(0, 1, 0, 1),
+    marker_2 = c(0, 1, 0, 1),
+    marker_3 = c(1, 0, 1, 0),
+    marker_4 = c(1, 1, 1, 1),
+    marker_5 = c(0, 0, 1, 1),
+    stringsAsFactors = FALSE
+  )
+
+  prepared <- amrc_prepare_marker_matrix(
+    data = marker_data,
+    marker_cols = c("marker_1", "marker_2", "marker_3", "marker_4", "marker_5"),
+    id_col = "isolate_id"
+  )
+
+  expect_true(all(c("marker_1", "marker_5") %in% prepared$retained_markers))
+  expect_true("marker_4" %in% prepared$dropped_invariant)
+  expect_true(any(prepared$collapsed_markers$relation == "duplicate"))
+  expect_true(any(prepared$collapsed_markers$relation == "inverse"))
+
+  expect_error(
+    amrc_prepare_marker_matrix(
+      data = data.frame(
+        isolate_id = paste0("iso", 1:4),
+        invariant_1 = c(1, 1, 1, 1),
+        invariant_2 = c(0, 0, 0, 0),
+        stringsAsFactors = FALSE
+      ),
+      marker_cols = c("invariant_1", "invariant_2"),
+      id_col = "isolate_id"
+    ),
+    "No markers remained after preprocessing"
+  )
+
+  model_1 <- data.frame(
+    feature = c("feat_a", "feat_b", "feat_c"),
+    p_adjusted = c(0.01, 0.2, 0.04),
+    effect = c(1.0, 0.1, -0.5),
+    stringsAsFactors = FALSE
+  )
+  model_2 <- data.frame(
+    feature = c("feat_a", "feat_b", "feat_c", "feat_d"),
+    p_adjusted = c(0.02, 0.03, 0.5, 0.01),
+    effect = c(0.8, 0.4, -0.1, 1.2),
+    stringsAsFactors = FALSE
+  )
+
+  comparison <- amrc_compare_association_models(
+    table_1 = model_1,
+    table_2 = model_2,
+    feature_col = "feature",
+    p_col_1 = "p_adjusted",
+    p_col_2 = "p_adjusted",
+    effect_col_1 = "effect",
+    effect_col_2 = "effect",
+    labels = c("unadjusted", "adjusted")
+  )
+
+  expect_true(all(c(
+    "p_value_1", "p_value_2", "presence_status", "significance_change", "effect_size_change"
+  ) %in% names(comparison)))
+  expect_true(any(comparison$significance_change == "model_2_only"))
+  expect_true(any(comparison$significance_change == "lost_significance"))
+  expect_true(all(comparison$presence_status %in% c("shared", "model_1_only", "model_2_only")))
+
+  comparison_summary <- amrc_summarise_association_model_comparison(comparison)
+  expect_true(all(c("change", "n_features", "proportion") %in% names(comparison_summary$counts)))
+  expect_true("effect_size_correlation" %in% names(comparison_summary$overall))
+
+  ranked_tables <- list(
+    method_a = data.frame(feature = c("feat_a", "feat_b", "feat_c"), score = c(3, 2, 1), stringsAsFactors = FALSE),
+    method_b = data.frame(feature = c("feat_b", "feat_c", "feat_d"), score = c(5, 4, 3), stringsAsFactors = FALSE)
+  )
+
+  ranked <- amrc_bind_ranked_feature_tables(
+    tables = ranked_tables,
+    feature_col = "feature",
+    score_col = "score",
+    top_n = 2
+  )
+  expect_true(all(c("method", "feature", "rank", "score") %in% names(ranked)))
+
+  expect_warning(
+    amrc_bind_ranked_feature_tables(
+      tables = list(method_a = data.frame(feature = c("feat_a", "feat_b"), score = c(3, 2), rank = c(2, 1), stringsAsFactors = FALSE)),
+      feature_col = "feature",
+      score_col = "score",
+      rank_col = "rank"
+    ),
+    "rank_col determines ordering"
+  )
+
+  overlap <- amrc_compute_feature_overlap(
+    tables = ranked_tables,
+    feature_col = "feature",
+    top_n = 2
+  )
+
+  expect_true(all(c("feature", "n_methods", "method_list") %in% names(overlap$feature_summary)))
+  expect_true(all(c("method_1", "method_2", "n_shared", "jaccard") %in% names(overlap$pairwise_overlap)))
+  expect_equal(overlap$pairwise_overlap$n_shared[[1]], 1)
+})

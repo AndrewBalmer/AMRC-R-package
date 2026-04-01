@@ -1523,3 +1523,569 @@ amrc_summarise_reference_distance_table <- function(
     correlation = correlation
   )
 }
+
+amrc_feature_frequency_table <- function(values) {
+  values <- as.character(values)
+  values[trimws(values) == ""] <- NA_character_
+  values <- values[!is.na(values)]
+
+  if (length(values) == 0L) {
+    return(data.frame(
+      state = character(0),
+      frequency = numeric(0),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+
+  counts <- sort(table(values), decreasing = TRUE)
+  data.frame(
+    state = names(counts),
+    frequency = as.numeric(counts) / sum(counts),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+}
+
+amrc_mode_with_frequency <- function(values) {
+  freq_table <- amrc_feature_frequency_table(values)
+  if (nrow(freq_table) == 0L) {
+    return(list(state = NA_character_, frequency = NA_real_))
+  }
+
+  list(
+    state = freq_table$state[[1]],
+    frequency = freq_table$frequency[[1]]
+  )
+}
+
+#' Summarise Within-Group Metadata Dispersion
+#'
+#' Computes within-group pairwise distance summaries directly from isolate-level
+#' phenotype and optional external coordinates. This generalises the
+#' manuscript-era "within PBP type variance" analysis to any metadata grouping.
+#'
+#' @param data A comparison table or map data frame.
+#' @param group_col Grouping column used to define the within-group summaries.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param distinct_col Optional column used to keep one row per unique type
+#'   before calculating distances.
+#' @param threshold Optional numeric threshold used to count the proportion of
+#'   phenotype distances below a user-defined cutoff.
+#'
+#' @return A `data.frame` with one row per group.
+#' @export
+amrc_summarise_within_group_dispersion <- function(
+  data,
+  group_col,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  distinct_col = NULL,
+  threshold = NULL
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+
+  if (!is.null(distinct_col)) {
+    amrc_assert_single_column_name(distinct_col, data, arg_name = "distinct_col")
+    data <- data[!duplicated(data[[distinct_col]]), , drop = FALSE]
+  }
+
+  external_cols <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+  if (!is.null(external_cols)) {
+    amrc_require_coordinate_columns(data, external_cols)
+  }
+
+  if (!is.null(threshold) && (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold))) {
+    stop("threshold must be NULL or a single numeric value.", call. = FALSE)
+  }
+
+  split_groups <- split(data, as.character(data[[group_col]]))
+
+  rows <- lapply(names(split_groups), function(group_value) {
+    group_data <- split_groups[[group_value]]
+    phen_values <- if (nrow(group_data) < 2L) {
+      numeric(0)
+    } else {
+      as.numeric(stats::dist(group_data[, phenotype_cols, drop = FALSE]))
+    }
+
+    row <- data.frame(
+      group_value = group_value,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+    colnames(row) <- group_col
+    row[["n_members"]] <- nrow(group_data)
+    row[["n_pairs"]] <- length(phen_values)
+    row[["phenotype_distance_mean"]] <- if (length(phen_values) == 0L) NA_real_ else mean(phen_values, na.rm = TRUE)
+    row[["phenotype_distance_median"]] <- if (length(phen_values) == 0L) NA_real_ else stats::median(phen_values, na.rm = TRUE)
+    row[["phenotype_distance_sd"]] <- if (length(phen_values) <= 1L) NA_real_ else stats::sd(phen_values, na.rm = TRUE)
+    row[["phenotype_distance_max"]] <- if (length(phen_values) == 0L) NA_real_ else max(phen_values, na.rm = TRUE)
+
+    if (!is.null(threshold)) {
+      row[["phenotype_pairs_below_threshold"]] <- sum(phen_values < threshold, na.rm = TRUE)
+      row[["phenotype_prop_below_threshold"]] <- if (length(phen_values) == 0L) NA_real_ else mean(phen_values < threshold, na.rm = TRUE)
+    }
+
+    if (!is.null(external_cols)) {
+      ext_values <- if (nrow(group_data) < 2L) {
+        numeric(0)
+      } else {
+        as.numeric(stats::dist(group_data[, external_cols, drop = FALSE]))
+      }
+      row[["external_distance_mean"]] <- if (length(ext_values) == 0L) NA_real_ else mean(ext_values, na.rm = TRUE)
+      row[["external_distance_median"]] <- if (length(ext_values) == 0L) NA_real_ else stats::median(ext_values, na.rm = TRUE)
+      row[["external_distance_sd"]] <- if (length(ext_values) <= 1L) NA_real_ else stats::sd(ext_values, na.rm = TRUE)
+      row[["external_distance_max"]] <- if (length(ext_values) == 0L) NA_real_ else max(ext_values, na.rm = TRUE)
+    }
+
+    row
+  })
+
+  do.call(rbind, rows)
+}
+
+#' Identify Pairs of Groups Differing by Exactly One Feature
+#'
+#' Compares feature profiles across unique groups or types and returns the
+#' pairs that differ at exactly one feature. This is the generic package form
+#' of the single-substitution screening step used in the manuscript notebooks.
+#'
+#' @param data A data frame containing one row per group or type.
+#' @param group_col Unique group identifier column.
+#' @param feature_cols Character vector naming the feature columns to compare.
+#'
+#' @return A `data.frame` of one-feature-difference pairs.
+#' @export
+amrc_identify_single_feature_pairs <- function(
+  data,
+  group_col,
+  feature_cols
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+
+  group_ids <- as.character(data[[group_col]])
+  if (anyDuplicated(group_ids) > 0L) {
+    stop(
+      "data must contain unique values in group_col for single-feature pair detection.",
+      call. = FALSE
+    )
+  }
+
+  feature_data <- data[, feature_cols, drop = FALSE]
+  feature_data[] <- lapply(feature_data, function(column) {
+    out <- as.character(column)
+    out[trimws(out) == ""] <- NA_character_
+    out
+  })
+
+  group_pairs <- utils::combn(group_ids, 2, simplify = FALSE)
+  rows <- lapply(group_pairs, function(group_pair) {
+    row_1 <- feature_data[group_ids == group_pair[[1]], , drop = FALSE]
+    row_2 <- feature_data[group_ids == group_pair[[2]], , drop = FALSE]
+
+    comparable <- !(is.na(row_1[1, ]) | is.na(row_2[1, ]))
+    differing <- comparable & (row_1[1, ] != row_2[1, ])
+    differing_features <- feature_cols[as.logical(differing)]
+
+    if (length(differing_features) != 1L) {
+      return(NULL)
+    }
+
+    changed_feature <- differing_features[[1]]
+    data.frame(
+      group_1 = group_pair[[1]],
+      group_2 = group_pair[[2]],
+      changed_feature = changed_feature,
+      state_1 = as.character(row_1[[changed_feature]][[1]]),
+      state_2 = as.character(row_2[[changed_feature]][[1]]),
+      n_feature_differences = 1L,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  })
+
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows) == 0L) {
+    return(data.frame(
+      group_1 = character(0),
+      group_2 = character(0),
+      changed_feature = character(0),
+      state_1 = character(0),
+      state_2 = character(0),
+      n_feature_differences = integer(0),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+
+  do.call(rbind, rows)
+}
+
+#' Summarise One-Feature Contrasts Between Groups
+#'
+#' Aggregates phenotype and optional external coordinates to one row per group,
+#' identifies the pairs that differ by exactly one feature, and reports the
+#' corresponding between-group distances plus group sizes.
+#'
+#' @param data A data frame containing group identifiers, feature columns, and
+#'   phenotype/external coordinates.
+#' @param group_col Group identifier column.
+#' @param feature_cols Character vector naming the feature columns used to
+#'   define contrasts.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param external_cols Optional character vector naming external coordinate
+#'   columns.
+#' @param genotype_cols Legacy alias for `external_cols`.
+#' @param count_col Optional column containing precomputed per-group counts.
+#' @param pair_table Optional output from [amrc_identify_single_feature_pairs()].
+#'
+#' @return A `data.frame` of one-feature contrast summaries.
+#' @export
+amrc_summarise_single_feature_contrasts <- function(
+  data,
+  group_col,
+  feature_cols,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL,
+  genotype_cols = NULL,
+  count_col = NULL,
+  pair_table = NULL
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+
+  if (!is.null(count_col)) {
+    amrc_assert_single_column_name(count_col, data, arg_name = "count_col")
+  }
+
+  external_cols <- amrc_resolve_optional_external_cols(
+    data = data,
+    external_cols = external_cols,
+    genotype_cols = genotype_cols
+  )
+  if (!is.null(external_cols)) {
+    amrc_require_coordinate_columns(data, external_cols)
+  }
+
+  group_features <- data[!duplicated(data[[group_col]]), c(group_col, feature_cols), drop = FALSE]
+  if (is.null(pair_table)) {
+    pair_table <- amrc_identify_single_feature_pairs(
+      data = group_features,
+      group_col = group_col,
+      feature_cols = feature_cols
+    )
+  }
+
+  if (nrow(pair_table) == 0L) {
+    return(pair_table)
+  }
+
+  amrc_assert_column_set(
+    c("group_1", "group_2"),
+    pair_table,
+    arg_name = "pair_table"
+  )
+
+  centroids <- amrc_compute_group_centroids(
+    data = data,
+    group_cols = group_col,
+    phenotype_cols = phenotype_cols,
+    external_cols = external_cols,
+    summary_fun = "median",
+    phenotype_output_cols = phenotype_cols,
+    external_output_cols = external_cols
+  )
+
+  counts <- stats::aggregate(
+    rep(1L, nrow(data)),
+    by = list(group = data[[group_col]]),
+    FUN = sum
+  )
+  colnames(counts) <- c(group_col, "n_group_members")
+
+  if (!is.null(count_col)) {
+    counts <- data[!duplicated(data[[group_col]]), c(group_col, count_col), drop = FALSE]
+    colnames(counts) <- c(group_col, "n_group_members")
+  }
+
+  available_groups <- unique(as.character(centroids[[group_col]]))
+  requested_groups <- unique(c(as.character(pair_table$group_1), as.character(pair_table$group_2)))
+  missing_groups <- setdiff(requested_groups, available_groups)
+  if (length(missing_groups) > 0L) {
+    stop(
+      "pair_table references groups not present in data: ",
+      paste(utils::head(missing_groups, 10L), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  pair_rows <- lapply(seq_len(nrow(pair_table)), function(i) {
+    pair_row <- pair_table[i, , drop = FALSE]
+    group_1 <- pair_row$group_1[[1]]
+    group_2 <- pair_row$group_2[[1]]
+
+    centroid_1 <- centroids[centroids[[group_col]] == group_1, , drop = FALSE]
+    centroid_2 <- centroids[centroids[[group_col]] == group_2, , drop = FALSE]
+    count_1 <- counts[counts[[group_col]] == group_1, "n_group_members", drop = TRUE]
+    count_2 <- counts[counts[[group_col]] == group_2, "n_group_members", drop = TRUE]
+
+    out <- pair_row
+    out[["relative_comparison"]] <- paste(sort(c(group_1, group_2)), collapse = ":")
+    out[["phenotype_distance"]] <- sqrt(sum((as.numeric(centroid_1[, phenotype_cols, drop = TRUE]) - as.numeric(centroid_2[, phenotype_cols, drop = TRUE]))^2))
+    out[["n_group_1"]] <- count_1[[1]]
+    out[["n_group_2"]] <- count_2[[1]]
+
+    if (!is.null(external_cols)) {
+      out[["external_distance"]] <- sqrt(sum((as.numeric(centroid_1[, external_cols, drop = TRUE]) - as.numeric(centroid_2[, external_cols, drop = TRUE]))^2))
+    }
+
+    out
+  })
+
+  do.call(rbind, pair_rows)
+}
+
+#' Find Features that Differentiate Cluster Pairs
+#'
+#' Computes per-feature state-frequency shifts between clusters and highlights
+#' the features that change most strongly between each pair of clusters.
+#'
+#' @param data A data frame containing cluster assignments and feature columns.
+#' @param cluster_col Cluster column.
+#' @param feature_cols Character vector naming the feature columns to compare.
+#' @param cluster_pairs Optional two-column structure defining the cluster pairs
+#'   to compare. When `NULL`, all pairwise cluster comparisons are used.
+#' @param min_frequency_shift Minimum `max_state_frequency_shift` retained in the
+#'   output.
+#' @param top_n Optional number of top features to keep per cluster pair.
+#'
+#' @return A `data.frame` of cluster-pair feature-difference summaries.
+#' @export
+amrc_find_cluster_differentiating_features <- function(
+  data,
+  cluster_col,
+  feature_cols,
+  cluster_pairs = NULL,
+  min_frequency_shift = 0,
+  top_n = NULL
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(cluster_col, data, arg_name = "cluster_col")
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+
+  clusters <- unique(as.character(stats::na.omit(data[[cluster_col]])))
+  if (length(clusters) < 2L) {
+    stop("At least two clusters are required.", call. = FALSE)
+  }
+
+  if (is.null(cluster_pairs)) {
+    cluster_pairs <- utils::combn(clusters, 2, simplify = FALSE)
+  } else if (is.matrix(cluster_pairs) || is.data.frame(cluster_pairs)) {
+    cluster_pairs <- split(as.data.frame(cluster_pairs, stringsAsFactors = FALSE), seq_len(nrow(cluster_pairs)))
+    cluster_pairs <- lapply(cluster_pairs, function(x) as.character(unlist(x[1, , drop = TRUE])))
+  }
+
+  rows <- list()
+  for (pair in cluster_pairs) {
+    pair <- as.character(pair)
+    if (length(pair) != 2L) {
+      stop("Each cluster pair must contain exactly two cluster labels.", call. = FALSE)
+    }
+
+    data_1 <- data[data[[cluster_col]] == pair[[1]], , drop = FALSE]
+    data_2 <- data[data[[cluster_col]] == pair[[2]], , drop = FALSE]
+    if (nrow(data_1) == 0L || nrow(data_2) == 0L) {
+      next
+    }
+
+    pair_rows <- lapply(feature_cols, function(feature) {
+      freq_1 <- amrc_feature_frequency_table(data_1[[feature]])
+      freq_2 <- amrc_feature_frequency_table(data_2[[feature]])
+      states <- sort(unique(c(freq_1$state, freq_2$state)))
+      if (length(states) == 0L) {
+        return(NULL)
+      }
+
+      prop_1 <- stats::setNames(rep(0, length(states)), states)
+      prop_2 <- stats::setNames(rep(0, length(states)), states)
+      prop_1[freq_1$state] <- freq_1$frequency
+      prop_2[freq_2$state] <- freq_2$frequency
+
+      mode_1 <- amrc_mode_with_frequency(data_1[[feature]])
+      mode_2 <- amrc_mode_with_frequency(data_2[[feature]])
+      shifts <- abs(prop_1 - prop_2)
+      max_state <- names(which.max(shifts))[[1]]
+
+      data.frame(
+        cluster_1 = pair[[1]],
+        cluster_2 = pair[[2]],
+        feature = feature,
+        dominant_state_1 = mode_1$state,
+        dominant_state_2 = mode_2$state,
+        dominant_frequency_1 = mode_1$frequency,
+        dominant_frequency_2 = mode_2$frequency,
+        same_dominant_state = identical(mode_1$state, mode_2$state),
+        most_shifted_state = max_state,
+        max_state_frequency_shift = max(shifts, na.rm = TRUE),
+        stringsAsFactors = FALSE,
+        check.names = FALSE
+      )
+    })
+
+    pair_rows <- Filter(Negate(is.null), pair_rows)
+    if (length(pair_rows) == 0L) {
+      next
+    }
+
+    pair_rows <- do.call(rbind, pair_rows)
+    pair_rows <- pair_rows[pair_rows$max_state_frequency_shift >= min_frequency_shift, , drop = FALSE]
+    if (!is.null(top_n) && nrow(pair_rows) > top_n) {
+      pair_rows <- pair_rows[order(-pair_rows$max_state_frequency_shift, pair_rows$feature), , drop = FALSE]
+      pair_rows <- utils::head(pair_rows, top_n)
+    }
+
+    rows[[length(rows) + 1L]] <- pair_rows
+  }
+
+  if (length(rows) == 0L) {
+    return(data.frame(
+      cluster_1 = character(0),
+      cluster_2 = character(0),
+      feature = character(0),
+      dominant_state_1 = character(0),
+      dominant_state_2 = character(0),
+      dominant_frequency_1 = numeric(0),
+      dominant_frequency_2 = numeric(0),
+      same_dominant_state = logical(0),
+      most_shifted_state = character(0),
+      max_state_frequency_shift = numeric(0),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+
+  do.call(rbind, rows)
+}
+
+#' Select Informative Isolates for a Cluster Contrast
+#'
+#' Uses the strongest differentiating features between two clusters to build a
+#' compact profile string for each isolate and returns the subset of rows needed
+#' for downstream plotting or manual review.
+#'
+#' @param data A data frame containing cluster assignments and feature columns.
+#' @param cluster_col Cluster column.
+#' @param focal_clusters Length-2 character vector naming the clusters to
+#'   compare.
+#' @param feature_cols Character vector naming feature columns.
+#' @param id_col Optional isolate identifier column. When `NULL`, the function
+#'   falls back to `isolate_id` or `LABID` when present.
+#' @param differentiating_features Optional output from
+#'   [amrc_find_cluster_differentiating_features()] restricted to the focal
+#'   clusters.
+#' @param min_frequency_shift Minimum feature-shift threshold used when
+#'   `differentiating_features` is not supplied.
+#' @param max_features Maximum number of top differentiating features used to
+#'   define the profile string.
+#' @param profile_col Output column name for the concatenated feature profile.
+#'
+#' @return A list containing the filtered `data`, the `selected_features`, and
+#'   the underlying `feature_summary`.
+#' @export
+amrc_select_informative_isolates <- function(
+  data,
+  cluster_col,
+  focal_clusters,
+  feature_cols,
+  id_col = NULL,
+  differentiating_features = NULL,
+  min_frequency_shift = 0.8,
+  max_features = 10,
+  profile_col = "feature_profile"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(cluster_col, data, arg_name = "cluster_col")
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+
+  focal_clusters <- as.character(focal_clusters)
+  if (length(focal_clusters) != 2L) {
+    stop("focal_clusters must contain exactly two cluster labels.", call. = FALSE)
+  }
+
+  if (is.null(id_col)) {
+    id_col <- amrc_default_existing_column(data, c("isolate_id", "LABID"))
+    if (is.null(id_col)) {
+      stop(
+        "id_col could not be inferred. Supply an identifier column such as 'isolate_id' or 'LABID'.",
+        call. = FALSE
+      )
+    }
+  } else {
+    amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
+  }
+
+  missing_clusters <- setdiff(focal_clusters, unique(as.character(stats::na.omit(data[[cluster_col]]))))
+  if (length(missing_clusters) > 0L) {
+    stop(
+      "focal_clusters were not found in data: ",
+      paste(utils::head(missing_clusters, 10L), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  cluster_subset <- data[data[[cluster_col]] %in% focal_clusters, , drop = FALSE]
+  if (nrow(cluster_subset) == 0L) {
+    stop("No rows matched focal_clusters.", call. = FALSE)
+  }
+
+  if (is.null(differentiating_features)) {
+    differentiating_features <- amrc_find_cluster_differentiating_features(
+      data = cluster_subset,
+      cluster_col = cluster_col,
+      feature_cols = feature_cols,
+      cluster_pairs = list(focal_clusters),
+      min_frequency_shift = min_frequency_shift,
+      top_n = max_features
+    )
+  }
+
+  if (nrow(differentiating_features) == 0L) {
+    stop("No differentiating features met the requested criteria.", call. = FALSE)
+  }
+
+  feature_summary <- differentiating_features[
+    order(-differentiating_features$max_state_frequency_shift, differentiating_features$feature),
+    ,
+    drop = FALSE
+  ]
+  selected_features <- unique(utils::head(feature_summary$feature, max_features))
+
+  out <- cluster_subset
+  out[[profile_col]] <- apply(out[, selected_features, drop = FALSE], 1, function(row) {
+    paste(paste(selected_features, as.character(row), sep = "="), collapse = " | ")
+  })
+
+  keep_cols <- unique(c(id_col, cluster_col, selected_features, profile_col, colnames(out)))
+  keep_cols <- keep_cols[keep_cols %in% colnames(out)]
+
+  list(
+    data = out[, keep_cols, drop = FALSE],
+    selected_features = selected_features,
+    feature_summary = feature_summary
+  )
+}

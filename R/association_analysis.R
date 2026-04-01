@@ -1678,6 +1678,467 @@ amrc_scan_single_feature_associations <- function(
   )
 }
 
+amrc_resolve_table_column <- function(data, explicit = NULL, candidates, arg_name) {
+  if (!is.null(explicit)) {
+    if (!(explicit %in% colnames(data))) {
+      stop(arg_name, " was not found in the supplied table.", call. = FALSE)
+    }
+    return(explicit)
+  }
+
+  matches <- candidates[candidates %in% colnames(data)]
+  if (length(matches) == 0L) {
+    stop(
+      arg_name,
+      " could not be inferred. Supply one of: ",
+      paste(candidates, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  matches[[1]]
+}
+
+amrc_is_binary_numeric <- function(x) {
+  observed <- unique(stats::na.omit(as.numeric(x)))
+  length(observed) > 0L && all(observed %in% c(0, 1))
+}
+
+#' Prepare a Marker Matrix for Association Scans
+#'
+#' Converts marker columns to a numeric design matrix, optionally removes
+#' invariant markers, and collapses duplicate or inverse binary markers. This
+#' generalises the marker-preprocessing steps used before the mvLMM notebooks.
+#'
+#' @param data A data frame containing marker columns.
+#' @param marker_cols Character vector naming the marker columns to prepare.
+#' @param id_col Optional identifier column to retain alongside the matrix.
+#' @param drop_invariant Logical; remove columns with no variation.
+#' @param collapse_duplicates Logical; collapse exact duplicate markers.
+#' @param collapse_inverse Logical; collapse inverse binary markers (for
+#'   example `0/1` vs `1/0`).
+#'
+#' @return A list containing the cleaned `marker_matrix`, retained marker names,
+#'   and the dropped/collapsed marker mappings.
+#' @export
+amrc_prepare_marker_matrix <- function(
+  data,
+  marker_cols,
+  id_col = NULL,
+  drop_invariant = TRUE,
+  collapse_duplicates = TRUE,
+  collapse_inverse = TRUE
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_column_set(marker_cols, data, arg_name = "marker_cols")
+  if (!is.null(id_col)) {
+    amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
+  }
+
+  marker_matrix <- amrc_marker_design_frame(data, marker_cols)
+  retained <- colnames(marker_matrix)
+  dropped_invariant <- character(0)
+  duplicate_map <- data.frame(
+    kept_marker = character(0),
+    dropped_marker = character(0),
+    relation = character(0),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  if (isTRUE(drop_invariant)) {
+    keep_mask <- vapply(marker_matrix, function(column) {
+      length(unique(stats::na.omit(column))) > 1L
+    }, logical(1))
+    dropped_invariant <- names(keep_mask)[!keep_mask]
+    marker_matrix <- marker_matrix[, keep_mask, drop = FALSE]
+  }
+
+  if ((isTRUE(collapse_duplicates) || isTRUE(collapse_inverse)) && ncol(marker_matrix) > 1L) {
+    keep_cols <- rep(TRUE, ncol(marker_matrix))
+
+    for (i in seq_len(ncol(marker_matrix) - 1L)) {
+      if (!keep_cols[[i]]) {
+        next
+      }
+      col_i <- marker_matrix[[i]]
+
+      for (j in seq.int(i + 1L, ncol(marker_matrix))) {
+        if (!keep_cols[[j]]) {
+          next
+        }
+        col_j <- marker_matrix[[j]]
+        comparable <- stats::complete.cases(col_i, col_j)
+        if (!any(comparable)) {
+          next
+        }
+
+        if (isTRUE(collapse_duplicates) && identical(col_i[comparable], col_j[comparable])) {
+          keep_cols[[j]] <- FALSE
+          duplicate_map <- rbind(
+            duplicate_map,
+            data.frame(
+              kept_marker = names(marker_matrix)[[i]],
+              dropped_marker = names(marker_matrix)[[j]],
+              relation = "duplicate",
+              stringsAsFactors = FALSE,
+              check.names = FALSE
+            )
+          )
+          next
+        }
+
+        if (isTRUE(collapse_inverse) &&
+            amrc_is_binary_numeric(col_i[comparable]) &&
+            amrc_is_binary_numeric(col_j[comparable]) &&
+            all((col_i[comparable] + col_j[comparable]) == 1)) {
+          keep_cols[[j]] <- FALSE
+          duplicate_map <- rbind(
+            duplicate_map,
+            data.frame(
+              kept_marker = names(marker_matrix)[[i]],
+              dropped_marker = names(marker_matrix)[[j]],
+              relation = "inverse",
+              stringsAsFactors = FALSE,
+              check.names = FALSE
+            )
+          )
+        }
+      }
+    }
+
+    marker_matrix <- marker_matrix[, keep_cols, drop = FALSE]
+  }
+
+  retained <- colnames(marker_matrix)
+  if (length(retained) == 0L) {
+    stop(
+      "No markers remained after preprocessing. Check whether all supplied markers were invariant or collapsed away.",
+      call. = FALSE
+    )
+  }
+
+  out <- list(
+    marker_matrix = marker_matrix,
+    retained_markers = retained,
+    dropped_invariant = dropped_invariant,
+    collapsed_markers = duplicate_map
+  )
+
+  if (!is.null(id_col)) {
+    out$id_data <- data.frame(
+      id_value = data[[id_col]],
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+    colnames(out$id_data) <- id_col
+  }
+
+  out
+}
+
+#' Compare Two Association Result Tables
+#'
+#' Joins two association-analysis result tables and classifies each feature by
+#' whether significance was retained, lost, gained, or absent under the second
+#' model.
+#'
+#' @param table_1,table_2 Association result tables.
+#' @param feature_col Feature identifier column shared by both tables.
+#' @param p_col_1,p_col_2 P-value columns. When omitted, the function tries to
+#'   infer a sensible default from common package output names.
+#' @param effect_col_1,effect_col_2 Optional effect-size columns to compare.
+#' @param threshold Significance threshold.
+#' @param labels Length-2 character vector naming the compared models.
+#'
+#' @return A `data.frame` comparing the two models feature by feature.
+#'
+#' @details
+#' The comparison uses a full outer join on `feature_col`, so features present
+#' in only one result table are retained and flagged in the `presence_status`
+#' column rather than being dropped silently.
+#' @export
+amrc_compare_association_models <- function(
+  table_1,
+  table_2,
+  feature_col = "feature",
+  p_col_1 = NULL,
+  p_col_2 = NULL,
+  effect_col_1 = NULL,
+  effect_col_2 = NULL,
+  threshold = 0.05,
+  labels = c("model_1", "model_2")
+) {
+  amrc_assert_is_data_frame(table_1, arg_name = "table_1")
+  amrc_assert_is_data_frame(table_2, arg_name = "table_2")
+  amrc_assert_single_column_name(feature_col, table_1, arg_name = "feature_col")
+  amrc_assert_single_column_name(feature_col, table_2, arg_name = "feature_col")
+
+  p_col_1 <- amrc_resolve_table_column(
+    data = table_1,
+    explicit = p_col_1,
+    candidates = c("multivariate_p_adjusted", "min_response_p_adjusted", "p_adjusted", "multivariate_p", "min_response_p", "p_value"),
+    arg_name = "p_col_1"
+  )
+  p_col_2 <- amrc_resolve_table_column(
+    data = table_2,
+    explicit = p_col_2,
+    candidates = c("multivariate_p_adjusted", "min_response_p_adjusted", "p_adjusted", "multivariate_p", "min_response_p", "p_value"),
+    arg_name = "p_col_2"
+  )
+
+  if (!is.null(effect_col_1)) {
+    amrc_assert_single_column_name(effect_col_1, table_1, arg_name = "effect_col_1")
+  }
+  if (!is.null(effect_col_2)) {
+    amrc_assert_single_column_name(effect_col_2, table_2, arg_name = "effect_col_2")
+  }
+  if (length(labels) != 2L) {
+    stop("labels must contain exactly two model names.", call. = FALSE)
+  }
+
+  model_1 <- table_1[, unique(c(feature_col, p_col_1, effect_col_1)), drop = FALSE]
+  model_2 <- table_2[, unique(c(feature_col, p_col_2, effect_col_2)), drop = FALSE]
+
+  colnames(model_1)[colnames(model_1) == p_col_1] <- "p_value_1"
+  colnames(model_2)[colnames(model_2) == p_col_2] <- "p_value_2"
+  if (!is.null(effect_col_1)) {
+    colnames(model_1)[colnames(model_1) == effect_col_1] <- "effect_size_1"
+  }
+  if (!is.null(effect_col_2)) {
+    colnames(model_2)[colnames(model_2) == effect_col_2] <- "effect_size_2"
+  }
+
+  comparison <- merge(model_1, model_2, by = feature_col, all = TRUE, sort = FALSE)
+  comparison$model_1 <- labels[[1]]
+  comparison$model_2 <- labels[[2]]
+  comparison$present_in_model_1 <- !is.na(comparison$p_value_1)
+  comparison$present_in_model_2 <- !is.na(comparison$p_value_2)
+  comparison$presence_status <- ifelse(
+    comparison$present_in_model_1 & comparison$present_in_model_2,
+    "shared",
+    ifelse(
+      comparison$present_in_model_1,
+      "model_1_only",
+      "model_2_only"
+    )
+  )
+  comparison$significant_1 <- !is.na(comparison$p_value_1) & comparison$p_value_1 <= threshold
+  comparison$significant_2 <- !is.na(comparison$p_value_2) & comparison$p_value_2 <= threshold
+  comparison$significance_change <- ifelse(
+    comparison$presence_status == "model_1_only",
+    "model_1_only",
+    ifelse(
+      comparison$presence_status == "model_2_only",
+      "model_2_only",
+      ifelse(
+        comparison$significant_1 & comparison$significant_2,
+        "significant_in_both",
+        ifelse(
+          comparison$significant_1 & !comparison$significant_2,
+          "lost_significance",
+          ifelse(
+            !comparison$significant_1 & comparison$significant_2,
+            "gained_significance",
+            "not_significant"
+          )
+        )
+      )
+    )
+  )
+
+  if (all(c("effect_size_1", "effect_size_2") %in% colnames(comparison))) {
+    comparison$effect_size_change <- comparison$effect_size_2 - comparison$effect_size_1
+  }
+
+  comparison
+}
+
+#' Summarise an Association-Model Comparison
+#'
+#' @param comparison_table Output from [amrc_compare_association_models()].
+#' @param change_col Column containing the significance-change classification.
+#'
+#' @return A list containing a `counts` table and an `overall` summary.
+#' @export
+amrc_summarise_association_model_comparison <- function(
+  comparison_table,
+  change_col = "significance_change"
+) {
+  amrc_assert_is_data_frame(comparison_table, arg_name = "comparison_table")
+  amrc_assert_single_column_name(change_col, comparison_table, arg_name = "change_col")
+
+  counts <- as.data.frame(table(comparison_table[[change_col]]), stringsAsFactors = FALSE)
+  colnames(counts) <- c("change", "n_features")
+  counts$proportion <- counts$n_features / sum(counts$n_features)
+
+  overall <- data.frame(
+    n_features = nrow(comparison_table),
+    n_significant_model_1 = sum(comparison_table$significant_1, na.rm = TRUE),
+    n_significant_model_2 = sum(comparison_table$significant_2, na.rm = TRUE),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  if (all(c("effect_size_1", "effect_size_2") %in% colnames(comparison_table))) {
+    overall$effect_size_correlation <- if (sum(stats::complete.cases(comparison_table[, c("effect_size_1", "effect_size_2"), drop = FALSE])) < 2L) {
+      NA_real_
+    } else {
+      stats::cor(comparison_table$effect_size_1, comparison_table$effect_size_2, use = "complete.obs")
+    }
+  }
+
+  list(
+    counts = counts,
+    overall = overall
+  )
+}
+
+#' Bind Ranked Feature Tables from Multiple Methods
+#'
+#' Converts a list of method-specific feature tables into one long-form ranking
+#' table suitable for overlap or agreement analysis.
+#'
+#' @param tables Named list of data frames.
+#' @param feature_col Feature identifier column present in every table.
+#' @param score_col Optional score column used to derive ranks when `rank_col`
+#'   is absent.
+#' @param rank_col Optional existing rank column.
+#' @param top_n Optional number of rows to keep per method after ranking.
+#' @param method_names Optional method labels. Defaults to `names(tables)`.
+#'
+#' @return A long-form `data.frame` with columns `method`, `feature`, `rank`,
+#'   and optionally `score`.
+#' @export
+amrc_bind_ranked_feature_tables <- function(
+  tables,
+  feature_col,
+  score_col = NULL,
+  rank_col = NULL,
+  top_n = NULL,
+  method_names = names(tables)
+) {
+  if (!is.list(tables) || length(tables) == 0L) {
+    stop("tables must be a non-empty list of data frames.", call. = FALSE)
+  }
+  if (is.null(method_names) || length(method_names) != length(tables)) {
+    method_names <- paste0("method_", seq_along(tables))
+  }
+  if (!is.null(rank_col) && !is.null(score_col)) {
+    warning(
+      "Both rank_col and score_col were supplied; rank_col determines ordering and score_col is retained as metadata.",
+      call. = FALSE
+    )
+  }
+
+  rows <- lapply(seq_along(tables), function(i) {
+    table_i <- tables[[i]]
+    amrc_assert_is_data_frame(table_i, arg_name = paste0("tables[[", i, "]]"))
+    amrc_assert_single_column_name(feature_col, table_i, arg_name = "feature_col")
+    if (!is.null(score_col)) {
+      amrc_assert_single_column_name(score_col, table_i, arg_name = "score_col")
+    }
+    if (!is.null(rank_col)) {
+      amrc_assert_single_column_name(rank_col, table_i, arg_name = "rank_col")
+    }
+
+    working <- table_i
+    if (!is.null(rank_col)) {
+      working <- working[order(working[[rank_col]], working[[feature_col]]), , drop = FALSE]
+      rank_values <- working[[rank_col]]
+    } else if (!is.null(score_col)) {
+      working <- working[order(-working[[score_col]], working[[feature_col]]), , drop = FALSE]
+      rank_values <- seq_len(nrow(working))
+    } else {
+      rank_values <- seq_len(nrow(working))
+    }
+
+    if (!is.null(top_n)) {
+      working <- utils::head(working, top_n)
+      rank_values <- utils::head(rank_values, top_n)
+    }
+
+    out <- data.frame(
+      method = method_names[[i]],
+      feature = as.character(working[[feature_col]]),
+      rank = as.integer(rank_values),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+    if (!is.null(score_col)) {
+      out$score <- working[[score_col]]
+    }
+    out
+  })
+
+  do.call(rbind, rows)
+}
+
+#' Compute Feature Overlap Across Methods
+#'
+#' Builds feature-membership and pairwise-overlap summaries from a set of
+#' ranked method outputs.
+#'
+#' @param tables Named list of data frames.
+#' @param feature_col Feature identifier column present in every table.
+#' @param top_n Optional number of top rows to keep per method.
+#'
+#' @return A list containing the long-form `ranked_features`, a
+#'   `membership_matrix`, a `feature_summary`, and `pairwise_overlap`.
+#' @export
+amrc_compute_feature_overlap <- function(
+  tables,
+  feature_col,
+  top_n = NULL
+) {
+  ranked <- amrc_bind_ranked_feature_tables(
+    tables = tables,
+    feature_col = feature_col,
+    top_n = top_n
+  )
+
+  methods <- unique(ranked$method)
+  features <- sort(unique(ranked$feature))
+  membership <- data.frame(
+    feature = features,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  for (method in methods) {
+    membership[[method]] <- features %in% ranked$feature[ranked$method == method]
+  }
+
+  membership$n_methods <- rowSums(membership[, methods, drop = FALSE])
+  membership$method_list <- vapply(seq_len(nrow(membership)), function(i) {
+    paste(methods[as.logical(membership[i, methods, drop = TRUE])], collapse = ", ")
+  }, character(1))
+
+  pairwise_methods <- utils::combn(methods, 2, simplify = FALSE)
+  pairwise_overlap <- do.call(rbind, lapply(pairwise_methods, function(method_pair) {
+    set_1 <- ranked$feature[ranked$method == method_pair[[1]]]
+    set_2 <- ranked$feature[ranked$method == method_pair[[2]]]
+    shared <- intersect(set_1, set_2)
+    union_set <- union(set_1, set_2)
+    data.frame(
+      method_1 = method_pair[[1]],
+      method_2 = method_pair[[2]],
+      n_shared = length(shared),
+      n_union = length(union_set),
+      jaccard = if (length(union_set) == 0L) NA_real_ else length(shared) / length(union_set),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  }))
+
+  list(
+    ranked_features = ranked,
+    membership_matrix = membership,
+    feature_summary = membership[, c("feature", "n_methods", "method_list"), drop = FALSE],
+    pairwise_overlap = pairwise_overlap
+  )
+}
+
 #' Scan Binary Feature Associations with Linear Mixed Models
 #'
 #' Fits one mixed model per feature-response pair, using a random intercept to
