@@ -2279,3 +2279,150 @@ amrc_scan_single_feature_mixed_models <- function(
     response_summary = response_summary
   )
 }
+
+#' Join Feature Results to External Benchmark Tables
+#'
+#' Merges a package-generated feature table with one or more external benchmark
+#' columns such as literature hits, public GWAS results, or laboratory
+#' validation flags.
+#'
+#' @param feature_table Primary feature table.
+#' @param benchmark_table External benchmark table.
+#' @param feature_col Feature identifier column in `feature_table`.
+#' @param benchmark_feature_col Matching identifier column in `benchmark_table`.
+#' @param benchmark_flag_cols Optional logical/indicator columns naming
+#'   benchmark sources.
+#' @param keep_all_features Logical; keep all rows from `feature_table`.
+#'
+#' @return A merged `data.frame` with benchmark membership summaries.
+#' @export
+amrc_join_external_benchmarks <- function(
+  feature_table,
+  benchmark_table,
+  feature_col = "feature",
+  benchmark_feature_col = feature_col,
+  benchmark_flag_cols = NULL,
+  keep_all_features = TRUE
+) {
+  amrc_assert_is_data_frame(feature_table, arg_name = "feature_table")
+  amrc_assert_is_data_frame(benchmark_table, arg_name = "benchmark_table")
+  amrc_assert_single_column_name(feature_col, feature_table, arg_name = "feature_col")
+  amrc_assert_single_column_name(benchmark_feature_col, benchmark_table, arg_name = "benchmark_feature_col")
+
+  benchmark_working <- benchmark_table
+  if (!identical(feature_col, benchmark_feature_col)) {
+    colnames(benchmark_working)[colnames(benchmark_working) == benchmark_feature_col] <- feature_col
+  }
+
+  if (!is.null(benchmark_flag_cols)) {
+    amrc_assert_column_set(benchmark_flag_cols, benchmark_working, arg_name = "benchmark_flag_cols")
+  } else {
+    benchmark_flag_cols <- setdiff(
+      colnames(benchmark_working),
+      feature_col
+    )
+    benchmark_flag_cols <- benchmark_flag_cols[vapply(
+      benchmark_working[benchmark_flag_cols],
+      function(column) is.logical(column) || all(as.character(stats::na.omit(column)) %in% c("TRUE", "FALSE", "0", "1", "Yes", "No")),
+      logical(1)
+    )]
+  }
+
+  merged <- merge(
+    feature_table,
+    benchmark_working,
+    by = feature_col,
+    all.x = isTRUE(keep_all_features),
+    sort = FALSE
+  )
+
+  if (length(benchmark_flag_cols) > 0L) {
+    benchmark_flags <- merged[, benchmark_flag_cols, drop = FALSE]
+    benchmark_flags[] <- lapply(benchmark_flags, function(column) {
+      if (is.logical(column)) {
+        return(column)
+      }
+      values <- as.character(column)
+      values[trimws(values) == ""] <- NA_character_
+      values %in% c("TRUE", "1", "Yes", "yes")
+    })
+
+    merged$n_benchmark_sources <- rowSums(benchmark_flags, na.rm = TRUE)
+    merged$benchmark_source_list <- vapply(seq_len(nrow(merged)), function(i) {
+      sources <- benchmark_flag_cols[as.logical(benchmark_flags[i, , drop = TRUE])]
+      paste(sources, collapse = ", ")
+    }, character(1))
+    merged$in_any_benchmark <- merged$n_benchmark_sources > 0L
+  }
+
+  merged
+}
+
+#' Categorise Two-Dimensional Effect Directions
+#'
+#' Converts paired effect sizes into magnitudes, angles, and quadrant-style
+#' directional categories for generic phenotype-map interpretation.
+#'
+#' @param data A data frame containing two effect columns.
+#' @param effect_x_col,effect_y_col Numeric effect columns.
+#' @param x_threshold,y_threshold Minimum absolute effect required on each axis
+#'   before the point is treated as directionally shifted.
+#' @param category_col Output column name for the direction category.
+#'
+#' @return `data` with added direction, angle, and magnitude columns.
+#' @export
+amrc_categorise_effect_directions <- function(
+  data,
+  effect_x_col,
+  effect_y_col,
+  x_threshold = 0,
+  y_threshold = 0,
+  category_col = "effect_direction"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(effect_x_col, data, arg_name = "effect_x_col")
+  amrc_assert_single_column_name(effect_y_col, data, arg_name = "effect_y_col")
+
+  out <- data
+  x <- suppressWarnings(as.numeric(out[[effect_x_col]]))
+  y <- suppressWarnings(as.numeric(out[[effect_y_col]]))
+  x_active <- !is.na(x) & abs(x) >= x_threshold
+  y_active <- !is.na(y) & abs(y) >= y_threshold
+
+  direction <- rep("near_origin", length(x))
+  direction[x_active & !y_active & x > 0] <- "positive_x"
+  direction[x_active & !y_active & x < 0] <- "negative_x"
+  direction[!x_active & y_active & y > 0] <- "positive_y"
+  direction[!x_active & y_active & y < 0] <- "negative_y"
+  direction[x_active & y_active & x > 0 & y > 0] <- "positive_positive"
+  direction[x_active & y_active & x < 0 & y > 0] <- "negative_positive"
+  direction[x_active & y_active & x < 0 & y < 0] <- "negative_negative"
+  direction[x_active & y_active & x > 0 & y < 0] <- "positive_negative"
+
+  out[[category_col]] <- direction
+  out$effect_magnitude <- sqrt(x^2 + y^2)
+  out$effect_angle_radians <- atan2(y, x)
+  out$effect_angle_degrees <- out$effect_angle_radians * 180 / pi
+  out
+}
+
+#' Summarise Directional Categories
+#'
+#' @param data A data frame, typically after
+#'   [amrc_categorise_effect_directions()].
+#' @param category_col Direction-category column.
+#'
+#' @return A `data.frame` with counts and proportions by direction category.
+#' @export
+amrc_summarise_effect_directions <- function(
+  data,
+  category_col = "effect_direction"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(category_col, data, arg_name = "category_col")
+
+  counts <- as.data.frame(table(data[[category_col]]), stringsAsFactors = FALSE)
+  colnames(counts) <- c("direction", "n")
+  counts$proportion <- counts$n / sum(counts$n)
+  counts[order(-counts$n, counts$direction), , drop = FALSE]
+}

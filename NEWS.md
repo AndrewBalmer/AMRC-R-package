@@ -21,6 +21,25 @@ postprocessing layer beyond the `0.1.x` patch line.
   scans, including explicit full-outer-join presence tracking.
 - Added long-form ranking and cross-method feature-overlap helpers.
 
+### Generic workflow and visualisation
+
+- Added a reusable cluster-to-feature workflow helper for the common pattern
+  "subset one outer cluster, identify phenotype subclusters, then summarise
+  differentiating markers".
+- Added external benchmark join helpers for comparing package results against
+  literature, GWAS, or laboratory-validation tables.
+- Added effect-direction categorisation helpers for two-dimensional effect-size
+  interpretation.
+- Added generic plotting helpers for:
+  - top-group faceted maps
+  - within-group dispersion histograms
+  - side-by-side phenotype/external map panels
+  - cluster-difference feature rankings
+  - adjusted-vs-unadjusted association comparisons
+  - effect-direction summaries
+  - cross-method overlap visualisation
+  - heritability and variance-decomposition summaries
+
 ### Validation
 
 - Fixed the critical review issues in the new helper layer:

@@ -658,3 +658,157 @@ test_that("marker preprocessing, model comparison, and overlap helpers work", {
   expect_true(all(c("method_1", "method_2", "n_shared", "jaccard") %in% names(overlap$pairwise_overlap)))
   expect_equal(overlap$pairwise_overlap$n_shared[[1]], 1)
 })
+
+test_that("generic workflow and benchmark helpers work", {
+  workflow_data <- data.frame(
+    isolate_id = paste0("iso", 1:6),
+    gen_cluster = c("G1", "G1", "G1", "G1", "G2", "G2"),
+    type_id = c("T1", "T1", "T2", "T2", "T3", "T3"),
+    D1 = c(0, 0.2, 3, 3.2, 6, 6.1),
+    D2 = c(0, 0.1, 3, 3.1, 6, 6.2),
+    marker_a = c("A", "A", "B", "B", "C", "C"),
+    marker_b = c("low", "low", "high", "high", "high", "high"),
+    stringsAsFactors = FALSE
+  )
+
+  workflow <- amrc_run_cluster_feature_workflow(
+    data = workflow_data,
+    outer_cluster_col = "gen_cluster",
+    focal_cluster = "G1",
+    phenotype_cols = c("D1", "D2"),
+    feature_cols = c("marker_a", "marker_b"),
+    id_col = "isolate_id",
+    type_col = "type_id",
+    phenotype_n_clusters = 2,
+    max_features = 2
+  )
+
+  expect_true("phen_cluster" %in% names(workflow$data_with_clusters))
+  expect_true(nrow(workflow$differentiating_features) >= 1)
+  expect_true(!is.null(workflow$informative_isolates))
+
+  benchmark_join <- amrc_join_external_benchmarks(
+    feature_table = data.frame(feature = c("feat_a", "feat_b", "feat_c"), score = c(3, 2, 1), stringsAsFactors = FALSE),
+    benchmark_table = data.frame(feature = c("feat_a", "feat_c"), GWAS = c(TRUE, FALSE), literature = c(TRUE, TRUE), stringsAsFactors = FALSE),
+    benchmark_flag_cols = c("GWAS", "literature")
+  )
+
+  expect_true(all(c("n_benchmark_sources", "benchmark_source_list", "in_any_benchmark") %in% names(benchmark_join)))
+  expect_true(any(benchmark_join$in_any_benchmark))
+
+  effects <- amrc_categorise_effect_directions(
+    data = data.frame(feature = c("a", "b", "c", "d"), eff_x = c(2, -2, -2, 2), eff_y = c(2, 2, -2, -2), stringsAsFactors = FALSE),
+    effect_x_col = "eff_x",
+    effect_y_col = "eff_y",
+    x_threshold = 1,
+    y_threshold = 1
+  )
+
+  expect_true(all(c("effect_direction", "effect_magnitude", "effect_angle_degrees") %in% names(effects)))
+  effect_summary <- amrc_summarise_effect_directions(effects)
+  expect_true(all(c("direction", "n", "proportion") %in% names(effect_summary)))
+})
+
+test_that("generic visualisation helpers build plots", {
+  fixture <- generic_analysis_fixture()
+
+  faceted_plot <- amrc_plot_top_group_facets(
+    data = fixture,
+    group_col = "lineage",
+    x = "phen_x",
+    y = "phen_y",
+    top_n = 2
+  )
+  expect_s3_class(faceted_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(faceted_plot))
+
+  dispersion <- amrc_summarise_within_group_dispersion(
+    data = fixture,
+    group_col = "lineage",
+    phenotype_cols = c("phen_x", "phen_y")
+  )
+  dispersion_plot <- amrc_plot_within_group_dispersion_histogram(dispersion)
+  expect_s3_class(dispersion_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(dispersion_plot))
+
+  side_by_side <- amrc_plot_side_by_side_maps(
+    data = data.frame(
+      D1 = fixture$phen_x,
+      D2 = fixture$phen_y,
+      E1 = fixture$ext_x,
+      E2 = fixture$ext_y,
+      lineage = fixture$lineage,
+      stringsAsFactors = FALSE
+    ),
+    phenotype_cols = c("D1", "D2"),
+    external_cols = c("E1", "E2"),
+    fill_col = "lineage"
+  )
+  expect_s3_class(side_by_side, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(side_by_side))
+
+  diff_features <- amrc_find_cluster_differentiating_features(
+    data = data.frame(
+      cluster = c("A", "A", "B", "B"),
+      marker = c("x", "x", "y", "y"),
+      stringsAsFactors = FALSE
+    ),
+    cluster_col = "cluster",
+    feature_cols = "marker"
+  )
+  diff_plot <- amrc_plot_cluster_feature_shifts(diff_features)
+  expect_s3_class(diff_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(diff_plot))
+
+  comparison <- amrc_compare_association_models(
+    table_1 = data.frame(feature = c("f1", "f2"), p_adjusted = c(0.01, 0.2), effect = c(1, 0.1), stringsAsFactors = FALSE),
+    table_2 = data.frame(feature = c("f1", "f2", "f3"), p_adjusted = c(0.02, 0.03, 0.01), effect = c(0.8, 0.4, 1.2), stringsAsFactors = FALSE),
+    feature_col = "feature",
+    p_col_1 = "p_adjusted",
+    p_col_2 = "p_adjusted",
+    effect_col_1 = "effect",
+    effect_col_2 = "effect"
+  )
+  comparison_plot <- amrc_plot_association_model_comparison(comparison, mode = "change_counts")
+  expect_s3_class(comparison_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(comparison_plot))
+
+  effect_plot <- amrc_plot_effect_direction_summary(
+    data = data.frame(eff_x = c(2, -2, -2, 2), eff_y = c(2, 2, -2, -2), stringsAsFactors = FALSE),
+    effect_x_col = "eff_x",
+    effect_y_col = "eff_y",
+    x_threshold = 1,
+    y_threshold = 1
+  )
+  expect_s3_class(effect_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(effect_plot))
+
+  overlap <- amrc_compute_feature_overlap(
+    tables = list(
+      method_a = data.frame(feature = c("f1", "f2", "f3"), stringsAsFactors = FALSE),
+      method_b = data.frame(feature = c("f2", "f3", "f4"), stringsAsFactors = FALSE)
+    ),
+    feature_col = "feature",
+    top_n = 2
+  )
+  overlap_plot <- amrc_plot_feature_overlap(overlap, mode = "pairwise")
+  expect_s3_class(overlap_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(overlap_plot))
+
+  herit_plot <- amrc_plot_heritability_summary(
+    data.frame(response = c("D1", "D2"), heritability = c(0.4, 0.7), stringsAsFactors = FALSE)
+  )
+  expect_s3_class(herit_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(herit_plot))
+
+  variance_plot <- amrc_plot_variance_decomposition(
+    data.frame(
+      response = c("D1", "D1", "D2", "D2"),
+      component = c("kinship", "noise", "kinship", "noise"),
+      proportion = c(0.7, 0.3, 0.6, 0.4),
+      stringsAsFactors = FALSE
+    )
+  )
+  expect_s3_class(variance_plot, "ggplot")
+  expect_no_error(ggplot2::ggplot_build(variance_plot))
+})

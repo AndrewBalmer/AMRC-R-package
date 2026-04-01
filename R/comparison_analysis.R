@@ -2089,3 +2089,149 @@ amrc_select_informative_isolates <- function(
     feature_summary = feature_summary
   )
 }
+
+#' Run a Cluster-to-Feature Comparison Workflow
+#'
+#' Subsets one focal outer cluster, optionally collapses rows to one record per
+#' type, clusters the phenotype coordinates within that subset, and then
+#' identifies differentiating features and informative isolates for the
+#' resulting phenotype clusters.
+#'
+#' @param data A data frame containing a higher-level cluster column, phenotype
+#'   coordinates, and feature columns.
+#' @param outer_cluster_col Column defining the outer cluster or region to
+#'   analyse.
+#' @param focal_cluster Value in `outer_cluster_col` to subset.
+#' @param phenotype_cols Character vector naming phenotype coordinate columns.
+#' @param feature_cols Character vector naming categorical or binary feature
+#'   columns.
+#' @param id_col Optional identifier column. When `NULL`, the function tries to
+#'   infer `isolate_id` or `LABID`.
+#' @param type_col Optional grouping column used to collapse to one row per type
+#'   before phenotype clustering. This is the generic equivalent of clustering
+#'   distinct PBP types rather than all isolates.
+#' @param phenotype_n_clusters Number of phenotype clusters to cut.
+#' @param phenotype_cluster_col Output column name for the phenotype cluster.
+#' @param min_frequency_shift Minimum differentiating-feature threshold passed
+#'   to [amrc_find_cluster_differentiating_features()].
+#' @param max_features Maximum number of differentiating features retained for
+#'   the informative-isolate step.
+#' @param cluster_method Linkage method passed to [amrc_cluster_map()].
+#'
+#' @return A list containing the filtered `subset_data`, any `cluster_input`
+#'   used for phenotype clustering, the `phenotype_clustering` result,
+#'   `data_with_clusters`, `differentiating_features`, and
+#'   `informative_isolates`.
+#' @export
+amrc_run_cluster_feature_workflow <- function(
+  data,
+  outer_cluster_col,
+  focal_cluster,
+  phenotype_cols = c("D1", "D2"),
+  feature_cols,
+  id_col = NULL,
+  type_col = NULL,
+  phenotype_n_clusters = 2,
+  phenotype_cluster_col = "phen_cluster",
+  min_frequency_shift = 0.8,
+  max_features = 10,
+  cluster_method = "ward.D2"
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(outer_cluster_col, data, arg_name = "outer_cluster_col")
+  amrc_assert_column_set(feature_cols, data, arg_name = "feature_cols")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+
+  if (is.null(id_col)) {
+    id_col <- amrc_default_existing_column(data, c("isolate_id", "LABID"))
+    if (is.null(id_col)) {
+      stop(
+        "id_col could not be inferred. Supply an identifier column such as 'isolate_id' or 'LABID'.",
+        call. = FALSE
+      )
+    }
+  } else {
+    amrc_assert_single_column_name(id_col, data, arg_name = "id_col")
+  }
+
+  if (!is.null(type_col)) {
+    amrc_assert_single_column_name(type_col, data, arg_name = "type_col")
+  }
+
+  subset_data <- data[data[[outer_cluster_col]] == focal_cluster, , drop = FALSE]
+  if (nrow(subset_data) == 0L) {
+    stop("No rows matched focal_cluster in outer_cluster_col.", call. = FALSE)
+  }
+
+  cluster_input <- subset_data
+  cluster_key <- id_col
+
+  if (!is.null(type_col)) {
+    cluster_input <- amrc_compute_group_centroids(
+      data = subset_data,
+      group_cols = type_col,
+      phenotype_cols = phenotype_cols,
+      summary_fun = "median",
+      phenotype_output_cols = phenotype_cols
+    )
+    cluster_key <- type_col
+  }
+
+  phenotype_clustering <- amrc_cluster_map(
+    data = cluster_input,
+    coord_cols = phenotype_cols,
+    n_clusters = phenotype_n_clusters,
+    distinct_col = cluster_key,
+    cluster_method = cluster_method
+  )
+
+  data_with_clusters <- if (!is.null(type_col)) {
+    amrc_add_cluster_assignments(
+      data = subset_data,
+      assignments = phenotype_clustering$assignments,
+      key_col = type_col,
+      cluster_col = phenotype_cluster_col
+    )
+  } else {
+    subset_copy <- subset_data
+    assignment_key <- phenotype_clustering$assignments[[cluster_key]]
+    match_index <- match(subset_copy[[cluster_key]], assignment_key)
+    if (anyNA(match_index)) {
+      stop("Could not align phenotype cluster assignments back to subset_data.", call. = FALSE)
+    }
+    subset_copy[[phenotype_cluster_col]] <- phenotype_clustering$assignments$cluster[match_index]
+    subset_copy
+  }
+
+  differentiating_features <- amrc_find_cluster_differentiating_features(
+    data = data_with_clusters,
+    cluster_col = phenotype_cluster_col,
+    feature_cols = feature_cols,
+    min_frequency_shift = min_frequency_shift,
+    top_n = max_features
+  )
+
+  informative_isolates <- NULL
+  phenotype_cluster_levels <- unique(as.character(stats::na.omit(data_with_clusters[[phenotype_cluster_col]])))
+  if (length(phenotype_cluster_levels) == 2L && nrow(differentiating_features) > 0L) {
+    informative_isolates <- amrc_select_informative_isolates(
+      data = data_with_clusters,
+      cluster_col = phenotype_cluster_col,
+      focal_clusters = phenotype_cluster_levels,
+      feature_cols = feature_cols,
+      id_col = id_col,
+      differentiating_features = differentiating_features,
+      min_frequency_shift = min_frequency_shift,
+      max_features = max_features
+    )
+  }
+
+  list(
+    subset_data = subset_data,
+    cluster_input = cluster_input,
+    phenotype_clustering = phenotype_clustering,
+    data_with_clusters = data_with_clusters,
+    differentiating_features = differentiating_features,
+    informative_isolates = informative_isolates
+  )
+}

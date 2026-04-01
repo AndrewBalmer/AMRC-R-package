@@ -1331,3 +1331,458 @@ amrc_plot_one_vs_two_dimensional_projection <- function(projection_data) {
     amrc_theme_cartography() +
     ggplot2::coord_fixed()
 }
+
+amrc_infer_column <- function(data, explicit, candidates, arg_name) {
+  if (!is.null(explicit)) {
+    if (!(explicit %in% colnames(data))) {
+      stop(arg_name, " was not found in data.", call. = FALSE)
+    }
+    return(explicit)
+  }
+
+  matched <- candidates[candidates %in% colnames(data)]
+  if (length(matched) == 0L) {
+    stop(
+      "Could not infer ", arg_name, ". Tried: ",
+      paste(candidates, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  matched[[1]]
+}
+
+#' Plot the Top Metadata Groups as Faceted Maps
+#'
+#' Filters a map to the most frequent metadata groups and facets the result so
+#' the same plotting logic can be reused for any grouping variable.
+#'
+#' @param data A data frame containing map coordinates and a grouping column.
+#' @param group_col Grouping column to rank and facet.
+#' @param x,y Coordinate column names.
+#' @param top_n Number of groups to retain.
+#' @param count_col Optional precomputed count column. When `NULL`, counts are
+#'   computed from row frequencies.
+#' @param fill_col Optional fill column passed to [amrc_plot_map()]. Defaults to
+#'   `group_col`.
+#' @param facet_ncol Optional number of facet columns.
+#' @param label_with_counts Logical; append sample counts to the facet labels.
+#'
+#' @return A faceted `ggplot` object.
+#' @export
+amrc_plot_top_group_facets <- function(
+  data,
+  group_col,
+  x = "D1",
+  y = "D2",
+  top_n = 10,
+  count_col = NULL,
+  fill_col = NULL,
+  facet_ncol = NULL,
+  label_with_counts = TRUE
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_assert_single_column_name(group_col, data, arg_name = "group_col")
+  amrc_require_coordinate_columns(data, c(x, y))
+  if (!is.null(count_col)) {
+    amrc_assert_single_column_name(count_col, data, arg_name = "count_col")
+  }
+
+  if (is.null(count_col)) {
+    counts <- as.data.frame(table(data[[group_col]]), stringsAsFactors = FALSE)
+    colnames(counts) <- c(group_col, ".amrc_n")
+  } else {
+    counts <- data[!duplicated(data[[group_col]]), c(group_col, count_col), drop = FALSE]
+    colnames(counts) <- c(group_col, ".amrc_n")
+  }
+
+  counts <- counts[order(-counts$.amrc_n, counts[[group_col]]), , drop = FALSE]
+  keep_groups <- utils::head(as.character(counts[[group_col]]), top_n)
+  plot_data <- data[as.character(data[[group_col]]) %in% keep_groups, , drop = FALSE]
+  plot_data <- merge(plot_data, counts, by = group_col, all.x = TRUE, sort = FALSE)
+
+  plot_data$.amrc_group_label <- if (isTRUE(label_with_counts)) {
+    paste0(plot_data[[group_col]], " (n = ", plot_data$.amrc_n, ")")
+  } else {
+    as.character(plot_data[[group_col]])
+  }
+
+  amrc_plot_map(
+    data = plot_data,
+    x = x,
+    y = y,
+    fill_col = if (is.null(fill_col)) group_col else fill_col,
+    facet_by = ".amrc_group_label",
+    facet_ncol = facet_ncol
+  )
+}
+
+#' Plot a Histogram of Within-Group Dispersion Summaries
+#'
+#' @param summary_table Output from [amrc_summarise_within_group_dispersion()]
+#'   or another one-row-per-group table.
+#' @param value_col Numeric summary column to plot.
+#' @param bins Number of histogram bins.
+#' @param fill Histogram fill colour.
+#' @param reference_line Optional vertical reference line.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_within_group_dispersion_histogram <- function(
+  summary_table,
+  value_col = "phenotype_distance_median",
+  bins = 30,
+  fill = "#E41A1C",
+  reference_line = NULL
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  amrc_assert_is_data_frame(summary_table, arg_name = "summary_table")
+  amrc_assert_single_column_name(value_col, summary_table, arg_name = "value_col")
+
+  plot <- ggplot2::ggplot(summary_table, ggplot2::aes(x = .data[[value_col]])) +
+    ggplot2::geom_histogram(fill = fill, colour = "black", bins = bins, alpha = 0.8) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = value_col, y = "Count")
+
+  if (!is.null(reference_line)) {
+    plot <- plot + ggplot2::geom_vline(xintercept = reference_line, colour = "black")
+  }
+
+  plot
+}
+
+#' Plot Phenotype and External Maps Side by Side
+#'
+#' Builds one faceted plot with a phenotype panel and an external panel using a
+#' shared metadata layer.
+#'
+#' @param data A data frame containing phenotype and external coordinates.
+#' @param phenotype_cols Length-2 character vector naming phenotype columns.
+#' @param external_cols Length-2 character vector naming external columns.
+#' @param fill_col Optional fill column passed through to [amrc_plot_map()].
+#' @param panel_col Output panel column name used internally.
+#' @param panel_labels Length-2 character vector naming the two panels.
+#' @param grid_spacing Optional grid spacing passed through to [amrc_plot_map()].
+#'
+#' @return A faceted `ggplot` object.
+#' @export
+amrc_plot_side_by_side_maps <- function(
+  data,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = c("E1", "E2"),
+  fill_col = NULL,
+  panel_col = ".amrc_panel",
+  panel_labels = c("Phenotype", "External"),
+  grid_spacing = NULL
+) {
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  amrc_require_coordinate_columns(data, phenotype_cols)
+  amrc_require_coordinate_columns(data, external_cols)
+
+  phenotype_data <- data
+  phenotype_data$.amrc_x <- phenotype_data[[phenotype_cols[[1]]]]
+  phenotype_data$.amrc_y <- phenotype_data[[phenotype_cols[[2]]]]
+  phenotype_data[[panel_col]] <- panel_labels[[1]]
+
+  external_data <- data
+  external_data$.amrc_x <- external_data[[external_cols[[1]]]]
+  external_data$.amrc_y <- external_data[[external_cols[[2]]]]
+  external_data[[panel_col]] <- panel_labels[[2]]
+
+  combined <- rbind(phenotype_data, external_data)
+
+  amrc_plot_map(
+    data = combined,
+    x = ".amrc_x",
+    y = ".amrc_y",
+    fill_col = fill_col,
+    facet_by = panel_col,
+    grid_spacing = grid_spacing
+  )
+}
+
+#' Plot Ranked Cluster-Difference Features
+#'
+#' @param feature_summary Output from
+#'   [amrc_find_cluster_differentiating_features()].
+#' @param cluster_pair Optional length-2 character vector selecting one cluster
+#'   pair.
+#' @param top_n Number of features to plot.
+#' @param feature_col Feature column.
+#' @param shift_col Frequency-shift column.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_cluster_feature_shifts <- function(
+  feature_summary,
+  cluster_pair = NULL,
+  top_n = 20,
+  feature_col = "feature",
+  shift_col = "max_state_frequency_shift"
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  amrc_assert_is_data_frame(feature_summary, arg_name = "feature_summary")
+  amrc_assert_column_set(c("cluster_1", "cluster_2", feature_col, shift_col), feature_summary, arg_name = "feature_summary")
+
+  plot_data <- feature_summary
+  if (!is.null(cluster_pair)) {
+    if (length(cluster_pair) != 2L) {
+      stop("cluster_pair must contain exactly two cluster labels.", call. = FALSE)
+    }
+    plot_data <- plot_data[
+      plot_data$cluster_1 == cluster_pair[[1]] & plot_data$cluster_2 == cluster_pair[[2]],
+      ,
+      drop = FALSE
+    ]
+  }
+  plot_data <- plot_data[order(-plot_data[[shift_col]], plot_data[[feature_col]]), , drop = FALSE]
+  plot_data <- utils::head(plot_data, top_n)
+  plot_data$.amrc_pair <- paste(plot_data$cluster_1, plot_data$cluster_2, sep = " vs ")
+
+  ggplot2::ggplot(plot_data, ggplot2::aes(x = stats::reorder(.data[[feature_col]], .data[[shift_col]]), y = .data[[shift_col]])) +
+    ggplot2::geom_col(fill = "#377EB8", colour = "black", alpha = 0.8) +
+    ggplot2::coord_flip() +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = "Feature", y = "Frequency shift") +
+    ggplot2::facet_wrap(~ .amrc_pair, scales = "free_y")
+}
+
+#' Plot an Association-Model Comparison
+#'
+#' @param comparison_table Output from [amrc_compare_association_models()].
+#' @param mode Plot type: `"change_counts"`, `"p_values"`, or
+#'   `"effect_sizes"`.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_association_model_comparison <- function(
+  comparison_table,
+  mode = c("change_counts", "p_values", "effect_sizes")
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  mode <- match.arg(mode)
+  amrc_assert_is_data_frame(comparison_table, arg_name = "comparison_table")
+
+  if (identical(mode, "change_counts")) {
+    counts <- as.data.frame(table(comparison_table$significance_change), stringsAsFactors = FALSE)
+    colnames(counts) <- c("change", "n")
+    return(
+      ggplot2::ggplot(counts, ggplot2::aes(x = .data[["change"]], y = .data[["n"]], fill = .data[["change"]])) +
+        ggplot2::geom_col(show.legend = FALSE) +
+        ggplot2::theme_bw() +
+        ggplot2::labs(x = "Change category", y = "Features")
+    )
+  }
+
+  if (identical(mode, "p_values")) {
+    amrc_assert_column_set(c("p_value_1", "p_value_2"), comparison_table, arg_name = "comparison_table")
+    return(
+      ggplot2::ggplot(comparison_table, ggplot2::aes(x = .data[["p_value_1"]], y = .data[["p_value_2"]], colour = .data[["presence_status"]])) +
+        ggplot2::geom_point() +
+        ggplot2::theme_bw() +
+        ggplot2::labs(x = "Model 1 p-value", y = "Model 2 p-value", colour = "Presence")
+    )
+  }
+
+  amrc_assert_column_set(c("effect_size_1", "effect_size_2"), comparison_table, arg_name = "comparison_table")
+  ggplot2::ggplot(comparison_table, ggplot2::aes(x = .data[["effect_size_1"]], y = .data[["effect_size_2"]], colour = .data[["presence_status"]])) +
+    ggplot2::geom_point() +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = "Model 1 effect", y = "Model 2 effect", colour = "Presence")
+}
+
+#' Plot Effect-Direction Summaries
+#'
+#' @param data A data frame containing two effect columns.
+#' @param effect_x_col,effect_y_col Numeric effect columns.
+#' @param category_col Direction-category column. When absent, the function
+#'   creates it with [amrc_categorise_effect_directions()].
+#' @param x_threshold,y_threshold Thresholds passed to
+#'   [amrc_categorise_effect_directions()] when needed.
+#' @param show_counts Logical; annotate quadrant counts.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_effect_direction_summary <- function(
+  data,
+  effect_x_col,
+  effect_y_col,
+  category_col = "effect_direction",
+  x_threshold = 0,
+  y_threshold = 0,
+  show_counts = TRUE
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  amrc_assert_is_data_frame(data, arg_name = "data")
+  if (!(category_col %in% colnames(data))) {
+    data <- amrc_categorise_effect_directions(
+      data = data,
+      effect_x_col = effect_x_col,
+      effect_y_col = effect_y_col,
+      x_threshold = x_threshold,
+      y_threshold = y_threshold,
+      category_col = category_col
+    )
+  }
+
+  plot <- ggplot2::ggplot(data, ggplot2::aes(x = .data[[effect_x_col]], y = .data[[effect_y_col]], colour = .data[[category_col]])) +
+    ggplot2::geom_hline(yintercept = c(-y_threshold, y_threshold), linetype = "dashed", colour = "grey50") +
+    ggplot2::geom_vline(xintercept = c(-x_threshold, x_threshold), linetype = "dashed", colour = "grey50") +
+    ggplot2::geom_point(size = 2.5, alpha = 0.8) +
+    ggplot2::theme_bw() +
+    ggplot2::coord_fixed() +
+    ggplot2::labs(x = effect_x_col, y = effect_y_col, colour = "Direction")
+
+  if (isTRUE(show_counts)) {
+    counts <- amrc_summarise_effect_directions(data, category_col = category_col)
+    annotation <- merge(
+      counts,
+      data.frame(
+        direction = c("positive_positive", "negative_positive", "negative_negative", "positive_negative"),
+        x = c(1, -1, -1, 1),
+        y = c(1, 1, -1, -1),
+        stringsAsFactors = FALSE
+      ),
+      by = "direction",
+      all.x = TRUE,
+      sort = FALSE
+    )
+    annotation <- annotation[stats::complete.cases(annotation[, c("x", "y"), drop = FALSE]), , drop = FALSE]
+    if (nrow(annotation) > 0L) {
+      plot <- plot + ggplot2::geom_text(
+        data = annotation,
+        mapping = ggplot2::aes(
+          x = .data[["x"]] * max(abs(data[[effect_x_col]]), na.rm = TRUE),
+          y = .data[["y"]] * max(abs(data[[effect_y_col]]), na.rm = TRUE),
+          label = paste0(.data[["n"]], " (", round(.data[["proportion"]] * 100, 1), "%)")
+        ),
+        inherit.aes = FALSE
+      )
+    }
+  }
+
+  plot
+}
+
+#' Plot Cross-Method Feature Overlap
+#'
+#' @param overlap_result Output from [amrc_compute_feature_overlap()].
+#' @param mode Plot type: `"pairwise"` or `"membership"`.
+#' @param top_n Number of features to show in membership mode.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_feature_overlap <- function(
+  overlap_result,
+  mode = c("pairwise", "membership"),
+  top_n = 25
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  mode <- match.arg(mode)
+  if (!is.list(overlap_result) || is.null(overlap_result$pairwise_overlap)) {
+    stop("overlap_result must be the output of amrc_compute_feature_overlap().", call. = FALSE)
+  }
+
+  if (identical(mode, "pairwise")) {
+    plot_data <- overlap_result$pairwise_overlap
+    plot_data$.amrc_pair <- paste(plot_data$method_1, plot_data$method_2, sep = " vs ")
+    return(
+      ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[".amrc_pair"]], y = .data[["jaccard"]], fill = .data[[".amrc_pair"]])) +
+        ggplot2::geom_col(show.legend = FALSE) +
+        ggplot2::theme_bw() +
+        ggplot2::labs(x = "Method pair", y = "Jaccard overlap")
+    )
+  }
+
+  membership <- overlap_result$membership_matrix
+  method_cols <- setdiff(colnames(membership), c("feature", "n_methods", "method_list"))
+  membership <- membership[order(-membership$n_methods, membership$feature), , drop = FALSE]
+  membership <- utils::head(membership, top_n)
+  long_data <- do.call(rbind, lapply(method_cols, function(method) {
+    data.frame(
+      feature = membership$feature,
+      method = method,
+      present = membership[[method]],
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  }))
+
+  ggplot2::ggplot(long_data, ggplot2::aes(x = .data[["method"]], y = stats::reorder(.data[["feature"]], .data[["feature"]]), fill = .data[["present"]])) +
+    ggplot2::geom_tile(colour = "white") +
+    ggplot2::scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "#377EB8")) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = "Method", y = "Feature", fill = "Present")
+}
+
+#' Plot Heritability Summaries
+#'
+#' @param heritability_table Table containing one row per response.
+#' @param trait_col Response/trait column.
+#' @param value_col Heritability column.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_heritability_summary <- function(
+  heritability_table,
+  trait_col = NULL,
+  value_col = NULL
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  amrc_assert_is_data_frame(heritability_table, arg_name = "heritability_table")
+  trait_col <- amrc_infer_column(heritability_table, trait_col, c("response", "trait", "trait_name"), "trait_col")
+  value_col <- amrc_infer_column(heritability_table, value_col, c("heritability", "h2"), "value_col")
+
+  ggplot2::ggplot(heritability_table, ggplot2::aes(x = stats::reorder(.data[[trait_col]], .data[[value_col]]), y = .data[[value_col]])) +
+    ggplot2::geom_col(fill = "#4DAF4A", colour = "black") +
+    ggplot2::coord_flip() +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = "Trait", y = "Heritability")
+}
+
+#' Plot Variance-Decomposition Summaries
+#'
+#' @param variance_table Table containing response/component/proportion columns.
+#' @param trait_col Response/trait column.
+#' @param component_col Variance-component column.
+#' @param value_col Numeric proportion column.
+#'
+#' @return A `ggplot` object.
+#' @export
+amrc_plot_variance_decomposition <- function(
+  variance_table,
+  trait_col = NULL,
+  component_col = NULL,
+  value_col = NULL
+) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  amrc_assert_is_data_frame(variance_table, arg_name = "variance_table")
+  trait_col <- amrc_infer_column(variance_table, trait_col, c("response", "trait", "trait_name"), "trait_col")
+  component_col <- amrc_infer_column(variance_table, component_col, c("component", "label"), "component_col")
+  value_col <- amrc_infer_column(variance_table, value_col, c("proportion", "variance_proportion", "value"), "value_col")
+
+  ggplot2::ggplot(variance_table, ggplot2::aes(x = .data[[trait_col]], y = .data[[value_col]], fill = .data[[component_col]])) +
+    ggplot2::geom_col(position = "stack", colour = "black") +
+    ggplot2::theme_bw() +
+    ggplot2::labs(x = "Trait", y = "Variance proportion", fill = "Component")
+}
