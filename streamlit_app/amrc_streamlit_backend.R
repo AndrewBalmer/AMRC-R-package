@@ -100,7 +100,11 @@ repo_root <- normalizePath(config$repo_root, mustWork = TRUE)
 output_dir <- normalizePath(config$output_dir, winslash = "/", mustWork = FALSE)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-amrc_load_package <- function(repo_root) {
+amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
+  if (isTRUE(prefer_installed) && requireNamespace("amrcartography", quietly = TRUE)) {
+    return(invisible(TRUE))
+  }
+
   if (requireNamespace("pkgload", quietly = TRUE)) {
     pkgload::load_all(
       path = repo_root,
@@ -126,7 +130,9 @@ amrc_load_package <- function(repo_root) {
   invisible(TRUE)
 }
 
-amrc_load_package(repo_root)
+prefer_installed_package <- identical(Sys.getenv("AMRC_PACKAGE_LOAD_MODE"), "installed")
+
+amrc_load_package(repo_root, prefer_installed = prefer_installed_package)
 
 amrc_fn <- function(name) getExportedValue("amrcartography", name)
 

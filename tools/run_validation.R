@@ -60,7 +60,11 @@ if (!requireNamespace("jsonlite", quietly = TRUE)) {
   )
 }
 
-amrc_load_package <- function(repo_root) {
+amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
+  if (isTRUE(prefer_installed) && requireNamespace("amrcartography", quietly = TRUE)) {
+    return(invisible(TRUE))
+  }
+
   if (requireNamespace("pkgload", quietly = TRUE)) {
     pkgload::load_all(
       path = repo_root,
@@ -83,7 +87,10 @@ amrc_load_package <- function(repo_root) {
   )
 }
 
-amrc_load_package(repo_root)
+prefer_installed_package <- identical(Sys.getenv("AMRC_PACKAGE_LOAD_MODE"), "installed") ||
+  (identical(Sys.getenv("CI"), "true") && !identical(stage, "smoke"))
+
+amrc_load_package(repo_root, prefer_installed = prefer_installed_package)
 amrc_fn <- function(name) getExportedValue("amrcartography", name)
 
 `%||%` <- function(x, y) {
@@ -485,6 +492,13 @@ validate_streamlit_backend <- function() {
   output <- system2(
     command = file.path(R.home("bin"), "Rscript"),
     args = c(backend_script, config_path),
+    env = c(
+      sprintf(
+        "AMRC_PACKAGE_LOAD_MODE=%s",
+        if (isTRUE(prefer_installed_package)) "installed" else "source"
+      ),
+      sprintf("CI=%s", Sys.getenv("CI", unset = "false"))
+    ),
     stdout = TRUE,
     stderr = TRUE
   )
