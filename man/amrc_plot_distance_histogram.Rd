@@ -6,7 +6,7 @@
 \usage{
 amrc_plot_distance_histogram(
   hist_data,
-  fill_values = c(`Intra-Group` = "blue", `Inter-Group` = "red"),
+  fill_values = c(`Intra-Group` = "#377EB8", `Inter-Group` = "#E41A1C"),
   binwidth = 1
 )
 }

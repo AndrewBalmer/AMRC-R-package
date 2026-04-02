@@ -27,7 +27,7 @@ amrc_plot_histogram_with_reference <- function(
   data <- data.frame(value = values)
   plot <- ggplot2::ggplot(data, ggplot2::aes(x = value)) +
     ggplot2::geom_histogram(fill = fill, colour = "black", alpha = 0.8, bins = bins) +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = xlab, y = ylab)
 
   if (isTRUE(mean_line)) {
@@ -83,8 +83,8 @@ amrc_plot_configuration_displacement <- function(
       fill = "black",
       colour = "white"
     ) +
-    ggplot2::geom_point(shape = 21, size = 2, fill = fill, colour = "white") +
-    ggplot2::theme_bw() +
+    ggplot2::geom_point(shape = 21, size = 2, fill = fill, colour = "black") +
+    amrc_theme_manuscript_bw() +
     ggplot2::coord_fixed()
 }
 
@@ -103,6 +103,36 @@ amrc_default_named_palette <- function(values) {
   values <- unique(as.character(values[!is.na(values)]))
   palette <- amrc_default_cluster_palette(length(values))
   stats::setNames(palette, values)
+}
+
+amrc_theme_manuscript_base <- function() {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 10, colour = "black"),
+    axis.title = ggplot2::element_text(size = 12, colour = "black"),
+    legend.text = ggplot2::element_text(size = 10, colour = "black"),
+    legend.title = ggplot2::element_text(size = 12, colour = "black"),
+    strip.text = ggplot2::element_text(size = 11, colour = "black")
+  )
+}
+
+amrc_theme_manuscript_bw <- function() {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  ggplot2::theme_bw() + amrc_theme_manuscript_base()
+}
+
+amrc_theme_manuscript_linedraw <- function() {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting.", call. = FALSE)
+  }
+
+  ggplot2::theme_linedraw() + amrc_theme_manuscript_base()
 }
 
 amrc_apply_manuscript_scales <- function(plot, data, fill_col = NULL, colour_col = NULL) {
@@ -294,12 +324,13 @@ amrc_theme_cartography <- function() {
 #' @param colour_col Optional column mapped to point colour.
 #' @param size_col Optional column mapped to point size.
 #' @param point_size Constant point size when `size_col` is not supplied.
-#' @param point_alpha Point alpha.
+#' @param point_alpha Point alpha. The default keeps some overlap visibility in
+#'   the same way as the manuscript-era map plots.
 #' @param point_shape Optional point shape. When `NULL`, the function chooses a
 #'   filled point for `fill_col` plots and a solid point otherwise.
 #' @param outline_colour Outline colour used when `fill_col` is mapped.
 #' @param point_fill Constant fill colour when neither `fill_col` nor
-#'   `colour_col` is supplied.
+#'   `colour_col` is supplied. Defaults to the manuscript-era blue map point.
 #' @param grid_spacing Optional major-grid spacing. When the coordinates have
 #'   already been calibrated to MIC units, setting `grid_spacing = 1` gives a
 #'   one-doubling-dilution grid.
@@ -462,7 +493,7 @@ amrc_plot_map <- function(
     )
   }
 
-  plot <- plot + point_layer + ggplot2::theme_bw()
+  plot <- plot + point_layer + amrc_theme_manuscript_bw()
   plot <- amrc_apply_manuscript_scales(
     plot = plot,
     data = plot_data,
@@ -1030,7 +1061,7 @@ amrc_plot_cluster_elbow <- function(
 
   plot <- plot +
     ggplot2::geom_point(shape = 16, size = 4, alpha = 0.6, colour = "#999999") +
-    ggplot2::theme_linedraw() +
+    amrc_theme_manuscript_linedraw() +
     ggplot2::labs(x = "Number of clusters", y = "Within cluster inertia")
 
   if (!is.null(highlight_cluster)) {
@@ -1122,7 +1153,7 @@ amrc_plot_cluster_map <- function(
 
   plot <- plot +
     ggplot2::geom_point(shape = 21, size = point_size, alpha = point_alpha, colour = "black") +
-    ggplot2::theme_linedraw() +
+    amrc_theme_manuscript_linedraw() +
     ggplot2::coord_fixed() +
     ggplot2::scale_fill_manual(values = palette)
 
@@ -1185,7 +1216,7 @@ amrc_plot_cluster_map <- function(
 #' @export
 amrc_plot_distance_histogram <- function(
   hist_data,
-  fill_values = c("Intra-Group" = "blue", "Inter-Group" = "red"),
+  fill_values = c("Intra-Group" = "#377EB8", "Inter-Group" = "#E41A1C"),
   binwidth = 1
 ) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -1195,7 +1226,8 @@ amrc_plot_distance_histogram <- function(
   ggplot2::ggplot(hist_data, ggplot2::aes(x = .data[["Distance"]], fill = .data[["DistanceType"]])) +
     ggplot2::geom_histogram(binwidth = binwidth, position = "identity", alpha = 0.6) +
     ggplot2::labs(x = "Pairwise Distance", y = "Count") +
-    ggplot2::scale_fill_manual(values = fill_values)
+    ggplot2::scale_fill_manual(values = fill_values) +
+    amrc_theme_manuscript_bw()
 }
 
 #' Plot the Reference-Distance Relationship
@@ -1281,7 +1313,7 @@ amrc_plot_reference_distance_relationship <- function(
       plot_data,
       ggplot2::aes(x = .amrc_x, y = .amrc_y, fill = .amrc_cluster)
     ) +
-      ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1) +
+      ggplot2::geom_point(size = 4.5, shape = 21, alpha = 1, colour = "black") +
       ggplot2::guides(fill = "none") +
       ggplot2::scale_fill_manual(values = palette) +
       ggplot2::labs(x = xlab, y = ylab, fill = "Cluster")
@@ -1295,10 +1327,8 @@ amrc_plot_reference_distance_relationship <- function(
   }
 
   plot <- plot +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::theme(
-      axis.text = ggplot2::element_text(size = 12),
-      axis.title = ggplot2::element_text(size = 14),
       aspect.ratio = 1
     )
 
@@ -1363,8 +1393,8 @@ amrc_plot_one_vs_two_dimensional_projection <- function(projection_data) {
       linewidth = 0.3,
       colour = "black"
     ) +
-    ggplot2::geom_point(shape = 21, fill = "#E41A1C", colour = "white") +
-    ggplot2::theme_bw() +
+    ggplot2::geom_point(shape = 21, fill = "#E41A1C", colour = "black") +
+    amrc_theme_manuscript_bw() +
     ggplot2::scale_x_continuous(
       limits = c(min(range_x, na.rm = TRUE), max(range_x, na.rm = TRUE) + 0.5)
     ) +
@@ -1489,7 +1519,7 @@ amrc_plot_within_group_dispersion_histogram <- function(
 
   plot <- ggplot2::ggplot(summary_table, ggplot2::aes(x = .data[[value_col]])) +
     ggplot2::geom_histogram(fill = fill, colour = "black", bins = bins, alpha = 0.8) +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = value_col, y = "Count")
 
   if (!is.null(reference_line)) {
@@ -1594,7 +1624,7 @@ amrc_plot_cluster_feature_shifts <- function(
   ggplot2::ggplot(plot_data, ggplot2::aes(x = stats::reorder(.data[[feature_col]], .data[[shift_col]]), y = .data[[shift_col]])) +
     ggplot2::geom_col(fill = "#377EB8", colour = "black", alpha = 0.8) +
     ggplot2::coord_flip() +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = "Feature", y = "Frequency shift") +
     ggplot2::facet_wrap(~ .amrc_pair, scales = "free_y")
 }
@@ -1624,7 +1654,8 @@ amrc_plot_association_model_comparison <- function(
     return(
       ggplot2::ggplot(counts, ggplot2::aes(x = .data[["change"]], y = .data[["n"]], fill = .data[["change"]])) +
         ggplot2::geom_col(show.legend = FALSE) +
-        ggplot2::theme_bw() +
+        ggplot2::scale_fill_manual(values = amrc_default_named_palette(counts$change), drop = FALSE) +
+        amrc_theme_manuscript_bw() +
         ggplot2::labs(x = "Change category", y = "Features")
     )
   }
@@ -1633,16 +1664,18 @@ amrc_plot_association_model_comparison <- function(
     amrc_assert_column_set(c("p_value_1", "p_value_2"), comparison_table, arg_name = "comparison_table")
     return(
       ggplot2::ggplot(comparison_table, ggplot2::aes(x = .data[["p_value_1"]], y = .data[["p_value_2"]], colour = .data[["presence_status"]])) +
-        ggplot2::geom_point() +
-        ggplot2::theme_bw() +
+        ggplot2::geom_point(size = 2.5, alpha = 0.8) +
+        ggplot2::scale_colour_manual(values = amrc_default_named_palette(comparison_table$presence_status), drop = FALSE) +
+        amrc_theme_manuscript_bw() +
         ggplot2::labs(x = "Model 1 p-value", y = "Model 2 p-value", colour = "Presence")
     )
   }
 
   amrc_assert_column_set(c("effect_size_1", "effect_size_2"), comparison_table, arg_name = "comparison_table")
   ggplot2::ggplot(comparison_table, ggplot2::aes(x = .data[["effect_size_1"]], y = .data[["effect_size_2"]], colour = .data[["presence_status"]])) +
-    ggplot2::geom_point() +
-    ggplot2::theme_bw() +
+    ggplot2::geom_point(size = 2.5, alpha = 0.8) +
+    ggplot2::scale_colour_manual(values = amrc_default_named_palette(comparison_table$presence_status), drop = FALSE) +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = "Model 1 effect", y = "Model 2 effect", colour = "Presence")
 }
 
@@ -1687,7 +1720,8 @@ amrc_plot_effect_direction_summary <- function(
     ggplot2::geom_hline(yintercept = c(-y_threshold, y_threshold), linetype = "dashed", colour = "grey50") +
     ggplot2::geom_vline(xintercept = c(-x_threshold, x_threshold), linetype = "dashed", colour = "grey50") +
     ggplot2::geom_point(size = 2.5, alpha = 0.8) +
-    ggplot2::theme_bw() +
+    ggplot2::scale_colour_manual(values = amrc_default_named_palette(data[[category_col]]), drop = FALSE) +
+    amrc_theme_manuscript_bw() +
     ggplot2::coord_fixed() +
     ggplot2::labs(x = effect_x_col, y = effect_y_col, colour = "Direction")
 
@@ -1750,7 +1784,8 @@ amrc_plot_feature_overlap <- function(
     return(
       ggplot2::ggplot(plot_data, ggplot2::aes(x = .data[[".amrc_pair"]], y = .data[["jaccard"]], fill = .data[[".amrc_pair"]])) +
         ggplot2::geom_col(show.legend = FALSE) +
-        ggplot2::theme_bw() +
+        ggplot2::scale_fill_manual(values = amrc_default_named_palette(plot_data$.amrc_pair), drop = FALSE) +
+        amrc_theme_manuscript_bw() +
         ggplot2::labs(x = "Method pair", y = "Jaccard overlap")
     )
   }
@@ -1772,7 +1807,7 @@ amrc_plot_feature_overlap <- function(
   ggplot2::ggplot(long_data, ggplot2::aes(x = .data[["method"]], y = stats::reorder(.data[["feature"]], .data[["feature"]]), fill = .data[["present"]])) +
     ggplot2::geom_tile(colour = "white") +
     ggplot2::scale_fill_manual(values = c("FALSE" = "grey90", "TRUE" = "#377EB8")) +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = "Method", y = "Feature", fill = "Present")
 }
 
@@ -1800,7 +1835,7 @@ amrc_plot_heritability_summary <- function(
   ggplot2::ggplot(heritability_table, ggplot2::aes(x = stats::reorder(.data[[trait_col]], .data[[value_col]]), y = .data[[value_col]])) +
     ggplot2::geom_col(fill = "#4DAF4A", colour = "black") +
     ggplot2::coord_flip() +
-    ggplot2::theme_bw() +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = "Trait", y = "Heritability")
 }
 
@@ -1830,6 +1865,7 @@ amrc_plot_variance_decomposition <- function(
 
   ggplot2::ggplot(variance_table, ggplot2::aes(x = .data[[trait_col]], y = .data[[value_col]], fill = .data[[component_col]])) +
     ggplot2::geom_col(position = "stack", colour = "black") +
-    ggplot2::theme_bw() +
+    ggplot2::scale_fill_manual(values = amrc_default_named_palette(variance_table[[component_col]]), drop = FALSE) +
+    amrc_theme_manuscript_bw() +
     ggplot2::labs(x = "Trait", y = "Variance proportion", fill = "Component")
 }

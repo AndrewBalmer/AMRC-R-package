@@ -12,10 +12,10 @@ amrc_plot_map(
   colour_col = NULL,
   size_col = NULL,
   point_size = 3,
-  point_alpha = 0.9,
+  point_alpha = 0.6,
   point_shape = NULL,
   outline_colour = "black",
-  point_fill = "#E41A1C",
+  point_fill = "#377EB8",
   grid_spacing = NULL,
   density = c("none", "contour"),
   density_bins = 6,
@@ -46,7 +46,8 @@ amrc_plot_map(
 
 \item{point_size}{Constant point size when \code{size_col} is not supplied.}
 
-\item{point_alpha}{Point alpha.}
+\item{point_alpha}{Point alpha. The default keeps some overlap visibility in
+the same way as the manuscript-era map plots.}
 
 \item{point_shape}{Optional point shape. When \code{NULL}, the function chooses a
 filled point for \code{fill_col} plots and a solid point otherwise.}
@@ -54,7 +55,7 @@ filled point for \code{fill_col} plots and a solid point otherwise.}
 \item{outline_colour}{Outline colour used when \code{fill_col} is mapped.}
 
 \item{point_fill}{Constant fill colour when neither \code{fill_col} nor
-\code{colour_col} is supplied.}
+\code{colour_col} is supplied. Defaults to the manuscript-era blue map point.}
 
 \item{grid_spacing}{Optional major-grid spacing. When the coordinates have
 already been calibrated to MIC units, setting \code{grid_spacing = 1} gives a
