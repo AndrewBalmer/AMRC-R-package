@@ -57,6 +57,23 @@ rownames(kinship) <- analysis_data$isolate_id
 colnames(kinship) <- analysis_data$isolate_id
 ```
 
+## Marker preprocessing
+
+Before scanning gene presence/absence or substitution indicators, the package
+can clean the marker matrix by dropping invariant columns and collapsing exact
+duplicates or inverse binary markers:
+
+```{r}
+marker_matrix <- amrc_prepare_marker_matrix(
+  data = analysis_data,
+  marker_cols = c("gene_a", "gene_b", "gene_c"),
+  id_col = "isolate_id"
+)
+
+marker_matrix$retained_markers
+marker_matrix$dropped_markers
+```
+
 ## Simple gene or substitution scans
 
 For fixed-effect scans against one or more responses, use the generic binary
@@ -112,6 +129,18 @@ contrast_summary <- amrc_summarise_single_feature_contrasts(
 contrast_summary
 ```
 
+## Putting the fixed-effect workflow together
+
+In practice, a common generic workflow is:
+
+1. preprocess a marker matrix
+2. run an unadjusted feature scan
+3. rerun the same scan with one or more covariates
+4. compare how the strongest signals change
+5. check which features recur across methods
+
+The next sections show that pattern explicitly.
+
 ## Cluster-difference workflow
 
 The package also exposes the generic “outer genotype cluster, inner phenotype
@@ -141,6 +170,15 @@ informative-isolate subset used for manual review and plotting:
 if (!is.null(cluster_workflow$informative_isolates)) {
   cluster_workflow$informative_isolates$data
 }
+```
+
+The ranked differentiating features can also be plotted directly:
+
+```{r}
+amrc_plot_cluster_feature_shifts(
+  cluster_workflow$differentiating_features,
+  top_n = 3
+)
 ```
 
 ## Adjusted versus unadjusted scans
@@ -179,6 +217,15 @@ And the summary helper collapses that into the key change counts:
 amrc_summarise_association_model_comparison(model_comparison)$counts
 ```
 
+And the same comparison can be visualised:
+
+```{r}
+amrc_plot_association_model_comparison(
+  model_comparison,
+  mode = "change_counts"
+)
+```
+
 ## Overlap across generic methods
 
 The same feature tables can be turned into a simple cross-method overlap view:
@@ -194,6 +241,14 @@ feature_overlap <- amrc_compute_feature_overlap(
 )
 
 feature_overlap$feature_summary
+```
+
+```{r}
+amrc_plot_feature_overlap(
+  feature_overlap,
+  mode = "membership",
+  top_n = 5
+)
 ```
 
 ## Random-intercept mixed models

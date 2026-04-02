@@ -71,6 +71,16 @@ def build_config(
         "comparison": {
             "group_col": maybe_none(st.session_state.get("group_col")),
         },
+        "clustering": {
+            "enabled": bool(st.session_state.get("use_clustering")),
+            "n_clusters": int(st.session_state.get("n_clusters", 4)),
+            "distinct_col": maybe_none(st.session_state.get("cluster_distinct_col")),
+        },
+        "reference": {
+            "enabled": bool(st.session_state.get("use_reference_summary")),
+            "reference_col": maybe_none(st.session_state.get("reference_col")),
+            "reference_value": maybe_none(st.session_state.get("reference_value")),
+        },
         "external": {
             "enabled": bool(st.session_state["use_external"]),
         },
@@ -125,12 +135,28 @@ def run_backend(config: dict) -> dict:
         "tables": {},
     }
 
-    for name in ("phenotype_map.png", "external_map.png", "side_by_side_maps.png"):
+    for name in (
+        "phenotype_map.png",
+        "external_map.png",
+        "side_by_side_maps.png",
+        "phenotype_cluster_map.png",
+        "external_cluster_map.png",
+        "reference_distance_relationship.png",
+        "summary.json",
+        "amrc_result_bundle.rds",
+    ):
         path = work_dir / name
         if path.exists():
             result["files"][name] = path.read_bytes()
 
-    for name in ("phenotype_map_data.csv", "comparison_data.csv"):
+    for name in (
+        "phenotype_map_data.csv",
+        "phenotype_cluster_data.csv",
+        "comparison_data.csv",
+        "external_cluster_data.csv",
+        "reference_distance_table.csv",
+        "reference_distance_summary.csv",
+    ):
         path = work_dir / name
         if path.exists():
             result["tables"][name] = pd.read_csv(path)
@@ -207,6 +233,16 @@ if phenotype_df is not None:
         st.checkbox("Use 1-unit grid spacing", value=False, key="grid_spacing_one")
         st.checkbox("Add density contours", value=False, key="density")
 
+        st.header("Clustering")
+        cluster_distinct_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
+        st.checkbox("Overlay clusters", value=False, key="use_clustering")
+        st.number_input("Number of clusters", min_value=2, max_value=20, value=4, step=1, key="n_clusters")
+        st.selectbox(
+            "Cluster distinct units by",
+            options=cluster_distinct_options,
+            key="cluster_distinct_col",
+        )
+
         st.header("External Structure")
         st.checkbox("Include external/genotype structure", value=False, key="use_external")
 
@@ -247,6 +283,24 @@ if phenotype_df is not None:
                         ][: min(6, max(1, len(external_columns) - 1))],
                         key="external_feature_cols",
                     )
+
+                st.header("Reference Summary")
+                reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
+                st.checkbox("Compute reference-distance summary", value=False, key="use_reference_summary")
+                st.selectbox("Reference column", options=reference_options, key="reference_col")
+
+                reference_values = (
+                    phenotype_df[st.session_state["reference_col"]]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+                    .tolist()
+                )
+                st.selectbox(
+                    "Reference value",
+                    options=sorted(reference_values),
+                    key="reference_value",
+                )
         else:
             external_upload = None
     else:
@@ -309,6 +363,24 @@ if result:
     if "side_by_side_maps.png" in result["files"]:
         st.image(result["files"]["side_by_side_maps.png"], caption="Side-by-side phenotype vs external maps")
 
+    cluster_images = []
+    if "phenotype_cluster_map.png" in result["files"]:
+        cluster_images.append(("Phenotype clusters", result["files"]["phenotype_cluster_map.png"]))
+    if "external_cluster_map.png" in result["files"]:
+        cluster_images.append(("External clusters", result["files"]["external_cluster_map.png"]))
+    if cluster_images:
+        st.subheader("Cluster overlays")
+        cluster_cols = st.columns(len(cluster_images))
+        for col, (caption, image_bytes) in zip(cluster_cols, cluster_images):
+            col.image(image_bytes, caption=caption)
+
+    if "reference_distance_relationship.png" in result["files"]:
+        st.subheader("Reference-distance relationship")
+        st.image(
+            result["files"]["reference_distance_relationship.png"],
+            caption="Phenotype vs external distance from the selected reference",
+        )
+
     if result["tables"]:
         st.subheader("Output Tables")
         for name, table in result["tables"].items():
@@ -319,4 +391,20 @@ if result:
                 data=result["files"][name],
                 file_name=name,
                 mime="text/csv",
+            )
+
+    extra_downloads = []
+    if "summary.json" in result["files"]:
+        extra_downloads.append(("Download summary.json", "summary.json", "application/json"))
+    if "amrc_result_bundle.rds" in result["files"]:
+        extra_downloads.append(("Download result bundle (.rds)", "amrc_result_bundle.rds", "application/octet-stream"))
+
+    if extra_downloads:
+        st.subheader("Download bundles")
+        for label, filename, mime in extra_downloads:
+            st.download_button(
+                label=label,
+                data=result["files"][filename],
+                file_name=filename,
+                mime=mime,
             )

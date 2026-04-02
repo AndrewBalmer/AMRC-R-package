@@ -8,6 +8,11 @@
   needs.
 - Switched the `08` notebook off the ignored local `data/` directory and onto
   packaged example-data paths.
+- Expanded the advanced generic vignette so it explicitly ties together marker
+  preprocessing, single-feature contrasts, cluster-difference summaries,
+  adjusted-vs-unadjusted comparisons, and overlap views.
+- Extended the Streamlit prototype with cluster overlays, reference-distance
+  summaries, and downloadable result bundles.
 
 ## 0.2.0 (2026-04-01)
 

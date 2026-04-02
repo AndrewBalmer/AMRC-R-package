@@ -2,6 +2,16 @@
   if (is.null(x) || identical(x, "")) y else x
 }
 
+amrc_scalar_or_null <- function(x) {
+  if (is.null(x) || length(x) == 0L || identical(x, "")) {
+    return(NULL)
+  }
+  if (is.atomic(x) && length(x) == 1L) {
+    return(as.character(x))
+  }
+  x
+}
+
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) != 1L) {
@@ -114,11 +124,17 @@ parse_precomputed_distance <- function(path, id_col) {
 
 id_col <- config$phenotype$id_col
 metadata_cols <- config$phenotype$metadata_cols %||% character()
-fill_col <- config$plot$fill_col %||% NULL
-facet_by <- config$plot$facet_by %||% NULL
-group_col <- config$comparison$group_col %||% NULL
+fill_col <- amrc_scalar_or_null(config$plot$fill_col)
+facet_by <- amrc_scalar_or_null(config$plot$facet_by)
+group_col <- amrc_scalar_or_null(config$comparison$group_col)
 grid_spacing <- if (isTRUE(config$plot$grid_spacing_one)) 1 else NULL
 density_mode <- if (isTRUE(config$plot$density)) "contour" else "none"
+cluster_enabled <- isTRUE(config$clustering$enabled)
+cluster_n <- as.integer(config$clustering$n_clusters %||% 4L)
+cluster_distinct_col <- amrc_scalar_or_null(config$clustering$distinct_col) %||% id_col
+reference_enabled <- isTRUE(config$reference$enabled)
+reference_col <- amrc_scalar_or_null(config$reference$reference_col)
+reference_value <- amrc_scalar_or_null(config$reference$reference_value)
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -159,14 +175,63 @@ utils::write.csv(
   row.names = FALSE
 )
 
+phenotype_cluster <- NULL
+phenotype_cluster_data <- phenotype_plot_data
+if (isTRUE(cluster_enabled)) {
+  phenotype_cluster <- amrc_fn("amrc_cluster_map")(
+    data = phenotype_plot_data,
+    coord_cols = c("D1", "D2"),
+    n_clusters = cluster_n,
+    distinct_col = cluster_distinct_col
+  )
+  phenotype_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
+    data = phenotype_plot_data,
+    assignments = phenotype_cluster$assignments,
+    key_col = cluster_distinct_col,
+    cluster_col = "phen_cluster"
+  )
+  phenotype_cluster_plot <- amrc_fn("amrc_plot_cluster_map")(
+    data = phenotype_cluster_data,
+    x = "D1",
+    y = "D2",
+    cluster_col = "phen_cluster",
+    facet_by = facet_by,
+    show_legend = TRUE
+  )
+  write_plot(phenotype_cluster_plot, file.path(output_dir, "phenotype_cluster_map.png"))
+  utils::write.csv(
+    phenotype_cluster_data,
+    file = file.path(output_dir, "phenotype_cluster_data.csv"),
+    row.names = FALSE
+  )
+}
+
 summary <- list(
   package_release_target = "v0.2.0",
   phenotype = list(
     n_isolates = nrow(phenotype_plot_data),
     n_drugs = ncol(mic_data$mic),
-    stress = unname(phenotype_map$stress %||% NA_real_)
+    stress = unname(phenotype_map$stress %||% NA_real_),
+    clustering = if (isTRUE(cluster_enabled)) {
+      list(
+        n_clusters = cluster_n,
+        distinct_col = cluster_distinct_col
+      )
+    } else {
+      NULL
+    }
   ),
   external = NULL
+)
+
+result_bundle <- list(
+  summary = summary,
+  mic_data = mic_data,
+  phenotype_distance = phenotype_distance,
+  phenotype_map = phenotype_map,
+  phenotype_plot_data = phenotype_plot_data,
+  phenotype_cluster = phenotype_cluster,
+  phenotype_cluster_data = phenotype_cluster_data
 )
 
 if (isTRUE(config$external$enabled)) {
@@ -243,11 +308,114 @@ if (isTRUE(config$external$enabled)) {
     row.names = FALSE
   )
 
+  external_cluster <- NULL
+  external_cluster_data <- comparison_bundle$data
+  if (isTRUE(cluster_enabled)) {
+    join_key <- cluster_distinct_col
+    if (!(join_key %in% colnames(external_cluster_data))) {
+      join_key <- id_col
+    }
+    external_cluster <- amrc_fn("amrc_cluster_map")(
+      data = external_cluster_data,
+      coord_cols = c("E1", "E2"),
+      n_clusters = cluster_n,
+      distinct_col = join_key
+    )
+    external_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
+      data = external_cluster_data,
+      assignments = external_cluster$assignments,
+      key_col = join_key,
+      cluster_col = "external_cluster"
+    )
+    external_cluster_plot <- amrc_fn("amrc_plot_cluster_map")(
+      data = external_cluster_data,
+      x = "E1",
+      y = "E2",
+      cluster_col = "external_cluster",
+      facet_by = facet_by,
+      show_legend = TRUE
+    )
+    write_plot(external_cluster_plot, file.path(output_dir, "external_cluster_map.png"))
+    utils::write.csv(
+      external_cluster_data,
+      file = file.path(output_dir, "external_cluster_data.csv"),
+      row.names = FALSE
+    )
+  }
+
+  reference_outputs <- NULL
+  if (isTRUE(reference_enabled) && !is.null(reference_col) && !is.null(reference_value)) {
+    ref_cluster_col <- if ("external_cluster" %in% colnames(external_cluster_data)) "external_cluster" else FALSE
+    reference_table <- amrc_fn("amrc_compute_reference_distance_table")(
+      data = external_cluster_data,
+      reference_value = reference_value,
+      reference_col = reference_col,
+      phenotype_cols = c("D1", "D2"),
+      external_cols = c("E1", "E2"),
+      id_col = id_col,
+      cluster_col = ref_cluster_col,
+      keep_cols = unique(stats::na.omit(c(fill_col, group_col)))
+    )
+    reference_summary <- amrc_fn("amrc_summarise_reference_distance_table")(
+      distance_table = reference_table,
+      cluster_col = ref_cluster_col
+    )
+    reference_plot <- amrc_fn("amrc_plot_reference_distance_relationship")(
+      distance_table = reference_table,
+      cluster_col = ref_cluster_col
+    )
+    write_plot(
+      reference_plot,
+      file.path(output_dir, "reference_distance_relationship.png"),
+      width = 7,
+      height = 6
+    )
+    utils::write.csv(
+      reference_table,
+      file = file.path(output_dir, "reference_distance_table.csv"),
+      row.names = FALSE
+    )
+    utils::write.csv(
+      reference_summary$summary,
+      file = file.path(output_dir, "reference_distance_summary.csv"),
+      row.names = FALSE
+    )
+    reference_outputs <- list(
+      table = reference_table,
+      summary = reference_summary
+    )
+  }
+
   summary$external <- list(
     mode = mode,
     n_isolates = nrow(comparison_bundle$data),
-    stress = unname(external_map$stress %||% NA_real_)
+    stress = unname(external_map$stress %||% NA_real_),
+    clustering = if (isTRUE(cluster_enabled)) {
+      list(
+        n_clusters = cluster_n,
+        distinct_col = cluster_distinct_col
+      )
+    } else {
+      NULL
+    },
+    reference = if (!is.null(reference_outputs)) {
+      list(
+        reference_col = reference_col,
+        reference_value = reference_value,
+        n_rows = nrow(reference_outputs$table)
+      )
+    } else {
+      NULL
+    }
   )
+
+  result_bundle$summary <- summary
+  result_bundle$external_distance <- external_distance
+  result_bundle$external_map <- external_map
+  result_bundle$comparison_bundle <- comparison_bundle
+  result_bundle$external_cluster <- external_cluster
+  result_bundle$external_cluster_data <- external_cluster_data
+  result_bundle$reference_outputs <- reference_outputs
 }
 
 jsonlite::write_json(
@@ -255,4 +423,9 @@ jsonlite::write_json(
   path = file.path(output_dir, "summary.json"),
   auto_unbox = TRUE,
   pretty = TRUE
+)
+
+saveRDS(
+  result_bundle,
+  file = file.path(output_dir, "amrc_result_bundle.rds")
 )

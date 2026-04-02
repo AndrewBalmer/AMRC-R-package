@@ -9,6 +9,8 @@ Current scope:
 - choose ID, MIC, and metadata columns
 - clean and standardise MIC values
 - compute a phenotype distance matrix and MDS map
+- optionally cluster the phenotype map with configurable `k` and join-key
+  controls
 - optionally upload an external/genotype structure as:
   - a precomputed distance matrix
   - a numeric feature table
@@ -16,6 +18,10 @@ Current scope:
   - an aligned sequence/allele table
 - fit an external map
 - generate a side-by-side phenotype/external map comparison
+- optionally cluster the external map with the same controls
+- optionally compute reference-distance summaries against a selected metadata
+  group or isolate
+- download the raw output tables plus a bundled `.rds` result object
 
 Deliberately not in v1:
 
@@ -67,8 +73,7 @@ an R setup that does not hit the existing `OMP: Error #179` problem.
 
 ## Next logical app steps
 
-- cluster controls and cluster overlays
-- reference-distance summaries
-- download bundles for comparison tables and fit summaries
-- advanced association tabs once the package-side mixed-model layer is more
-  stable in app form
+- advanced association tabs
+- more explicit cluster-scree diagnostics
+- richer reference-summary plotting and table filters
+- downloadable report exports once the UI is stable enough to define them
