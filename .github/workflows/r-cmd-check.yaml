@@ -70,6 +70,8 @@ jobs:
         run: R CMD INSTALL .
 
       - name: Run staged validation sanity checks
+        env:
+          AMRC_PACKAGE_LOAD_MODE: installed
         run: Rscript tools/run_validation.R --stage ci
 
       - name: Run README example workflow

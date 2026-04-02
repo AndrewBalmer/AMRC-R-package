@@ -32,6 +32,7 @@ Current scope:
 - adjust reference-distance plot break spacing
 - add optional annotation text/coordinates to the reference-distance plot
 - download the raw output tables plus a bundled `.rds` result object
+- export lightweight Markdown/HTML analysis reports from each run
 
 Deliberately not in v1:
 
@@ -61,6 +62,19 @@ Start the app from the repo root:
 streamlit run streamlit_app/app.py
 ```
 
+## Lightweight UI QA
+
+If `streamlit` is installed with testing support, you can run the app shell
+contract check:
+
+```bash
+python3 streamlit_app/check_ui_contract.py
+```
+
+For manual browser-level QA, use:
+
+- [streamlit_app/UI_QA_CHECKLIST.md](UI_QA_CHECKLIST.md)
+
 ## Known limitation
 
 This repo still has a local macOS/OpenMP shared-memory issue in some R runs on
@@ -84,5 +98,4 @@ an R setup that does not hit the existing `OMP: Error #179` problem.
 ## Next logical app steps
 
 - advanced association tabs
-- downloadable report exports once the UI is stable enough to define them
 - broader UI polish once the workflow surface stabilises

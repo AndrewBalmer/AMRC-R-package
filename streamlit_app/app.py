@@ -180,6 +180,8 @@ def run_backend(config: dict) -> dict:
         "external_cluster_elbow.png",
         "reference_distance_relationship.png",
         "summary.json",
+        "amrc_report.md",
+        "amrc_report.html",
         "amrc_result_bundle.rds",
     ):
         path = work_dir / name
@@ -518,6 +520,17 @@ if result:
     st.subheader("Summary")
     st.json(result["summary"], expanded=True)
 
+    metric_cols = st.columns(4)
+    phenotype_summary = result["summary"].get("phenotype", {})
+    external_summary = result["summary"].get("external") or {}
+    metric_cols[0].metric("Phenotype isolates", phenotype_summary.get("n_isolates", "NA"))
+    metric_cols[1].metric("MIC variables", phenotype_summary.get("n_drugs", "NA"))
+    metric_cols[2].metric("Phenotype stress", f"{phenotype_summary.get('stress', float('nan')):.3f}" if phenotype_summary.get("stress") is not None else "NA")
+    if external_summary:
+        metric_cols[3].metric("External stress", f"{external_summary.get('stress', float('nan')):.3f}" if external_summary.get("stress") is not None else "NA")
+    else:
+        metric_cols[3].metric("External workflow", "off")
+
     image_cols = st.columns(2)
     if "phenotype_map.png" in result["files"]:
         image_cols[0].image(result["files"]["phenotype_map.png"], caption="Phenotype map")
@@ -585,11 +598,43 @@ if result:
                 mime="text/csv",
             )
 
+    if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
+        st.subheader("Report export")
+        report_tabs = st.tabs(["Preview", "Downloads"])
+        with report_tabs[0]:
+            if "amrc_report.md" in result["files"]:
+                st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))
+            elif "amrc_report.html" in result["files"]:
+                st.components.v1.html(
+                    result["files"]["amrc_report.html"].decode("utf-8"),
+                    height=500,
+                    scrolling=True,
+                )
+        with report_tabs[1]:
+            if "amrc_report.md" in result["files"]:
+                st.download_button(
+                    label="Download analysis report (.md)",
+                    data=result["files"]["amrc_report.md"],
+                    file_name="amrc_report.md",
+                    mime="text/markdown",
+                )
+            if "amrc_report.html" in result["files"]:
+                st.download_button(
+                    label="Download analysis report (.html)",
+                    data=result["files"]["amrc_report.html"],
+                    file_name="amrc_report.html",
+                    mime="text/html",
+                )
+
     extra_downloads = []
     if "summary.json" in result["files"]:
         extra_downloads.append(("Download summary.json", "summary.json", "application/json"))
     if "amrc_result_bundle.rds" in result["files"]:
         extra_downloads.append(("Download result bundle (.rds)", "amrc_result_bundle.rds", "application/octet-stream"))
+    if "amrc_report.md" in result["files"]:
+        extra_downloads.append(("Download report (.md)", "amrc_report.md", "text/markdown"))
+    if "amrc_report.html" in result["files"]:
+        extra_downloads.append(("Download report (.html)", "amrc_report.html", "text/html"))
 
     if extra_downloads:
         st.subheader("Download bundles")

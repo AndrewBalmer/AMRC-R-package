@@ -150,6 +150,103 @@ write_plot <- function(plot, path, width = 7, height = 6) {
   )
 }
 
+`%fmt_or_na%` <- function(x, digits = 3) {
+  if (is.null(x) || length(x) == 0L || is.na(x) || !is.finite(x)) {
+    return("NA")
+  }
+  format(round(as.numeric(x), digits = digits), nsmall = min(digits, 3), trim = TRUE)
+}
+
+amrc_escape_html <- function(text) {
+  text <- gsub("&", "&amp;", text, fixed = TRUE)
+  text <- gsub("<", "&lt;", text, fixed = TRUE)
+  text <- gsub(">", "&gt;", text, fixed = TRUE)
+  text
+}
+
+write_run_report <- function(summary, output_dir, config) {
+  phenotype_lines <- c(
+    sprintf("- isolates: %s", summary$phenotype$n_isolates %||% "NA"),
+    sprintf("- MIC variables: %s", summary$phenotype$n_drugs %||% "NA"),
+    sprintf("- stress: %s", summary$phenotype$stress %fmt_or_na% 4)
+  )
+
+  if (!is.null(summary$phenotype$clustering)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf("- phenotype clusters: %s", summary$phenotype$clustering$n_clusters %||% "NA"),
+      sprintf(
+        "- phenotype selected inertia: %s",
+        summary$phenotype$clustering$selected_inertia %fmt_or_na% 4
+      )
+    )
+  }
+
+  external_lines <- c("- external workflow disabled")
+  if (!is.null(summary$external)) {
+    external_lines <- c(
+      sprintf("- mode: %s", summary$external$mode %||% "NA"),
+      sprintf("- isolates in comparison: %s", summary$external$n_isolates %||% "NA"),
+      sprintf("- stress: %s", summary$external$stress %fmt_or_na% 4)
+    )
+
+    if (!is.null(summary$external$clustering)) {
+      external_lines <- c(
+        external_lines,
+        sprintf("- external clusters: %s", summary$external$clustering$n_clusters %||% "NA"),
+        sprintf(
+          "- external selected inertia: %s",
+          summary$external$clustering$selected_inertia %fmt_or_na% 4
+        )
+      )
+    }
+
+    if (!is.null(summary$external$reference)) {
+      external_lines <- c(
+        external_lines,
+        sprintf("- reference column: %s", summary$external$reference$reference_col %||% "NA"),
+        sprintf("- reference value: %s", summary$external$reference$reference_value %||% "NA"),
+        sprintf("- reference rows: %s", summary$external$reference$n_rows %||% "NA"),
+        sprintf("- reference mode: %s", summary$external$reference$cluster_mode %||% "NA")
+      )
+    }
+  }
+
+  report_lines <- c(
+    "# amrcartography analysis report",
+    "",
+    sprintf("- package release target: `%s`", summary$package_release_target %||% "unknown"),
+    sprintf("- phenotype source: `%s`", basename(config$phenotype$path %||% "unknown")),
+    "",
+    "## Phenotype workflow",
+    phenotype_lines,
+    "",
+    "## External workflow",
+    external_lines,
+    "",
+    "## Output files",
+    "- `phenotype_map.png`",
+    if (!is.null(summary$external)) "- `external_map.png`" else NULL,
+    if (!is.null(summary$external)) "- `side_by_side_maps.png`" else NULL,
+    if (!is.null(summary$external$reference)) "- `reference_distance_relationship.png`" else NULL,
+    "- `summary.json`",
+    "- `amrc_result_bundle.rds`"
+  )
+
+  markdown <- paste(report_lines, collapse = "\n")
+  html <- paste0(
+    "<html><head><meta charset=\"utf-8\"><title>amrcartography analysis report</title>",
+    "<style>body{font-family:Helvetica,Arial,sans-serif;margin:2rem;line-height:1.5;color:#111;}",
+    "h1,h2{color:#111;} code{background:#f3f3f3;padding:0.1rem 0.25rem;}",
+    "ul{margin-top:0.5rem;} </style></head><body><pre style=\"white-space:pre-wrap;\">",
+    amrc_escape_html(markdown),
+    "</pre></body></html>"
+  )
+
+  writeLines(markdown, con = file.path(output_dir, "amrc_report.md"), useBytes = TRUE)
+  writeLines(html, con = file.path(output_dir, "amrc_report.html"), useBytes = TRUE)
+}
+
 prepare_map_frame <- function(mds_result, metadata, id_col, prefix = "D") {
   coords <- as.data.frame(mds_result$conf, stringsAsFactors = FALSE, check.names = FALSE)
   colnames(coords) <- paste0(prefix, seq_len(ncol(coords)))
@@ -606,6 +703,12 @@ jsonlite::write_json(
   path = file.path(output_dir, "summary.json"),
   auto_unbox = TRUE,
   pretty = TRUE
+)
+
+write_run_report(
+  summary = summary,
+  output_dir = output_dir,
+  config = config
 )
 
 saveRDS(

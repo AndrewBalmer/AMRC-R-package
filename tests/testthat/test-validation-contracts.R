@@ -105,6 +105,8 @@ test_that("streamlit validation contract remains lightweight and internally cons
   expect_identical(anyDuplicated(required_files), 0L)
   expect_true(all(c(
     "summary.json",
+    "amrc_report.md",
+    "amrc_report.html",
     "amrc_result_bundle.rds",
     "phenotype_cluster_elbow.png",
     "external_cluster_elbow.png",

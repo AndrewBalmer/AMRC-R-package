@@ -46,6 +46,8 @@
   "streamlit_smoke": {
     "required_files": [
       "summary.json",
+      "amrc_report.md",
+      "amrc_report.html",
       "amrc_result_bundle.rds",
       "phenotype_map.png",
       "phenotype_map_data.csv",
