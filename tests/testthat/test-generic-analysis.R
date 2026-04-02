@@ -205,6 +205,17 @@ test_that("LIMIX helper wrappers stage generic inputs and commands without execu
   expect_true(file.exists(uv_cmd$script))
 })
 
+test_that("LIMIX script discovery can recover the bundled script from subdirectories", {
+  script_path <- amrcartography:::amrc_find_repo_file(
+    file.path("inst", "python", "amrc_limix_mvlmm_scan.py"),
+    start_dir = file.path(getwd(), "tests", "testthat")
+  )
+
+  expect_true(nzchar(script_path))
+  expect_true(file.exists(script_path))
+  expect_match(basename(script_path), "^amrc_limix_mvlmm_scan\\.py$")
+})
+
 test_that("heritability and variance-decomposition helpers stage generic LIMIX inputs", {
   fixture <- generic_analysis_fixture()
   kinship <- stats::dist(as.matrix(fixture[, c("ext_x", "ext_y")]))

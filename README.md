@@ -299,7 +299,7 @@ The main case-study wrappers are:
 - `amrc_prepare_spneumoniae_map_data()`
 
 Those functions remain supported for compatibility, but they should be read as
-example-specific wrappers rather than the long-term primary API. In `0.1.0`
+example-specific wrappers rather than the long-term primary API. In `0.2.0`
 they remain documented and supported, but they are soft-deprecated as the
 recommended entry points for new analyses.
 

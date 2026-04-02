@@ -256,6 +256,29 @@ amrc_write_labeled_matrix_csv <- function(ids, matrix_data, path) {
   path
 }
 
+amrc_find_repo_file <- function(relpath, start_dir = getwd()) {
+  current <- normalizePath(start_dir, winslash = "/", mustWork = TRUE)
+
+  repeat {
+    candidate <- file.path(current, relpath)
+    if (file.exists(candidate)) {
+      return(candidate)
+    }
+
+    if (file.exists(file.path(current, "DESCRIPTION"))) {
+      break
+    }
+
+    parent <- dirname(current)
+    if (identical(parent, current)) {
+      break
+    }
+    current <- parent
+  }
+
+  ""
+}
+
 amrc_limix_script_path <- function(script = NULL) {
   if (!is.null(script)) {
     return(script)
@@ -266,8 +289,8 @@ amrc_limix_script_path <- function(script = NULL) {
     return(installed)
   }
 
-  local <- file.path("inst", "python", "amrc_limix_mvlmm_scan.py")
-  if (file.exists(local)) {
+  local <- amrc_find_repo_file(file.path("inst", "python", "amrc_limix_mvlmm_scan.py"))
+  if (nzchar(local)) {
     return(local)
   }
 

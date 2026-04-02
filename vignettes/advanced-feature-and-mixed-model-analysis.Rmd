@@ -50,6 +50,8 @@ analysis_data <- data.frame(
   stringsAsFactors = FALSE
 )
 
+analysis_data$outer_cluster <- c("G1", "G1", "G1", "G1", "G1", "G2", "G2", "G2")
+
 kinship <- as.matrix(stats::dist(as.matrix(analysis_data[, c("map_x", "map_y")])))
 rownames(kinship) <- analysis_data$isolate_id
 colnames(kinship) <- analysis_data$isolate_id
@@ -70,6 +72,128 @@ feature_scan <- amrc_scan_single_feature_associations(
 )
 
 feature_scan$feature_summary
+```
+
+## Single-feature contrasts between grouped profiles
+
+For manuscript-style “what changes when exactly one feature changes?” summaries,
+the package has a generic grouped-contrast layer:
+
+```{r}
+group_profiles <- data.frame(
+  group_id = c("type_1", "type_2", "type_3"),
+  lineage = c("L1", "L1", "L2"),
+  feature_a = c("absent", "present", "present"),
+  feature_b = c("low", "low", "high"),
+  D1 = c(0.2, 1.2, 2.8),
+  D2 = c(0.1, 1.0, 2.5),
+  E1 = c(0.3, 1.0, 2.6),
+  E2 = c(0.2, 0.9, 2.4),
+  n_isolates = c(12, 8, 10),
+  stringsAsFactors = FALSE
+)
+
+one_feature_pairs <- amrc_identify_single_feature_pairs(
+  data = group_profiles,
+  group_col = "group_id",
+  feature_cols = c("feature_a", "feature_b")
+)
+
+contrast_summary <- amrc_summarise_single_feature_contrasts(
+  data = group_profiles,
+  group_col = "group_id",
+  feature_cols = c("feature_a", "feature_b"),
+  phenotype_cols = c("D1", "D2"),
+  external_cols = c("E1", "E2"),
+  count_col = "n_isolates",
+  pair_table = one_feature_pairs
+)
+
+contrast_summary
+```
+
+## Cluster-difference workflow
+
+The package also exposes the generic “outer genotype cluster, inner phenotype
+partition, then differentiating-feature summary” workflow that used to sit only
+in the manuscript notebooks:
+
+```{r}
+cluster_workflow <- amrc_run_cluster_feature_workflow(
+  data = analysis_data,
+  outer_cluster_col = "outer_cluster",
+  focal_cluster = "G1",
+  phenotype_cols = c("map_x", "map_y"),
+  feature_cols = c("gene_a", "gene_b", "gene_c"),
+  id_col = "isolate_id",
+  phenotype_n_clusters = 2,
+  min_frequency_shift = 0.2,
+  max_features = 3
+)
+
+cluster_workflow$differentiating_features
+```
+
+If exactly two phenotype clusters are found, the same workflow also returns the
+informative-isolate subset used for manual review and plotting:
+
+```{r}
+if (!is.null(cluster_workflow$informative_isolates)) {
+  cluster_workflow$informative_isolates$data
+}
+```
+
+## Adjusted versus unadjusted scans
+
+One common generic use case is comparing an unadjusted feature scan against the
+same scan after adding a lineage or batch covariate:
+
+```{r}
+feature_scan_unadjusted <- amrc_scan_single_feature_associations(
+  data = analysis_data,
+  response_cols = c("drug_a", "drug_b"),
+  feature_cols = c("gene_a", "gene_b"),
+  min_group_size = 2
+)
+
+feature_scan_adjusted <- amrc_scan_single_feature_associations(
+  data = analysis_data,
+  response_cols = c("drug_a", "drug_b"),
+  feature_cols = c("gene_a", "gene_b"),
+  covariate_cols = "lineage",
+  min_group_size = 2
+)
+
+model_comparison <- amrc_compare_association_models(
+  table_1 = feature_scan_unadjusted$feature_summary,
+  table_2 = feature_scan_adjusted$feature_summary,
+  labels = c("unadjusted", "lineage_adjusted")
+)
+
+model_comparison
+```
+
+And the summary helper collapses that into the key change counts:
+
+```{r}
+amrc_summarise_association_model_comparison(model_comparison)$counts
+```
+
+## Overlap across generic methods
+
+The same feature tables can be turned into a simple cross-method overlap view:
+
+```{r}
+feature_overlap <- amrc_compute_feature_overlap(
+  tables = list(
+    unadjusted = feature_scan_unadjusted$feature_summary,
+    adjusted = feature_scan_adjusted$feature_summary
+  ),
+  feature_col = "feature",
+  top_n = 2
+)
+
+feature_overlap$feature_summary
 ```
 
 ## Random-intercept mixed models
