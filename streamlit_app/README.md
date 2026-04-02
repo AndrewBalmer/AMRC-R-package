@@ -16,6 +16,7 @@ Current scope:
 - optionally cluster the phenotype map with configurable `k` and join-key
   controls
 - cluster scree/elbow diagnostics for phenotype and external map clustering
+- scree tables surfaced alongside the elbow plots in the UI
 - optionally upload an external/genotype structure as:
   - a precomputed distance matrix
   - a numeric feature table
@@ -28,6 +29,8 @@ Current scope:
   group or isolate
 - filter reference-distance summaries by a chosen metadata column/value set
 - adjust reference-distance plot axis limits
+- adjust reference-distance plot break spacing
+- add optional annotation text/coordinates to the reference-distance plot
 - download the raw output tables plus a bundled `.rds` result object
 
 Deliberately not in v1:
@@ -81,5 +84,5 @@ an R setup that does not hit the existing `OMP: Error #179` problem.
 ## Next logical app steps
 
 - advanced association tabs
-- richer reference-summary plotting controls such as annotations and manual breaks
 - downloadable report exports once the UI is stable enough to define them
+- broader UI polish once the workflow surface stabilises

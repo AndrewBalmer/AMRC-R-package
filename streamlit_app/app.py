@@ -43,6 +43,15 @@ def maybe_positive_number(value):
     return numeric
 
 
+def maybe_number(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def save_uploaded_file(uploaded_file, target: Path) -> None:
     target.write_bytes(uploaded_file.getvalue())
 
@@ -101,6 +110,11 @@ def build_config(
             "filter_values": st.session_state.get("reference_filter_values", []),
             "x_max": maybe_positive_number(st.session_state.get("reference_x_max")),
             "y_max": maybe_positive_number(st.session_state.get("reference_y_max")),
+            "x_break_step": maybe_positive_number(st.session_state.get("reference_x_break_step")),
+            "y_break_step": maybe_positive_number(st.session_state.get("reference_y_break_step")),
+            "annotation_text": maybe_none(st.session_state.get("reference_annotation_text")),
+            "annotation_x": maybe_number(st.session_state.get("reference_annotation_x")),
+            "annotation_y": maybe_number(st.session_state.get("reference_annotation_y")),
         },
         "external": {
             "enabled": bool(st.session_state["use_external"]),
@@ -413,11 +427,43 @@ if phenotype_df is not None:
                     key="reference_x_max",
                 )
                 st.number_input(
+                    "Reference plot x break step (0 = auto)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.5,
+                    key="reference_x_break_step",
+                )
+                st.number_input(
                     "Reference plot y max (0 = auto)",
                     min_value=0.0,
                     value=0.0,
                     step=0.5,
                     key="reference_y_max",
+                )
+                st.number_input(
+                    "Reference plot y break step (0 = auto)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.5,
+                    key="reference_y_break_step",
+                )
+                st.text_input(
+                    "Reference annotation text",
+                    value="",
+                    key="reference_annotation_text",
+                )
+                annotation_cols = st.columns(2)
+                annotation_cols[0].number_input(
+                    "Annotation x",
+                    value=0.0,
+                    step=0.5,
+                    key="reference_annotation_x",
+                )
+                annotation_cols[1].number_input(
+                    "Annotation y",
+                    value=0.0,
+                    step=0.5,
+                    key="reference_annotation_y",
                 )
         else:
             external_upload = None
@@ -502,6 +548,23 @@ if result:
         scree_cols = st.columns(len(scree_images))
         for col, (caption, image_bytes) in zip(scree_cols, scree_images):
             col.image(image_bytes, caption=caption)
+        scree_tables = []
+        if "phenotype_cluster_scree.csv" in result["tables"]:
+            scree_tables.append(("Phenotype scree table", "phenotype_cluster_scree.csv"))
+        if "external_cluster_scree.csv" in result["tables"]:
+            scree_tables.append(("External scree table", "external_cluster_scree.csv"))
+        if scree_tables:
+            scree_table_cols = st.columns(len(scree_tables))
+            for col, (caption, name) in zip(scree_table_cols, scree_tables):
+                col.markdown(f"**{caption}**")
+                col.dataframe(result["tables"][name], use_container_width=True, height=220)
+                col.download_button(
+                    label=f"Download {name}",
+                    data=result["files"][name],
+                    file_name=name,
+                    mime="text/csv",
+                    key=f"download-{name}",
+                )
 
     if "reference_distance_relationship.png" in result["files"]:
         st.subheader("Reference-distance relationship")

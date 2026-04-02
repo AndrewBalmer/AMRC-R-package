@@ -464,7 +464,12 @@ validate_streamlit_backend <- function() {
     reference = list(
       enabled = TRUE,
       reference_col = "lineage",
-      reference_value = "L1"
+      reference_value = "L1",
+      x_break_step = 1,
+      y_break_step = 1,
+      annotation_text = "Example",
+      annotation_x = 1,
+      annotation_y = 1
     ),
     external = list(
       enabled = TRUE,
@@ -513,6 +518,19 @@ validate_streamlit_backend <- function() {
   assert_true(
     !is.null(summary$external$reference$n_rows),
     "Streamlit backend summary is missing external reference row count"
+  )
+  assert_true(
+    isTRUE(all.equal(as.numeric(summary$external$reference$x_break_step), 1)),
+    "Streamlit backend reference x break step changed"
+  )
+  assert_true(
+    isTRUE(all.equal(as.numeric(summary$external$reference$y_break_step), 1)),
+    "Streamlit backend reference y break step changed"
+  )
+  assert_identical_scalar(
+    summary$external$reference$annotation_text,
+    "Example",
+    "Streamlit backend annotation text changed"
   )
   assert_true(
     summary$external$reference$n_rows >= metrics$streamlit_smoke$reference_rows_min,

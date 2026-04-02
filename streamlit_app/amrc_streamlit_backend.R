@@ -44,6 +44,43 @@ amrc_positive_limit_or_null <- function(x) {
   c(0, value)
 }
 
+amrc_breaks_from_step <- function(values, step, limits = NULL) {
+  step <- amrc_numeric_or_null(step)
+  if (is.null(step) || !isTRUE(step > 0)) {
+    return(NULL)
+  }
+
+  if (!is.null(limits)) {
+    lower <- limits[[1]]
+    upper <- limits[[2]]
+  } else {
+    finite_values <- values[is.finite(values)]
+    if (length(finite_values) == 0L) {
+      return(NULL)
+    }
+    lower <- min(finite_values, na.rm = TRUE)
+    upper <- max(finite_values, na.rm = TRUE)
+  }
+
+  if (!is.finite(lower) || !is.finite(upper) || upper < lower) {
+    return(NULL)
+  }
+
+  seq(
+    from = floor(lower / step) * step,
+    to = ceiling(upper / step) * step,
+    by = step
+  )
+}
+
+amrc_first_existing_column <- function(data, candidates) {
+  hits <- candidates[candidates %in% colnames(data)]
+  if (length(hits) == 0L) {
+    return(NULL)
+  }
+  hits[[1]]
+}
+
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) != 1L) {
@@ -173,6 +210,11 @@ reference_filter_values <- amrc_vector_or_null(config$reference$filter_values)
 reference_cluster_mode <- amrc_scalar_or_null(config$reference$cluster_mode) %||% "auto"
 reference_x_max <- amrc_numeric_or_null(config$reference$x_max)
 reference_y_max <- amrc_numeric_or_null(config$reference$y_max)
+reference_x_break_step <- amrc_numeric_or_null(config$reference$x_break_step)
+reference_y_break_step <- amrc_numeric_or_null(config$reference$y_break_step)
+reference_annotation_text <- amrc_scalar_or_null(config$reference$annotation_text)
+reference_annotation_x <- amrc_numeric_or_null(config$reference$annotation_x)
+reference_annotation_y <- amrc_numeric_or_null(config$reference$annotation_y)
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -462,11 +504,28 @@ if (isTRUE(config$external$enabled)) {
       distance_table = reference_table,
       cluster_col = ref_cluster_col
     )
+    reference_x_limits <- amrc_positive_limit_or_null(reference_x_max)
+    reference_y_limits <- amrc_positive_limit_or_null(reference_y_max)
+    reference_x_col <- amrc_first_existing_column(reference_table, c("external_distance", "gen_distance"))
+    reference_y_col <- amrc_first_existing_column(reference_table, c("phenotype_distance", "phen_distance"))
     reference_plot <- amrc_fn("amrc_plot_reference_distance_relationship")(
       distance_table = reference_table,
       cluster_col = ref_cluster_col,
-      x_limits = amrc_positive_limit_or_null(reference_x_max),
-      y_limits = amrc_positive_limit_or_null(reference_y_max)
+      x_limits = reference_x_limits,
+      y_limits = reference_y_limits,
+      x_breaks = if (!is.null(reference_x_col)) {
+        amrc_breaks_from_step(reference_table[[reference_x_col]], reference_x_break_step, reference_x_limits)
+      } else {
+        NULL
+      },
+      y_breaks = if (!is.null(reference_y_col)) {
+        amrc_breaks_from_step(reference_table[[reference_y_col]], reference_y_break_step, reference_y_limits)
+      } else {
+        NULL
+      },
+      annotation_text = reference_annotation_text,
+      annotation_x = reference_annotation_x,
+      annotation_y = reference_annotation_y
     )
     write_plot(
       reference_plot,
@@ -517,7 +576,10 @@ if (isTRUE(config$external$enabled)) {
         n_rows = nrow(reference_outputs$table),
         cluster_mode = reference_cluster_mode,
         filter_col = reference_filter_col,
-        filter_values = reference_filter_values
+        filter_values = reference_filter_values,
+        x_break_step = reference_x_break_step,
+        y_break_step = reference_y_break_step,
+        annotation_text = reference_annotation_text
       )
     } else {
       NULL
