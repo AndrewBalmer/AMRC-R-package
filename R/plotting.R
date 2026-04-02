@@ -90,12 +90,47 @@ amrc_plot_configuration_displacement <- function(
 
 amrc_default_cluster_palette <- function(n) {
   palette <- c(
-    "#4DAF4A", "#377EB8", "#E41A1C", "#984EA3", "#FF7F00", "#000000",
-    "#FFFFFF", "#7570B3", "#E7298A", "#FFFF33", "#A65628", "#00BFC4",
-    "#999999", "#FF0000", "#FF00FF", "#800080", "#8B4513", "#008000"
+    "#4DAF4A", "#377EB8", "#E41A1C", "#F781BF", "#FF7F00", "#000000",
+    "#FFFFFF", "#7570B3", "#E7298A", "#FFFF33", "#A65628", "#00FFFF",
+    "#999999", "#FF0000", "#FF00FF", "#800080", "#8B4513", "#008000",
+    "#FFFF00", "#EE82EE"
   )
 
   rep(palette, length.out = n)
+}
+
+amrc_default_named_palette <- function(values) {
+  values <- unique(as.character(values[!is.na(values)]))
+  palette <- amrc_default_cluster_palette(length(values))
+  stats::setNames(palette, values)
+}
+
+amrc_apply_manuscript_scales <- function(plot, data, fill_col = NULL, colour_col = NULL) {
+  if (!is.null(fill_col) && fill_col %in% colnames(data)) {
+    fill_values <- data[[fill_col]]
+    if (is.numeric(fill_values)) {
+      plot <- plot + ggplot2::scale_fill_gradient(low = "yellow", high = "red")
+    } else {
+      plot <- plot + ggplot2::scale_fill_manual(
+        values = amrc_default_named_palette(fill_values),
+        drop = FALSE
+      )
+    }
+  }
+
+  if (!is.null(colour_col) && colour_col %in% colnames(data)) {
+    colour_values <- data[[colour_col]]
+    if (is.numeric(colour_values)) {
+      plot <- plot + ggplot2::scale_colour_gradient(low = "yellow", high = "red")
+    } else {
+      plot <- plot + ggplot2::scale_colour_manual(
+        values = amrc_default_named_palette(colour_values),
+        drop = FALSE
+      )
+    }
+  }
+
+  plot
 }
 
 amrc_grid_breaks <- function(values, spacing) {
@@ -243,7 +278,11 @@ amrc_theme_cartography <- function() {
     axis.ticks.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank(),
     axis.text.y = ggplot2::element_blank(),
-    axis.ticks.y = ggplot2::element_blank()
+    axis.ticks.y = ggplot2::element_blank(),
+    axis.text = ggplot2::element_text(size = 10, colour = "black"),
+    axis.title = ggplot2::element_text(size = 12, colour = "black"),
+    legend.text = ggplot2::element_text(size = 10, colour = "black"),
+    legend.title = ggplot2::element_text(size = 12, colour = "black")
   )
 }
 
@@ -290,10 +329,10 @@ amrc_plot_map <- function(
   colour_col = NULL,
   size_col = NULL,
   point_size = 3,
-  point_alpha = 0.9,
+  point_alpha = 0.6,
   point_shape = NULL,
   outline_colour = "black",
-  point_fill = "#E41A1C",
+  point_fill = "#377EB8",
   grid_spacing = NULL,
   density = c("none", "contour"),
   density_bins = 6,
@@ -424,6 +463,12 @@ amrc_plot_map <- function(
   }
 
   plot <- plot + point_layer + ggplot2::theme_bw()
+  plot <- amrc_apply_manuscript_scales(
+    plot = plot,
+    data = plot_data,
+    fill_col = fill_col,
+    colour_col = colour_col
+  )
 
   if (!is.null(breaks_x) || !is.null(limits_x)) {
     plot <- plot + ggplot2::scale_x_continuous(breaks = breaks_x, limits = limits_x)
@@ -1412,7 +1457,8 @@ amrc_plot_top_group_facets <- function(
     y = y,
     fill_col = if (is.null(fill_col)) group_col else fill_col,
     facet_by = ".amrc_group_label",
-    facet_ncol = facet_ncol
+    facet_ncol = facet_ncol,
+    use_cartography_theme = TRUE
   )
 }
 
@@ -1499,7 +1545,8 @@ amrc_plot_side_by_side_maps <- function(
     y = ".amrc_y",
     fill_col = fill_col,
     facet_by = panel_col,
-    grid_spacing = grid_spacing
+    grid_spacing = grid_spacing,
+    use_cartography_theme = TRUE
   )
 }
 

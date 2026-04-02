@@ -12,6 +12,38 @@ amrc_scalar_or_null <- function(x) {
   x
 }
 
+amrc_vector_or_null <- function(x) {
+  if (is.null(x) || length(x) == 0L) {
+    return(NULL)
+  }
+  x <- as.character(x)
+  x <- x[nzchar(x)]
+  if (length(x) == 0L) {
+    return(NULL)
+  }
+  unique(x)
+}
+
+amrc_numeric_or_null <- function(x) {
+  x <- amrc_scalar_or_null(x)
+  if (is.null(x)) {
+    return(NULL)
+  }
+  value <- suppressWarnings(as.numeric(x))
+  if (length(value) != 1L || is.na(value) || !is.finite(value)) {
+    return(NULL)
+  }
+  value
+}
+
+amrc_positive_limit_or_null <- function(x) {
+  value <- amrc_numeric_or_null(x)
+  if (is.null(value) || !isTRUE(value > 0)) {
+    return(NULL)
+  }
+  c(0, value)
+}
+
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) != 1L) {
@@ -71,7 +103,7 @@ write_plot <- function(plot, path, width = 7, height = 6) {
     plot = plot,
     width = width,
     height = height,
-    dpi = 150
+    dpi = 300
   )
 }
 
@@ -131,10 +163,16 @@ grid_spacing <- if (isTRUE(config$plot$grid_spacing_one)) 1 else NULL
 density_mode <- if (isTRUE(config$plot$density)) "contour" else "none"
 cluster_enabled <- isTRUE(config$clustering$enabled)
 cluster_n <- as.integer(config$clustering$n_clusters %||% 4L)
+cluster_max_k <- as.integer(config$clustering$max_k %||% max(cluster_n + 2L, 10L))
 cluster_distinct_col <- amrc_scalar_or_null(config$clustering$distinct_col) %||% id_col
 reference_enabled <- isTRUE(config$reference$enabled)
 reference_col <- amrc_scalar_or_null(config$reference$reference_col)
 reference_value <- amrc_scalar_or_null(config$reference$reference_value)
+reference_filter_col <- amrc_scalar_or_null(config$reference$filter_col)
+reference_filter_values <- amrc_vector_or_null(config$reference$filter_values)
+reference_cluster_mode <- amrc_scalar_or_null(config$reference$cluster_mode) %||% "auto"
+reference_x_max <- amrc_numeric_or_null(config$reference$x_max)
+reference_y_max <- amrc_numeric_or_null(config$reference$y_max)
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -165,7 +203,8 @@ phenotype_plot <- amrc_fn("amrc_plot_map")(
   fill_col = fill_col,
   facet_by = facet_by,
   grid_spacing = grid_spacing,
-  density = density_mode
+  density = density_mode,
+  use_cartography_theme = TRUE
 )
 
 write_plot(phenotype_plot, file.path(output_dir, "phenotype_map.png"))
@@ -182,7 +221,8 @@ if (isTRUE(cluster_enabled)) {
     data = phenotype_plot_data,
     coord_cols = c("D1", "D2"),
     n_clusters = cluster_n,
-    distinct_col = cluster_distinct_col
+    distinct_col = cluster_distinct_col,
+    max_k = cluster_max_k
   )
   phenotype_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
     data = phenotype_plot_data,
@@ -199,9 +239,25 @@ if (isTRUE(cluster_enabled)) {
     show_legend = TRUE
   )
   write_plot(phenotype_cluster_plot, file.path(output_dir, "phenotype_cluster_map.png"))
+  phenotype_elbow_plot <- amrc_fn("amrc_plot_cluster_elbow")(
+    scree_data = phenotype_cluster$scree,
+    highlight_cluster = cluster_n,
+    draw_path = TRUE
+  )
+  write_plot(
+    phenotype_elbow_plot,
+    file.path(output_dir, "phenotype_cluster_elbow.png"),
+    width = 7,
+    height = 5
+  )
   utils::write.csv(
     phenotype_cluster_data,
     file = file.path(output_dir, "phenotype_cluster_data.csv"),
+    row.names = FALSE
+  )
+  utils::write.csv(
+    phenotype_cluster$scree,
+    file = file.path(output_dir, "phenotype_cluster_scree.csv"),
     row.names = FALSE
   )
 }
@@ -215,7 +271,15 @@ summary <- list(
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
-        distinct_col = cluster_distinct_col
+        distinct_col = cluster_distinct_col,
+        max_k = cluster_max_k,
+        selected_inertia = if (!is.null(phenotype_cluster)) {
+          phenotype_cluster$scree$within_cluster_inertia[
+            phenotype_cluster$scree$n_clusters == cluster_n
+          ][1]
+        } else {
+          NULL
+        }
       )
     } else {
       NULL
@@ -292,7 +356,8 @@ if (isTRUE(config$external$enabled)) {
     fill_col = fill_col,
     facet_by = facet_by,
     grid_spacing = grid_spacing,
-    density = density_mode
+    density = density_mode,
+    use_cartography_theme = TRUE
   )
   side_plot <- amrc_fn("amrc_plot_side_by_side_maps")(
     data = comparison_bundle$data,
@@ -319,7 +384,8 @@ if (isTRUE(config$external$enabled)) {
       data = external_cluster_data,
       coord_cols = c("E1", "E2"),
       n_clusters = cluster_n,
-      distinct_col = join_key
+      distinct_col = join_key,
+      max_k = cluster_max_k
     )
     external_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
       data = external_cluster_data,
@@ -336,16 +402,37 @@ if (isTRUE(config$external$enabled)) {
       show_legend = TRUE
     )
     write_plot(external_cluster_plot, file.path(output_dir, "external_cluster_map.png"))
+    external_elbow_plot <- amrc_fn("amrc_plot_cluster_elbow")(
+      scree_data = external_cluster$scree,
+      highlight_cluster = cluster_n,
+      draw_path = TRUE
+    )
+    write_plot(
+      external_elbow_plot,
+      file.path(output_dir, "external_cluster_elbow.png"),
+      width = 7,
+      height = 5
+    )
     utils::write.csv(
       external_cluster_data,
       file = file.path(output_dir, "external_cluster_data.csv"),
+      row.names = FALSE
+    )
+    utils::write.csv(
+      external_cluster$scree,
+      file = file.path(output_dir, "external_cluster_scree.csv"),
       row.names = FALSE
     )
   }
 
   reference_outputs <- NULL
   if (isTRUE(reference_enabled) && !is.null(reference_col) && !is.null(reference_value)) {
-    ref_cluster_col <- if ("external_cluster" %in% colnames(external_cluster_data)) "external_cluster" else FALSE
+    ref_cluster_col <- switch(
+      reference_cluster_mode,
+      "overall" = FALSE,
+      "clustered" = if ("external_cluster" %in% colnames(external_cluster_data)) "external_cluster" else FALSE,
+      if ("external_cluster" %in% colnames(external_cluster_data)) "external_cluster" else FALSE
+    )
     reference_table <- amrc_fn("amrc_compute_reference_distance_table")(
       data = external_cluster_data,
       reference_value = reference_value,
@@ -354,15 +441,32 @@ if (isTRUE(config$external$enabled)) {
       external_cols = c("E1", "E2"),
       id_col = id_col,
       cluster_col = ref_cluster_col,
-      keep_cols = unique(stats::na.omit(c(fill_col, group_col)))
+      keep_cols = unique(stats::na.omit(c(fill_col, group_col, reference_filter_col)))
     )
+    if (!is.null(reference_filter_col)) {
+      if (!(reference_filter_col %in% colnames(reference_table))) {
+        stop("reference filter column was not found in the reference-distance table.", call. = FALSE)
+      }
+      if (!is.null(reference_filter_values)) {
+        reference_table <- reference_table[
+          as.character(reference_table[[reference_filter_col]]) %in% reference_filter_values,
+          ,
+          drop = FALSE
+        ]
+      }
+      if (nrow(reference_table) == 0L) {
+        stop("Reference-distance filtering removed all rows.", call. = FALSE)
+      }
+    }
     reference_summary <- amrc_fn("amrc_summarise_reference_distance_table")(
       distance_table = reference_table,
       cluster_col = ref_cluster_col
     )
     reference_plot <- amrc_fn("amrc_plot_reference_distance_relationship")(
       distance_table = reference_table,
-      cluster_col = ref_cluster_col
+      cluster_col = ref_cluster_col,
+      x_limits = amrc_positive_limit_or_null(reference_x_max),
+      y_limits = amrc_positive_limit_or_null(reference_y_max)
     )
     write_plot(
       reference_plot,
@@ -393,7 +497,15 @@ if (isTRUE(config$external$enabled)) {
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
-        distinct_col = cluster_distinct_col
+        distinct_col = cluster_distinct_col,
+        max_k = cluster_max_k,
+        selected_inertia = if (!is.null(external_cluster)) {
+          external_cluster$scree$within_cluster_inertia[
+            external_cluster$scree$n_clusters == cluster_n
+          ][1]
+        } else {
+          NULL
+        }
       )
     } else {
       NULL
@@ -402,7 +514,10 @@ if (isTRUE(config$external$enabled)) {
       list(
         reference_col = reference_col,
         reference_value = reference_value,
-        n_rows = nrow(reference_outputs$table)
+        n_rows = nrow(reference_outputs$table),
+        cluster_mode = reference_cluster_mode,
+        filter_col = reference_filter_col,
+        filter_values = reference_filter_values
       )
     } else {
       NULL

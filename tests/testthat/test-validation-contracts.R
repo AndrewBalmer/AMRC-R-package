@@ -92,3 +92,23 @@ test_that("validation metrics manifest matches packaged mapping_08 bundle counts
   expect_true(all(phenotype_only_ids %in% bundle$deleted_labids))
   expect_length(bundle$deleted_labids, manifest$spneumoniae_08$deleted_labids_bundle_count)
 })
+
+test_that("streamlit validation contract remains lightweight and internally consistent", {
+  skip_if_not_installed("jsonlite")
+
+  manifest <- jsonlite::read_json(
+    validation_manifest_path(),
+    simplifyVector = TRUE
+  )
+
+  required_files <- manifest$streamlit_smoke$required_files
+  expect_identical(anyDuplicated(required_files), 0L)
+  expect_true(all(c(
+    "summary.json",
+    "amrc_result_bundle.rds",
+    "phenotype_cluster_elbow.png",
+    "external_cluster_elbow.png",
+    "reference_distance_summary.csv"
+  ) %in% required_files))
+  expect_gte(manifest$streamlit_smoke$reference_rows_min, 1)
+})

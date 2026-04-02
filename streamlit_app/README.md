@@ -3,6 +3,10 @@
 This directory contains an experimental Streamlit front end for the generic
 `amrcartography` workflow.
 
+The app intentionally renders package-backed plots using the manuscript-aligned
+cartography style, so the visual language stays consistent across the original
+analysis scripts, package helpers, and app outputs.
+
 Current scope:
 
 - upload a phenotype MIC CSV
@@ -11,6 +15,7 @@ Current scope:
 - compute a phenotype distance matrix and MDS map
 - optionally cluster the phenotype map with configurable `k` and join-key
   controls
+- cluster scree/elbow diagnostics for phenotype and external map clustering
 - optionally upload an external/genotype structure as:
   - a precomputed distance matrix
   - a numeric feature table
@@ -21,6 +26,8 @@ Current scope:
 - optionally cluster the external map with the same controls
 - optionally compute reference-distance summaries against a selected metadata
   group or isolate
+- filter reference-distance summaries by a chosen metadata column/value set
+- adjust reference-distance plot axis limits
 - download the raw output tables plus a bundled `.rds` result object
 
 Deliberately not in v1:
@@ -74,6 +81,5 @@ an R setup that does not hit the existing `OMP: Error #179` problem.
 ## Next logical app steps
 
 - advanced association tabs
-- more explicit cluster-scree diagnostics
-- richer reference-summary plotting and table filters
+- richer reference-summary plotting controls such as annotations and manual breaks
 - downloadable report exports once the UI is stable enough to define them

@@ -31,6 +31,18 @@ def maybe_none(value: str | None) -> str | None:
     return value
 
 
+def maybe_positive_number(value):
+    if value in (None, ""):
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric <= 0:
+        return None
+    return numeric
+
+
 def save_uploaded_file(uploaded_file, target: Path) -> None:
     target.write_bytes(uploaded_file.getvalue())
 
@@ -74,12 +86,21 @@ def build_config(
         "clustering": {
             "enabled": bool(st.session_state.get("use_clustering")),
             "n_clusters": int(st.session_state.get("n_clusters", 4)),
+            "max_k": max(
+                int(st.session_state.get("n_clusters", 4)),
+                int(st.session_state.get("cluster_max_k", 10)),
+            ),
             "distinct_col": maybe_none(st.session_state.get("cluster_distinct_col")),
         },
         "reference": {
             "enabled": bool(st.session_state.get("use_reference_summary")),
             "reference_col": maybe_none(st.session_state.get("reference_col")),
             "reference_value": maybe_none(st.session_state.get("reference_value")),
+            "cluster_mode": st.session_state.get("reference_cluster_mode", "auto"),
+            "filter_col": maybe_none(st.session_state.get("reference_filter_col")),
+            "filter_values": st.session_state.get("reference_filter_values", []),
+            "x_max": maybe_positive_number(st.session_state.get("reference_x_max")),
+            "y_max": maybe_positive_number(st.session_state.get("reference_y_max")),
         },
         "external": {
             "enabled": bool(st.session_state["use_external"]),
@@ -140,7 +161,9 @@ def run_backend(config: dict) -> dict:
         "external_map.png",
         "side_by_side_maps.png",
         "phenotype_cluster_map.png",
+        "phenotype_cluster_elbow.png",
         "external_cluster_map.png",
+        "external_cluster_elbow.png",
         "reference_distance_relationship.png",
         "summary.json",
         "amrc_result_bundle.rds",
@@ -152,8 +175,10 @@ def run_backend(config: dict) -> dict:
     for name in (
         "phenotype_map_data.csv",
         "phenotype_cluster_data.csv",
+        "phenotype_cluster_scree.csv",
         "comparison_data.csv",
         "external_cluster_data.csv",
+        "external_cluster_scree.csv",
         "reference_distance_table.csv",
         "reference_distance_summary.csv",
     ):
@@ -166,10 +191,55 @@ def run_backend(config: dict) -> dict:
 
 
 st.set_page_config(page_title="amrcartography", layout="wide")
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #ffffff;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #fafafa;
+        border-right: 1px solid #dddddd;
+    }
+    h1, h2, h3 {
+        letter-spacing: 0.01em;
+    }
+    h2, h3 {
+        color: #202020;
+    }
+    div.stButton > button[kind="primary"] {
+        background-color: #E41A1C;
+        color: white;
+        border: 1px solid black;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #C91A14;
+        color: white;
+    }
+    .amrc-style-note {
+        border-left: 4px solid #377EB8;
+        background: #f7fbff;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("amrcartography")
 st.caption(
-    "Experimental Streamlit front end for the generic phenotype/external workflow. "
-    "The R package remains the primary supported interface."
+    "Experimental Streamlit front end for the generic phenotype/external workflow, "
+    "using manuscript-aligned plotting defaults from the R package."
+)
+st.markdown(
+    (
+        '<div class="amrc-style-note">'
+        "Maps, cluster overlays, and reference plots are rendered through the package plotting "
+        "helpers so the app keeps the manuscript cartography theme, palette, and point styling "
+        "rather than using a separate visual system."
+        "</div>"
+    ),
+    unsafe_allow_html=True,
 )
 
 with st.sidebar:
@@ -237,6 +307,7 @@ if phenotype_df is not None:
         cluster_distinct_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
         st.checkbox("Overlay clusters", value=False, key="use_clustering")
         st.number_input("Number of clusters", min_value=2, max_value=20, value=4, step=1, key="n_clusters")
+        st.number_input("Max scree k", min_value=2, max_value=30, value=10, step=1, key="cluster_max_k")
         st.selectbox(
             "Cluster distinct units by",
             options=cluster_distinct_options,
@@ -288,6 +359,16 @@ if phenotype_df is not None:
                 reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
                 st.checkbox("Compute reference-distance summary", value=False, key="use_reference_summary")
                 st.selectbox("Reference column", options=reference_options, key="reference_col")
+                st.selectbox(
+                    "Reference summary mode",
+                    options=["auto", "overall", "clustered"],
+                    format_func=lambda x: {
+                        "auto": "Auto",
+                        "overall": "Overall only",
+                        "clustered": "By cluster",
+                    }[x],
+                    key="reference_cluster_mode",
+                )
 
                 reference_values = (
                     phenotype_df[st.session_state["reference_col"]]
@@ -300,6 +381,43 @@ if phenotype_df is not None:
                     "Reference value",
                     options=sorted(reference_values),
                     key="reference_value",
+                )
+                reference_filter_options = [none_option()] + reference_options
+                st.selectbox(
+                    "Filter reference rows by",
+                    options=reference_filter_options,
+                    key="reference_filter_col",
+                )
+                selected_filter_col = maybe_none(st.session_state.get("reference_filter_col"))
+                if selected_filter_col is not None and selected_filter_col in phenotype_df.columns:
+                    filter_values = (
+                        phenotype_df[selected_filter_col]
+                        .dropna()
+                        .astype(str)
+                        .unique()
+                        .tolist()
+                    )
+                    st.multiselect(
+                        "Reference filter values",
+                        options=sorted(filter_values),
+                        default=[],
+                        key="reference_filter_values",
+                    )
+                else:
+                    st.session_state["reference_filter_values"] = []
+                st.number_input(
+                    "Reference plot x max (0 = auto)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.5,
+                    key="reference_x_max",
+                )
+                st.number_input(
+                    "Reference plot y max (0 = auto)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.5,
+                    key="reference_y_max",
                 )
         else:
             external_upload = None
@@ -372,6 +490,17 @@ if result:
         st.subheader("Cluster overlays")
         cluster_cols = st.columns(len(cluster_images))
         for col, (caption, image_bytes) in zip(cluster_cols, cluster_images):
+            col.image(image_bytes, caption=caption)
+
+    scree_images = []
+    if "phenotype_cluster_elbow.png" in result["files"]:
+        scree_images.append(("Phenotype cluster scree", result["files"]["phenotype_cluster_elbow.png"]))
+    if "external_cluster_elbow.png" in result["files"]:
+        scree_images.append(("External cluster scree", result["files"]["external_cluster_elbow.png"]))
+    if scree_images:
+        st.subheader("Cluster scree diagnostics")
+        scree_cols = st.columns(len(scree_images))
+        for col, (caption, image_bytes) in zip(scree_cols, scree_images):
             col.image(image_bytes, caption=caption)
 
     if "reference_distance_relationship.png" in result["files"]:
