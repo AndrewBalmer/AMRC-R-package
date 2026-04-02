@@ -26,6 +26,9 @@ This checklist is for the first usable public release of `amrcartography` and fo
 - Run `R CMD check --as-cran --no-manual amrcartography_*.tar.gz` locally when `pandoc` is available.
 - If `pandoc` is unavailable, fall back to `R CMD build --no-build-vignettes .`
   and `R CMD check --no-manual --ignore-vignettes amrcartography_*.tar.gz`.
+- If local OpenMP/shared-memory errors make full validation unreliable, use the
+  no-vignette local checks plus GitHub Actions on Linux as the final gate and
+  record that limitation in [docs/LOCAL_VALIDATION.md](/Users/ab69/AMRC-R-package/docs/LOCAL_VALIDATION.md).
 - Confirm GitHub Actions `R-CMD-check` is green on `main`.
 - Confirm the docs/example sanity workflow is green on `main`.
 - Confirm the vignette rebuild succeeds in CI with pandoc.

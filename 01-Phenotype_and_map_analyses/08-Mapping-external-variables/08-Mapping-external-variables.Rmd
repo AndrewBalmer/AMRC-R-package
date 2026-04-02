@@ -21,20 +21,51 @@ library(calibrate)     # For calibration
 library(ggExtra)       # For marginal histograms
 library(ggdensity)     # For density distrbutions
 
-# Set the working directory
-setwd("/Users/ajb306/AMR-cartography-results/data")
+find_repo_root <- function(start_dir = getwd()) {
+  current <- normalizePath(start_dir, winslash = "/", mustWork = TRUE)
+
+  repeat {
+    if (file.exists(file.path(current, "DESCRIPTION"))) {
+      return(current)
+    }
+
+    parent <- dirname(current)
+    if (identical(parent, current)) {
+      stop("Could not locate the repository root from the current working directory.", call. = FALSE)
+    }
+    current <- parent
+  }
+}
+
+repo_root <- find_repo_root()
+data_dir <- file.path(repo_root, "data")
+output_dir <- file.path(repo_root, "01-Phenotype_and_map_analyses", "08-Mapping-external-variables")
+
+if (!dir.exists(data_dir)) {
+  stop(
+    "Local data directory not found at ",
+    data_dir,
+    ". Recover the extracted legacy files before knitting this notebook.",
+    call. = FALSE
+  )
+}
+
+read_local_csv <- function(filename, ...) {
+  read.csv(file.path(data_dir, filename), ...)
+}
+
+load_local_rdata <- function(filename, env = knitr::knit_global()) {
+  load(file.path(data_dir, filename), envir = env)
+}
 
 # Read the MIC table data
-tablemic <- read.csv("/Users/ajb306/AMR-cartography-results/data/MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
+tablemic <- read_local_csv("MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
 # Read in the relevant meta data
-tablemic_meta <- read.csv("/Users/ajb306/AMR-cartography-results/data/meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-# Specify the full path to the data file
-phen_map <- "/Users/ajb306/AMR-cartography-results/data/Spneumo_3628_PCA_start_2D_METRIC.RData"
+tablemic_meta <- read_local_csv("meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
 # Load the precomputed PCA start 2D metric data
-load(phen_map)
+load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC.RData")
 
 ```
 
@@ -252,7 +283,7 @@ combined_plot <- gridExtra::arrangeGrob(
 )
 
 # Save it using ggsave
-ggsave("MIC_spneumo_phen_distribution.jpg", plot = combined_plot, width = 12, height = 10, dpi = 600)
+ggsave(file.path(output_dir, "MIC_spneumo_phen_distribution.jpg"), plot = combined_plot, width = 12, height = 10, dpi = 600)
 
 ```
 
@@ -304,7 +335,7 @@ p1 <- ggMarginal(common_ggplot_settings(p), size = 10, fill = "#E41A1C", alpha =
 p1
 
 # Save the final plot as an image
-ggsave("Mean_MIC_spneumo_phen_distribution.jpg")
+ggsave(file.path(output_dir, "Mean_MIC_spneumo_phen_distribution.jpg"))
 
 
 
@@ -466,7 +497,7 @@ ggplot(phen_map, aes(x = D1, y = D2)) +
 
   )
 
-ggsave("Penicillin_S_pneumo_biplot.jpg", width = 10, height = 10, dpi = 600)
+ggsave(file.path(output_dir, "Penicillin_S_pneumo_biplot.jpg"), width = 10, height = 10, dpi = 600)
 
 ```
 
@@ -605,7 +636,7 @@ p_biplot_marginal <- ggMarginal(p_biplot, size = 10, fill = "#E41A1C", alpha = 0
 print(p_biplot_marginal)
 
 # Save the final combined plot.
-ggsave("Combined_Biplot_Mean_MIC_spneumo_phen_distribution.jpg", 
+ggsave(file.path(output_dir, "Combined_Biplot_Mean_MIC_spneumo_phen_distribution.jpg"), 
        p_biplot_marginal, width = 10, height = 10, dpi = 600)
 
 ```
@@ -628,21 +659,14 @@ library(proxy)
   options(dplyr.summarise.inform = FALSE)
   knitr::opts_chunk$set(message = FALSE)
   
-# Set working directory
-setwd("/Users/ajb306/AMR-cartography-results/data")
-
 # Read the MIC table data
-tablemic <- read.csv("/Users/ajb306/AMR-cartography-results/data/MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
+tablemic <- read_local_csv("MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
 # Read in the relevant meta data
-tablemic_meta <- read.csv("/Users/ajb306/AMR-cartography-results/data/meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-
-# Specify the full path to the data file
-phen_map <- "/Users/ajb306/AMR-cartography-results/data/Spneumo_3628_PCA_start_2D_METRIC.RData"
+tablemic_meta <- read_local_csv("meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
 # Load the pre-computed PCA start 2D metric data
-load(phen_map)
+load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC.RData")
 
 
 # Transform the data so that it is easier to work with noise added values later - the relative euclidean distances between the points will remain the same
@@ -661,14 +685,8 @@ for (i in 1:ncol(tablemic)) {
                            "20153985", "20154509", "2013224047", "2013218247",
                            "2014200662", "5869-99", "2513-99")
 
-  # Specify the full path to the data file
-  gen_map <- "/Users/ajb306/AMR-cartography-results/data/Spneumo_3628_PCA_start_2D_METRIC_genetic.RData"
-  
   # Load the pre-computed PCA start 2D metric data
-  load(gen_map)
-
-  # Set working directory
-  setwd("/Users/ajb306/AMR-cartography-results/data")
+  load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC_genetic.RData")
   
   genotype_mds <- as.data.frame(torg_met$conf)
   
@@ -774,8 +792,8 @@ AA_matrix_phenotype <- left_join(AA_matrix_phenotype, select(gen_clustering, PBP
 library(ggforce)
 
 # Read the MIC table data - https://www.frontiersin.org/journals/microbiology/articles/10.3389/fmicb.2018.02670/full
-tablemic_metadata_MLST <- read.csv("/Users/ajb306/AMR-cartography-results/data/MIC_S.Pneumo_metadata.csv", header=TRUE, sep=",", skip = 0)
-tablemic_metadata_MLST_post2015 <- read.csv("/Users/ajb306/AMR-cartography-results/data/Meta_data_spneumoniae_isolates_post_2015.csv", header=TRUE, sep=",", skip = 0) %>%
+tablemic_metadata_MLST <- read_local_csv("MIC_S.Pneumo_metadata.csv", header=TRUE, sep=",", skip = 0)
+tablemic_metadata_MLST_post2015 <- read_local_csv("Meta_data_spneumoniae_isolates_post_2015.csv", header=TRUE, sep=",", skip = 0) %>%
   rename(LABID = Sample,
          MLST = ST,
          YEAR = Year.of.isolation,
@@ -851,7 +869,7 @@ p <- ggplot(tablemic_metadata_MLST, aes(x = D1, y = D2)) +
 
 p
 
-ggsave("Spneumo_MLSTphen_distribution.jpg")
+ggsave(file.path(output_dir, "Spneumo_MLSTphen_distribution.jpg"))
 
 
 ```
@@ -905,11 +923,11 @@ w <- h * overall_ratio
 p_facets
 
 # Save 
-ggsave("Spneumo_MLSTphen_distribution_multipanel.jpg",
+ggsave(file.path(output_dir, "Spneumo_MLSTphen_distribution_multipanel.jpg"),
        plot = p_facets, width = w, height = h, units = "in", dpi = 600, bg = "white")
 
 # Optional vector export for PowerPoint (crisp, non-squished)
-# ggsave("Spneumo_MLSTphen_distribution_multipanel.pdf", plot = p_facets,
+# ggsave(file.path(output_dir, "Spneumo_MLSTphen_distribution_multipanel.pdf"), plot = p_facets,
  #       width = w, height = h, units = "in")
 
 
@@ -949,7 +967,7 @@ ggplot(tablemic_metadata_MLST, aes(x = G1, y = G2)) +
   ) +
  scale_fill_manual(values=my_colours)
 
-ggsave("Spneumo_MLSTgen_distribution.jpg")
+ggsave(file.path(output_dir, "Spneumo_MLSTgen_distribution.jpg"))
 
 
 
@@ -1222,7 +1240,7 @@ combined_summary <- mlst_summary %>%
 #--------------------------------------------------------------#
 # 7) Write the final table to CSV
 #--------------------------------------------------------------#
-write_csv(combined_summary, "combined_summary.csv")
+write_csv(combined_summary, file.path(output_dir, "combined_summary.csv"))
 
 # For a quick console preview:
 combined_summary
@@ -1394,7 +1412,7 @@ p_centroids_top12 <- ggplot() +
 p_centroids_top12
 
 ggsave(
-  "Spneumo_gen_by_phen_distance_MEDIANcentroids_top12_coloured_others_grey_WITH_MLST_UNWEIGHTED_PBP_MEANS.jpg",
+  file.path(output_dir, "Spneumo_gen_by_phen_distance_MEDIANcentroids_top12_coloured_others_grey_WITH_MLST_UNWEIGHTED_PBP_MEANS.jpg"),
   p_centroids_top12, width = 10, height = 8, dpi = 600
 )
 
@@ -1407,4 +1425,3 @@ ggsave(
 
 
 ```
-

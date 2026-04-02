@@ -15,7 +15,11 @@ amrc_test_find_repo_root <- function(start_dir = getwd()) {
 }
 
 if (!exists("amrc_standardise_mic_data", mode = "function")) {
-  if (requireNamespace("pkgload", quietly = TRUE)) {
+  if (requireNamespace("amrcartography", quietly = TRUE)) {
+    suppressPackageStartupMessages(
+      library("amrcartography", character.only = TRUE)
+    )
+  } else if (requireNamespace("pkgload", quietly = TRUE)) {
     pkgload::load_all(
       path = amrc_test_find_repo_root(),
       export_all = FALSE,
