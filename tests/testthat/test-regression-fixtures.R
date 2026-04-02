@@ -89,6 +89,31 @@ test_that("preprocessing outputs match frozen fixtures", {
   expect_equal(actual_gen_dist, expected_gen_dist)
 })
 
+test_that("packaged 08 case-study bundle paths resolve and load", {
+  paths <- amrc_spneumoniae_example_paths("mapping_08")
+
+  expect_true(file.exists(paths$mic_table))
+  expect_true(file.exists(paths$mic_metadata))
+  expect_true(file.exists(paths$mlst_metadata))
+  expect_true(file.exists(paths$post2015_metadata))
+  expect_true(file.exists(paths$map_bundle))
+
+  bundle <- readRDS(paths$map_bundle)
+
+  expect_true(all(c(
+    "phenotype_map",
+    "genotype_map",
+    "phenotype_slope",
+    "genotype_slope",
+    "deleted_labids"
+  ) %in% names(bundle)))
+  expect_equal(nrow(bundle$phenotype_map), 3628L)
+  expect_equal(
+    nrow(bundle$genotype_map),
+    nrow(bundle$phenotype_map) - sum(bundle$phenotype_map$LABID %in% bundle$deleted_labids)
+  )
+})
+
 test_that("map builder and goodness-of-fit summaries match frozen fixtures", {
   skip_if_not_installed("smacof")
 

@@ -342,6 +342,14 @@ with:
 amrc_spneumoniae_example_paths("generated", mustWork = FALSE)
 ```
 
+For the legacy external-variable case-study notebook specifically, the package
+also ships a compact tracked bundle with the precomputed calibrated map
+coordinates and MLST metadata:
+
+```r
+amrc_spneumoniae_example_paths("mapping_08")
+```
+
 ## Expected Runtime
 
 - The generic toy-data vignette workflow should run in seconds.

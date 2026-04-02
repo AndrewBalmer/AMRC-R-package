@@ -1113,6 +1113,10 @@ amrc_run_limix_epistatic_scan <- function(
 #' @param kinship_matrix Optional precomputed kinship/relatedness matrix.
 #' @param n_permutations Number of phenotype permutations to stage or run.
 #' @param mode Either `"multivariate"` or `"univariate"`.
+#' @param marker_sample_size Optional number of markers to sample on each
+#'   permutation.
+#' @param marker_sample_replace Logical; sample markers with replacement when
+#'   `TRUE`.
 #' @param seed Optional random seed.
 #' @param out_dir Output directory for staged inputs and outputs.
 #' @param prefix File-name prefix.

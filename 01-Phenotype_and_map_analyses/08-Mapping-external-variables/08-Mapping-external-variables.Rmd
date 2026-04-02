@@ -38,34 +38,38 @@ find_repo_root <- function(start_dir = getwd()) {
 }
 
 repo_root <- find_repo_root()
-data_dir <- file.path(repo_root, "data")
 output_dir <- file.path(repo_root, "01-Phenotype_and_map_analyses", "08-Mapping-external-variables")
+example_dir <- system.file("extdata", "examples", "spneumoniae-08", package = "amrcartography")
+if (!nzchar(example_dir)) {
+  example_dir <- file.path(repo_root, "inst", "extdata", "examples", "spneumoniae-08")
+}
 
-if (!dir.exists(data_dir)) {
+if (!dir.exists(example_dir)) {
   stop(
-    "Local data directory not found at ",
-    data_dir,
-    ". Recover the extracted legacy files before knitting this notebook.",
+    "Packaged 08 case-study data directory not found at ",
+    example_dir,
+    ". Build it with tools/build_spneumoniae_08_case_study_bundle.R before knitting this notebook.",
     call. = FALSE
   )
 }
 
-read_local_csv <- function(filename, ...) {
-  read.csv(file.path(data_dir, filename), ...)
+read_example_csv <- function(filename, ...) {
+  read.csv(file.path(example_dir, filename), ...)
 }
 
-load_local_rdata <- function(filename, env = knitr::knit_global()) {
-  load(file.path(data_dir, filename), envir = env)
+maps_bundle <- readRDS(file.path(example_dir, "spneumoniae_08_map_bundle.rds"))
+
+read_case_study_table <- function(filename, ...) {
+  read_example_csv(filename, stringsAsFactors = FALSE, check.names = FALSE, ...)
 }
 
 # Read the MIC table data
-tablemic <- read_local_csv("MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
+tablemic <- read_case_study_table("MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
 # Read in the relevant meta data
-tablemic_meta <- read_local_csv("meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
+tablemic_meta <- read_case_study_table("meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
 
-# Load the precomputed PCA start 2D metric data
-load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC.RData")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 ```
 
@@ -76,49 +80,14 @@ In order to properly interpret the map, they need to be rotated and dilated to a
 
 ```{r, echo = F}
 
-# Convert torg_met[[1]] and torg_met[[3]] to tibbles and set column names
-table_distances <- as_tibble(as.matrix(torg_met[[1]]))
-map_distances <- as_tibble(as.matrix(torg_met[[3]]))
-colnames(map_distances) <- colnames(table_distances)
-
-# Reshape data using gather function
-table_distances <- gather(table_distances, "antibiotic", "table_distance", 1:nrow(tablemic)) 
-map_distances <- gather(map_distances, "antibiotic", "map_distance", 1:nrow(tablemic))
-
-# Combine table_distances and map_distances into a single tibble
-distances <- bind_cols(table_distances, map_distances)
-
-# Convert distances to numeric
-distances$table_distance <- as.numeric(distances$table_distance)
-distances$map_distance <- as.numeric(distances$map_distance)
-
-# Fit linear model and display summary
-mapvtable <- lm(map_distance ~ table_distance, data = distances)
-summary(mapvtable)
-
-# Perform Pearson correlation test
-cor.test(distances$table_distance, distances$map_distance, method = "pearson")
-
-# Extract slope and calculate dilation factor
-slope <- as.numeric(coef(mapvtable)[2])
-dilation <- 1 / slope
+slope <- maps_bundle$phenotype_slope
+dilation <- maps_bundle$phenotype_dilation
 slope
-colnames(torg_met$conf) <- c("D1", "D2")
 
-# Apply dilation to each column in torg_met$conf
-for (i in 1:ncol(torg_met$conf)) {
-  torg_met$conf[, i] <- torg_met$conf[, i] * dilation
-}
-
-# Rotate configuration by 326 degrees
-theta <- 326 * pi / 180 ## degrees to radians
-rot <- matrix(c(cos(theta), sin(theta), -sin(theta), cos(theta)), ncol = 2)
-torg_met$conf <- torg_met$conf %*% rot ## rotated configurations
-
-# Separate just the phenotype map coordinates
-phen_map <- as_tibble(torg_met$conf) %>%
-  rename(D1 = V1,
-         D2 = V2)
+# The packaged case-study bundle stores the already dilated and rotated
+# phenotype map used throughout this notebook.
+phen_map <- as_tibble(maps_bundle$phenotype_map) %>%
+  dplyr::select(D1, D2)
 
 ```
 
@@ -658,52 +627,19 @@ library(proxy)
 
   options(dplyr.summarise.inform = FALSE)
   knitr::opts_chunk$set(message = FALSE)
-  
-# Read the MIC table data
-tablemic <- read_local_csv("MIC_table_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-# Read in the relevant meta data
-tablemic_meta <- read_local_csv("meta_data_Spneumoniae.csv", header=TRUE, sep=",", skip = 0)
-
-# Load the pre-computed PCA start 2D metric data
-load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC.RData")
-
 
 # Transform the data so that it is easier to work with noise added values later - the relative euclidean distances between the points will remain the same
 for (i in 1:ncol(tablemic)) {
   tablemic[,i] <- (tablemic[,i] + (-(min(tablemic[,i], na.rm = TRUE))))+1
 }
 
-  res_samp <- torg_met
-  theta <- 326*pi/180 ## degrees to radians
-  rot <- matrix(c(cos(theta), sin(theta), -sin(theta), cos(theta)), ncol = 2)
-  res_samp$conf <- res_samp$conf %*% rot ## rotated configurations
-  
-  
-  ### create a vector of isolates with PBP deletion substitutions and remove them from dataframes  
-  isolates_with_PBP_deletion <- c("20156696" , "20162849", "20151885" ,
-                           "20153985", "20154509", "2013224047", "2013218247",
-                           "2014200662", "5869-99", "2513-99")
-
-  # Load the pre-computed PCA start 2D metric data
-  load_local_rdata("Spneumo_3628_PCA_start_2D_METRIC_genetic.RData")
-  
-  genotype_mds <- as.data.frame(torg_met$conf)
-  
-  colnames(genotype_mds) <- c("G1","G2")
-  
-slope <- 0.1842996
-dilation <- 1/slope
-slope
-map_coords <- as.data.frame(res_samp$conf)
-
-map_coords$V1 <- map_coords$V1 * dilation
-map_coords$V2 <- map_coords$V2 * dilation
+isolates_with_PBP_deletion <- maps_bundle$deleted_labids
+map_coords <- as.data.frame(dplyr::select(maps_bundle$phenotype_map, D1, D2))
+genotype_mds <- as.data.frame(dplyr::select(maps_bundle$genotype_map, G1, G2))
 
 ### create main dataframe of map coordinates and PBP metadata
-## rotate phenotype map
-AA_matrix_phenotype <- bind_cols(map_coords, tablemic_meta) %>%
-                         rename(PBP_type = PT, D1 = V1, D2 = V2) %>%
+AA_matrix_phenotype <- as_tibble(maps_bundle$phenotype_map) %>%
+                         rename(PBP_type = PT) %>%
                          group_by(PBP_type) %>%
                          mutate(x_centroid = median(D1), 
                          y_centroid = median(D2)) %>%
@@ -712,7 +648,7 @@ AA_matrix_phenotype <- bind_cols(map_coords, tablemic_meta) %>%
 
 
 ## import MDS transformations for phenotype and genotype maps
-gen_slope <- 0.01814108
+gen_slope <- maps_bundle$genotype_slope
 
 
 ## set up ggplot theme for rest of markdown visualisations
@@ -730,12 +666,8 @@ theme_MDR_cartography <- function(){
 }
 
 
-gen_slope <- 0.01814108
-gen_dilation <- 1/gen_slope
+gen_dilation <- maps_bundle$genotype_dilation
 gen_slope
-
-AA_matrix_phenotype$G1 <- AA_matrix_phenotype$G1 * gen_dilation
-AA_matrix_phenotype$G2 <- AA_matrix_phenotype$G2 * gen_dilation
 
 my_colours <- c("#4DAF4A", "#377EB8", "#E41A1C", "#F781BF", "#FF7F00", "black",
                              "white", "#7570B3", "#E7298A", "#FFFF33", "#A65628", "cyan",
@@ -768,12 +700,12 @@ breaks_gen_map_y <- seq(min(AA_matrix_phenotype$G2, na.rm = T)- (10),
 
 
 ### As I only want to cluster on distinct PBP types, I 
-gen_clustering <- cbind(select(AA_matrix_phenotype, G1,G2, PBP_type)) %>%
+gen_clustering <- cbind(dplyr::select(AA_matrix_phenotype, G1,G2, PBP_type)) %>%
                   distinct(PBP_type, .keep_all = TRUE) %>% 
                   ungroup()
 
 
-res.hcpc <- HCPC(select(gen_clustering, G1,G2), nb.clust = 12, consol = T, iter.max = 500, graph = T, order = T)
+res.hcpc <- HCPC(dplyr::select(gen_clustering, G1,G2), nb.clust = 12, consol = T, iter.max = 500, graph = T, order = T)
 
 ### scree plot of clustering 
 plot(log(res.hcpc$call$t$inert.gain[c(1:30)]))
@@ -781,7 +713,7 @@ plot(log(res.hcpc$call$t$inert.gain[c(1:30)]))
 ### bind the genetic clusters to the genetic map data
 gen_clustering$gen_cluster <- res.hcpc[[1]]$clust
 
-AA_matrix_phenotype <- left_join(AA_matrix_phenotype, select(gen_clustering, PBP_type, gen_cluster), by = "PBP_type")
+AA_matrix_phenotype <- left_join(AA_matrix_phenotype, dplyr::select(gen_clustering, PBP_type, gen_cluster), by = "PBP_type")
 
 ```
 
@@ -792,11 +724,11 @@ AA_matrix_phenotype <- left_join(AA_matrix_phenotype, select(gen_clustering, PBP
 library(ggforce)
 
 # Read the MIC table data - https://www.frontiersin.org/journals/microbiology/articles/10.3389/fmicb.2018.02670/full
-tablemic_metadata_MLST <- read_local_csv("MIC_S.Pneumo_metadata.csv", header=TRUE, sep=",", skip = 0)
-tablemic_metadata_MLST_post2015 <- read_local_csv("Meta_data_spneumoniae_isolates_post_2015.csv", header=TRUE, sep=",", skip = 0) %>%
+tablemic_metadata_MLST <- read_case_study_table("MIC_S.Pneumo_metadata.csv", header=TRUE, sep=",", skip = 0)
+tablemic_metadata_MLST_post2015 <- read_case_study_table("Meta_data_spneumoniae_isolates_post_2015.csv", header=TRUE, sep=",", skip = 0) %>%
   rename(LABID = Sample,
          MLST = ST,
-         YEAR = Year.of.isolation,
+         YEAR = `Year of isolation`,
          SEROTYPE = WGS_Serotype) %>%
   mutate(LABID = as.character(LABID))
 
@@ -882,6 +814,25 @@ library(ggplot2)
 library(ggforce)
 library(grid)
 
+ellipse_groups <- split(tablemic_metadata_MLST, tablemic_metadata_MLST$MLST_with_count)
+ellipse_groups <- ellipse_groups[vapply(ellipse_groups, function(df) {
+  if (nrow(df) < 3L) {
+    return(FALSE)
+  }
+
+  coords <- as.matrix(df[, c("D1", "D2"), drop = FALSE])
+  coords <- coords[stats::complete.cases(coords), , drop = FALSE]
+  if (nrow(coords) < 3L) {
+    return(FALSE)
+  }
+
+  cov_mat <- stats::cov(coords)
+  is.matrix(cov_mat) &&
+    all(is.finite(cov_mat)) &&
+    abs(det(cov_mat)) > 1e-8
+}, logical(1))]
+ellipse_data <- dplyr::bind_rows(ellipse_groups)
+
 # Build the plot
 p_facets <- ggplot(tablemic_metadata_MLST, aes(x = x_centroid, y = y_centroid)) +
   # light, small grey background points (all isolates)
@@ -892,7 +843,7 @@ p_facets <- ggplot(tablemic_metadata_MLST, aes(x = x_centroid, y = y_centroid)) 
              aes(x = D1, y = D2, fill = MLST_with_count),
              shape = 21, size = 2.5, color = "black", alpha = 1) +
   # soft ellipse per MLST
-  geom_mark_ellipse(aes(fill = MLST_with_count),
+  geom_mark_ellipse(data = ellipse_data, aes(x = D1, y = D2, fill = MLST_with_count),
                     colour = NA, expand = unit(1, "mm"), alpha = 0.3) +
   facet_wrap(MLST_with_count ~ ., ncol = 3, nrow = 4) +
   scale_x_continuous(limits = limits_phen_map_x, breaks = breaks_phen_map_x) +
@@ -939,6 +890,25 @@ ggsave(file.path(output_dir, "Spneumo_MLSTphen_distribution_multipanel.jpg"),
 
 
 ```{r,echo = F}
+ellipse_groups_gen <- split(tablemic_metadata_MLST, tablemic_metadata_MLST$MLST_with_count)
+ellipse_groups_gen <- ellipse_groups_gen[vapply(ellipse_groups_gen, function(df) {
+  if (nrow(df) < 3L) {
+    return(FALSE)
+  }
+
+  coords <- as.matrix(df[, c("G1", "G2"), drop = FALSE])
+  coords <- coords[stats::complete.cases(coords), , drop = FALSE]
+  if (nrow(coords) < 3L) {
+    return(FALSE)
+  }
+
+  cov_mat <- stats::cov(coords)
+  is.matrix(cov_mat) &&
+    all(is.finite(cov_mat)) &&
+    abs(det(cov_mat)) > 1e-8
+}, logical(1))]
+ellipse_data_gen <- dplyr::bind_rows(ellipse_groups_gen)
+
 # Create a ggplot object
 ggplot(tablemic_metadata_MLST, aes(x = G1, y = G2)) +
   #geom_mark_ellipse(aes(fill = MLST), color = "black", alpha = 0.2) +
@@ -954,7 +924,7 @@ ggplot(tablemic_metadata_MLST, aes(x = G1, y = G2)) +
 # Create a ggplot object
 ggplot(tablemic_metadata_MLST, aes(x = G1, y = G2)) +
   geom_point(data = AA_matrix_phenotype, aes(x=G1,y=G2), colour = "#999999", fill = "#999999", shape = 16, size = 1, alpha = .8) +
-    geom_mark_ellipse(aes(fill = MLST_with_count), color = "black", expand = unit(2.5, "mm"),alpha = 0.2) +
+    geom_mark_ellipse(data = ellipse_data_gen, aes(x = G1, y = G2, fill = MLST_with_count), color = "black", expand = unit(2.5, "mm"),alpha = 0.2) +
   geom_point(aes(fill = MLST_with_count), shape = 21,size = 2.5, alpha =1, colour = "black") + 
   facet_wrap(MLST_with_count ~. ) + 
   scale_x_continuous(limits = limits_gen_map_x, breaks=breaks_gen_map_x) +
@@ -994,7 +964,7 @@ centroids_202 <- tablemic_metadata_MLST %>%
   filter(PBP_type == "2-0-2") %>%
   distinct(PBP_type, .keep_all = TRUE) %>% 
   ungroup() %>%
-  select(x_centroid, y_centroid, G1, G2)
+  dplyr::select(x_centroid, y_centroid, G1, G2)
   
 centroids_202
    
@@ -1082,7 +1052,7 @@ centroids_202 <- tablemic_metadata_MLST %>%
   filter(PBP_type == "2-0-2") %>%
   distinct(PBP_type, .keep_all = TRUE) %>%
   ungroup() %>%
-  select(x_centroid, y_centroid, G1, G2)
+  dplyr::select(x_centroid, y_centroid, G1, G2)
 
 #--------------------------------------------------------------#
 # 2) Attach centroid coords & compute:
@@ -1181,7 +1151,7 @@ mlst_pairwise <- pbp_centroids %>%
     gen_pairwise_sd    = map_dbl(gen_distances, ~ if (length(.x) == 0) 0 else sd(.x, na.rm=TRUE))
   ) %>%
   ungroup() %>%
-  select(
+  dplyr::select(
     MLST_with_count,
     phen_pairwise_mean,
     phen_pairwise_sd,
@@ -1219,7 +1189,7 @@ combined_summary <- mlst_summary %>%
     "Gen Pairwise Mean"               = gen_pairwise_mean,
     "Gen Pairwise SD"                 = gen_pairwise_sd
   ) %>%
-  select(
+  dplyr::select(
     MLST,
     "#Unique PBP_types",
     "Mean Phenotypic distance from 2-0-2 (MIC units)",

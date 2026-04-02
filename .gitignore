@@ -26,3 +26,5 @@ tests/testthat/Rplots.pdf
 *.tar.gz
 *.Rcheck/
 inst/extdata/examples/spneumoniae-mini/generated/
+01-Phenotype_and_map_analyses/08-Mapping-external-variables/*.jpg
+01-Phenotype_and_map_analyses/08-Mapping-external-variables/*.csv

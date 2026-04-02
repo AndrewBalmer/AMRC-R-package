@@ -1,5 +1,14 @@
 # amrcartography news
 
+## development
+
+- Added a compact tracked `mapping_08` pneumococcal case-study bundle for the
+  legacy `08-Mapping-external-variables` notebook, including calibrated
+  phenotype/genotype map coordinates and the MLST metadata files that notebook
+  needs.
+- Switched the `08` notebook off the ignored local `data/` directory and onto
+  packaged example-data paths.
+
 ## 0.2.0 (2026-04-01)
 
 Minor release candidate that promotes the new generic genotype-to-phenotype

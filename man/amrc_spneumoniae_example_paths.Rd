@@ -5,15 +5,17 @@
 \title{Locate Packaged Example Data Paths}
 \usage{
 amrc_spneumoniae_example_paths(
-  example = c("generated", "mini_raw"),
+  example = c("generated", "mini_raw", "mapping_08"),
   mustWork = TRUE
 )
 }
 \arguments{
 \item{example}{Which example path set to locate: \code{mini_raw} for the tiny
 bundled raw-input example in \code{inst/extdata/examples/spneumoniae-mini/raw},
-or \code{generated} for the canonical generated-output location used by local
-source checkouts and notebook-scale rebuilds.}
+\code{mapping_08} for the compact tracked bundle used by the legacy
+\code{08-Mapping-external-variables} notebook, or \code{generated} for the canonical
+generated-output location used by local source checkouts and
+notebook-scale rebuilds.}
 
 \item{mustWork}{Logical; fail if the requested example path set is
 unavailable. Keep \code{TRUE} when you need real bundled files; use \code{FALSE} when

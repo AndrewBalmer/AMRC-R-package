@@ -59,8 +59,10 @@ amrc_generated_path <- function(generated_dir, key, must_exist = FALSE, allow_le
 #'
 #' @param example Which example path set to locate: `mini_raw` for the tiny
 #'   bundled raw-input example in `inst/extdata/examples/spneumoniae-mini/raw`,
-#'   or `generated` for the canonical generated-output location used by local
-#'   source checkouts and notebook-scale rebuilds.
+#'   `mapping_08` for the compact tracked bundle used by the legacy
+#'   `08-Mapping-external-variables` notebook, or `generated` for the canonical
+#'   generated-output location used by local source checkouts and
+#'   notebook-scale rebuilds.
 #' @param mustWork Logical; fail if the requested example path set is
 #'   unavailable. Keep `TRUE` when you need real bundled files; use `FALSE` when
 #'   you only want the conventional generated-output location.
@@ -68,7 +70,7 @@ amrc_generated_path <- function(generated_dir, key, must_exist = FALSE, allow_le
 #' @return A named list of file paths.
 #' @export
 amrc_spneumoniae_example_paths <- function(
-  example = c("generated", "mini_raw"),
+  example = c("generated", "mini_raw", "mapping_08"),
   mustWork = TRUE
 ) {
   example <- match.arg(example)
@@ -83,7 +85,7 @@ amrc_spneumoniae_example_paths <- function(
       file.path(root, filename)
     })
     paths$root <- root
-  } else {
+  } else if (identical(example, "mini_raw")) {
     root <- system.file("extdata", "examples", "spneumoniae-mini", "raw", package = "amrcartography")
     if (identical(root, "")) {
       root <- file.path("inst", "extdata", "examples", "spneumoniae-mini", "raw")
@@ -95,6 +97,22 @@ amrc_spneumoniae_example_paths <- function(
       mic_2 = file.path(root, "MIC_pneumo2.csv"),
       seq_1 = file.path(root, "PBP_Sequence_dataset1.csv"),
       seq_2 = file.path(root, "PBP_Sequence_dataset2.csv")
+    )
+  } else {
+    root <- system.file("extdata", "examples", "spneumoniae-08", package = "amrcartography")
+    if (identical(root, "")) {
+      root <- file.path("inst", "extdata", "examples", "spneumoniae-08")
+    }
+
+    paths <- list(
+      root = root,
+      mic_table = file.path(root, "MIC_table_Spneumoniae.csv"),
+      mic_metadata = file.path(root, "meta_data_Spneumoniae.csv"),
+      mlst_metadata = file.path(root, "MIC_S.Pneumo_metadata.csv"),
+      post2015_metadata = file.path(root, "Meta_data_spneumoniae_isolates_post_2015.csv"),
+      map_bundle = file.path(root, "spneumoniae_08_map_bundle.rds"),
+      phenotype_map = file.path(root, "phenotype_map_calibrated.csv"),
+      genotype_map = file.path(root, "genotype_map_calibrated.csv")
     )
   }
 

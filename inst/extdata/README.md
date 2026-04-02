@@ -4,6 +4,8 @@ This directory contains two kinds of package example data.
 
 - `examples/generic/` holds small generic MIC and external-data examples used in
   the generic vignettes and tests.
+- `examples/spneumoniae-08/` holds the compact tracked data bundle used by the
+  legacy `08-Mapping-external-variables` case-study notebook.
 - the `spneumoniae_*` files and `generated/` layout support the worked
   `S. pneumoniae` case study retained in the repository for validation and
   regression purposes.
