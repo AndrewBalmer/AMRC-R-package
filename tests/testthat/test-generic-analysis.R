@@ -205,15 +205,34 @@ test_that("LIMIX helper wrappers stage generic inputs and commands without execu
   expect_true(file.exists(uv_cmd$script))
 })
 
-test_that("LIMIX script discovery can recover the bundled script from subdirectories", {
-  script_path <- amrcartography:::amrc_find_repo_file(
+test_that("LIMIX script discovery works for installed and source-style layouts", {
+  installed_script <- amrcartography:::amrc_limix_script_path()
+
+  expect_true(nzchar(installed_script))
+  expect_true(file.exists(installed_script))
+  expect_match(basename(installed_script), "^amrc_limix_mvlmm_scan\\.py$")
+
+  root_dir <- tempfile("amrc-source-layout-")
+  nested_dir <- file.path(root_dir, "tests", "testthat")
+  dir.create(file.path(root_dir, "inst", "python"), recursive = TRUE, showWarnings = FALSE)
+  dir.create(nested_dir, recursive = TRUE, showWarnings = FALSE)
+  writeLines("Package: fakepkg", file.path(root_dir, "DESCRIPTION"))
+  writeLines("#!/usr/bin/env python3", file.path(root_dir, "inst", "python", "amrc_limix_mvlmm_scan.py"))
+
+  source_script <- amrcartography:::amrc_find_repo_file(
     file.path("inst", "python", "amrc_limix_mvlmm_scan.py"),
-    start_dir = file.path(getwd(), "tests", "testthat")
+    start_dir = nested_dir
   )
 
-  expect_true(nzchar(script_path))
-  expect_true(file.exists(script_path))
-  expect_match(basename(script_path), "^amrc_limix_mvlmm_scan\\.py$")
+  expect_true(nzchar(source_script))
+  expect_equal(
+    normalizePath(source_script, winslash = "/", mustWork = TRUE),
+    normalizePath(
+      file.path(root_dir, "inst", "python", "amrc_limix_mvlmm_scan.py"),
+      winslash = "/",
+      mustWork = TRUE
+    )
+  )
 })
 
 test_that("heritability and variance-decomposition helpers stage generic LIMIX inputs", {
