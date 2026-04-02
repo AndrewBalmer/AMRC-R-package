@@ -24,6 +24,7 @@ Imports:
     smacof
 Suggests:
     ggExtra,
+    jsonlite,
     knitr,
     lme4,
     rmarkdown,

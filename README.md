@@ -371,6 +371,9 @@ The package now separates what ships in the repository from what is downloaded o
 - GitHub release notes draft: [docs/RELEASE_NOTES_0.2.0.md](docs/RELEASE_NOTES_0.2.0.md)
 - Manuscript scaffold: [docs/MANUSCRIPT_DRAFT.md](docs/MANUSCRIPT_DRAFT.md)
 - API lifecycle notes: [docs/API_LIFECYCLE.md](docs/API_LIFECYCLE.md)
+- Validation workflow for agents: [AGENT_VALIDATION_WORKFLOW.md](AGENT_VALIDATION_WORKFLOW.md)
+- Repo validation commands and coverage: [VALIDATION.md](VALIDATION.md)
+- Reusable validation checklist: [VALIDATION_CHECKLIST.md](VALIDATION_CHECKLIST.md)
 
 ## How To Cite
 
@@ -386,4 +389,10 @@ The repository now includes both a GitHub citation file at [CITATION.cff](CITATI
 
 ## Current Caveat
 
-`08-Mapping-external-variables.Rmd` still depends on metadata files that are not currently in the repository, so full manuscript-level reproducibility still requires either recovering those files or rewriting that section around available inputs.
+The repo now has stronger staged validation and a packaged `mapping_08`
+case-study bundle, but the experimental Streamlit layer is still only a
+convenience interface over the package API rather than a polished end-user
+product. On this macOS sandbox, heavier local R validation can also still hit
+the known OpenMP/shared-memory issue documented in
+[docs/LOCAL_VALIDATION.md](docs/LOCAL_VALIDATION.md), so Linux CI remains the
+authoritative full validation gate.

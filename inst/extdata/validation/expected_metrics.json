@@ -1,0 +1,65 @@
+{
+  "generic_examples": {
+    "mic_raw": {
+      "rows": 6,
+      "required_columns": ["isolate_id", "lineage", "source", "drug_a", "drug_b", "drug_c"]
+    },
+    "external_numeric": {
+      "rows": 6,
+      "required_columns": ["isolate_id", "axis1", "axis2"]
+    },
+    "external_character": {
+      "rows": 6,
+      "required_columns": ["isolate_id", "lineage", "allele_a", "allele_b", "allele_c"]
+    },
+    "external_distance": {
+      "rows": 6,
+      "cols": 6
+    }
+  },
+  "spneumoniae_08": {
+    "phenotype_metadata_rows": 3628,
+    "phenotype_map_rows": 3628,
+    "genotype_map_rows": 3620,
+    "mlst_metadata_rows": 2528,
+    "post2015_metadata_rows": 5212,
+    "phenotype_minus_genotype_rows": 8,
+    "deleted_labids_bundle_count": 10,
+    "phenotype_metadata_required_columns": ["LABID", "PT", "Penicillin", "Amoxicillin", "Meropenem", "Cefotaxime", "Ceftriaxone", "Cefuroxime"],
+    "phenotype_map_required_columns": ["LABID", "PT", "D1", "D2"],
+    "genotype_map_required_columns": ["LABID", "PT", "G1", "G2"],
+    "mlst_metadata_required_columns": ["LABID", "YEAR", "SEROTYPE", "MLST"],
+    "post2015_metadata_required_columns": ["Sample", "age", "age group", "Biosample Accession", "ST"]
+  },
+  "source_generated": {
+    "phenotype_rows": 3628,
+    "metadata_rows": 3628,
+    "required_files": [
+      "MIC_table_Spneumoniae.csv",
+      "meta_data_Spneumoniae.csv",
+      "phenotype_distance_matrix_Spneumoniae.rds",
+      "genotype_distance_matrix_Spneumoniae.rds",
+      "Spneumo_3628_PCA_start_2D_METRIC.RData",
+      "Spneumo_3628_PCA_start_2D_METRIC_genetic.RData"
+    ]
+  },
+  "streamlit_smoke": {
+    "required_files": [
+      "summary.json",
+      "amrc_result_bundle.rds",
+      "phenotype_map.png",
+      "phenotype_map_data.csv",
+      "comparison_data.csv",
+      "external_map.png",
+      "side_by_side_maps.png",
+      "phenotype_cluster_data.csv",
+      "external_cluster_data.csv",
+      "reference_distance_table.csv",
+      "reference_distance_summary.csv",
+      "reference_distance_relationship.png"
+    ],
+    "phenotype_n_isolates": 6,
+    "phenotype_n_drugs": 3,
+    "reference_rows_min": 1
+  }
+}

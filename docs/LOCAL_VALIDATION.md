@@ -4,6 +4,9 @@
 
 On this repository checkout, the following local validation paths are useful:
 
+- `Rscript tools/run_validation.R --stage smoke`
+- `Rscript tools/run_validation.R --stage ci`
+- `Rscript tools/run_validation.R --stage release`
 - `R CMD build --no-build-vignettes .`
 - `R CMD check --no-manual --ignore-vignettes <tarball>`
 - `knitr::purl()` for syntax-level vignette checks
@@ -27,6 +30,7 @@ runtime behaviour, including:
 
 ## Practical policy
 
+- Use `tools/run_validation.R` as the main staged validation entrypoint.
 - Treat GitHub Actions on Linux as the authoritative full validation pass.
 - Treat local no-vignette checks as a useful preflight, not as the final gate.
 - If full local validation is required, run it in an unsandboxed R

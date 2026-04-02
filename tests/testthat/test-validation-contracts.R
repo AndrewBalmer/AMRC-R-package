@@ -1,0 +1,94 @@
+validation_manifest_path <- function() {
+  installed <- system.file(
+    "extdata",
+    "validation",
+    "expected_metrics.json",
+    package = "amrcartography"
+  )
+  if (nzchar(installed)) {
+    return(installed)
+  }
+
+  testthat::test_path("..", "..", "inst", "extdata", "validation", "expected_metrics.json")
+}
+
+test_that("validation metrics manifest matches bundled generic example datasets", {
+  skip_if_not_installed("jsonlite")
+
+  manifest <- jsonlite::read_json(
+    validation_manifest_path(),
+    simplifyVector = TRUE
+  )
+
+  mic_raw <- amrc_example_data("mic_raw")
+  ext_numeric <- amrc_example_data("external_numeric")
+  ext_character <- amrc_example_data("external_character")
+  ext_distance <- amrc_example_data("external_distance")
+
+  expect_equal(nrow(mic_raw), manifest$generic_examples$mic_raw$rows)
+  expect_true(all(manifest$generic_examples$mic_raw$required_columns %in% colnames(mic_raw)))
+  expect_identical(anyDuplicated(mic_raw$isolate_id), 0L)
+
+  expect_equal(nrow(ext_numeric), manifest$generic_examples$external_numeric$rows)
+  expect_true(all(manifest$generic_examples$external_numeric$required_columns %in% colnames(ext_numeric)))
+  expect_identical(anyDuplicated(ext_numeric$isolate_id), 0L)
+
+  expect_equal(nrow(ext_character), manifest$generic_examples$external_character$rows)
+  expect_true(all(manifest$generic_examples$external_character$required_columns %in% colnames(ext_character)))
+  expect_identical(anyDuplicated(ext_character$isolate_id), 0L)
+
+  expect_equal(nrow(ext_distance), manifest$generic_examples$external_distance$rows)
+  expect_equal(ncol(ext_distance), manifest$generic_examples$external_distance$cols)
+  expect_equal(ext_distance, t(ext_distance))
+  expect_equal(unname(diag(ext_distance)), rep(0, nrow(ext_distance)))
+})
+
+test_that("validation metrics manifest matches packaged mapping_08 bundle counts", {
+  skip_if_not_installed("jsonlite")
+
+  manifest <- jsonlite::read_json(
+    validation_manifest_path(),
+    simplifyVector = TRUE
+  )
+
+  paths <- amrc_spneumoniae_example_paths("mapping_08")
+
+  phenotype_meta <- utils::read.csv(
+    paths$mic_metadata,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+  phenotype_map <- utils::read.csv(
+    paths$phenotype_map,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+  genotype_map <- utils::read.csv(
+    paths$genotype_map,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+  bundle <- readRDS(paths$map_bundle)
+
+  expect_equal(nrow(phenotype_meta), manifest$spneumoniae_08$phenotype_metadata_rows)
+  expect_equal(nrow(phenotype_map), manifest$spneumoniae_08$phenotype_map_rows)
+  expect_equal(nrow(genotype_map), manifest$spneumoniae_08$genotype_map_rows)
+
+  expect_true(all(manifest$spneumoniae_08$phenotype_metadata_required_columns %in% colnames(phenotype_meta)))
+  expect_true(all(manifest$spneumoniae_08$phenotype_map_required_columns %in% colnames(phenotype_map)))
+  expect_true(all(manifest$spneumoniae_08$genotype_map_required_columns %in% colnames(genotype_map)))
+
+  expect_identical(anyDuplicated(phenotype_meta$LABID), 0L)
+  expect_identical(anyDuplicated(phenotype_map$LABID), 0L)
+  expect_identical(anyDuplicated(genotype_map$LABID), 0L)
+  expect_true(setequal(phenotype_meta$LABID, phenotype_map$LABID))
+  expect_true(all(genotype_map$LABID %in% phenotype_meta$LABID))
+
+  phenotype_only_ids <- setdiff(phenotype_meta$LABID, genotype_map$LABID)
+  expect_length(phenotype_only_ids, manifest$spneumoniae_08$phenotype_minus_genotype_rows)
+  expect_true(all(phenotype_only_ids %in% bundle$deleted_labids))
+  expect_length(bundle$deleted_labids, manifest$spneumoniae_08$deleted_labids_bundle_count)
+})

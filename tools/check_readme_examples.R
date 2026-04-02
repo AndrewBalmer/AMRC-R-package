@@ -1,4 +1,30 @@
-library(amrcartography)
+full_args <- commandArgs(trailingOnly = FALSE)
+script_flag <- "--file="
+script_path <- sub(script_flag, "", full_args[grep(script_flag, full_args)])
+
+if (length(script_path) == 0L) {
+  stop("This script must be run with Rscript.", call. = FALSE)
+}
+
+repo_root <- normalizePath(file.path(dirname(script_path), ".."))
+
+amrc_load_package <- function(repo_root) {
+  if (requireNamespace("pkgload", quietly = TRUE)) {
+    pkgload::load_all(
+      path = repo_root,
+      export_all = FALSE,
+      helpers = FALSE,
+      attach_testthat = FALSE,
+      quiet = TRUE
+    )
+    return(invisible(TRUE))
+  }
+
+  library(amrcartography, character.only = TRUE)
+  invisible(TRUE)
+}
+
+amrc_load_package(repo_root)
 
 mic_table <- data.frame(
   isolate_id = paste0("iso", 1:6),
