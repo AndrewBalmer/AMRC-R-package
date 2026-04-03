@@ -19,8 +19,17 @@ correctness of results.
 
 - app opens without a Python traceback
 - title shows `amrcartography`
+- quick demo buttons render in the sidebar
 - sidebar renders the phenotype upload area
 - no empty white screen or immediately broken widgets
+
+## Bundled demo workflow
+
+- `MIC only` loads the bundled generic MIC example without uploading a file
+- `Numeric ext.` loads the bundled generic MIC + numeric external example
+- `Character ext.` loads the bundled generic MIC + character external example
+- `Clear demo selection` resets the app back to upload mode
+- demo mode still allows a successful run
 
 ## Phenotype-only workflow
 
@@ -29,6 +38,7 @@ correctness of results.
 - MIC column selector populates correctly
 - metadata selectors populate correctly
 - phenotype rotation control accepts values without breaking the run
+- phenotype rotation preset buttons update the numeric control sensibly
 - if `Use 1-unit grid spacing` is enabled, remember this should be interpreted
   as one doubling dilution only because the backend applies model-based
   calibration
@@ -45,6 +55,7 @@ correctness of results.
 - enable external structure
 - upload a valid external CSV
 - external rotation control accepts values without breaking the run
+- external rotation preset buttons update the numeric control sensibly
 - external mode selector behaves correctly for:
   - numeric features
   - character features
@@ -86,6 +97,8 @@ correctness of results.
 
 - `amrc_report.md` downloads
 - `amrc_report.html` downloads
+- optional `amrc_report.pdf` downloads when enabled
+- `amrc_output_bundle.zip` downloads
 - report contents match the visible summary
 - CSV downloads are non-empty and open normally
 - `.rds` bundle is non-empty

@@ -22,12 +22,15 @@ legacy_analysis_packages <- c(
   "FactoMineR",
   "ggpubr",
   "patchwork",
+  "png",
+  "ragg",
   "factoextra",
   "NbClust",
   "proxy",
   "ggforce",
   "ggnewscale",
-  "doRNG"
+  "doRNG",
+  "vdiffr"
 )
 
 installed <- rownames(installed.packages())

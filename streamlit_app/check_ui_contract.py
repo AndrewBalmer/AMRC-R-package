@@ -35,7 +35,13 @@ def main() -> int:
     )
 
     sidebar_headers = [node.value for node in app.sidebar.header]
+    assert "Quick demo" in sidebar_headers, "Sidebar quick demo header is missing."
     assert "Phenotype Input" in sidebar_headers, "Sidebar phenotype header is missing."
+
+    button_labels = [node.label for node in app.button]
+    assert "MIC only" in button_labels, "Expected bundled MIC-only demo button."
+    assert "Numeric ext." in button_labels, "Expected bundled numeric external demo button."
+    assert "Character ext." in button_labels, "Expected bundled character external demo button."
 
     uploader_labels = [node.label for node in app.file_uploader]
     assert "Phenotype MIC CSV" in uploader_labels, "Phenotype file uploader is missing."

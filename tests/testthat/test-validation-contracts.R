@@ -110,15 +110,18 @@ test_that("validation metrics manifest matches packaged public MIC examples", {
     manifest$public_mic_examples$public_mic_manifest$required_columns %in% colnames(public_manifest)
   ))
 
-  for (name in c(
-    "salmonella_enterica_mic",
-    "campylobacter_jejuni_mic",
-    "escherichia_coli_o157_mic"
-  )) {
+  for (name in as.character(public_manifest$dataset_name)) {
     data <- amrc_example_data(name)
     expect_equal(nrow(data), manifest$public_mic_examples[[name]]$rows)
     expect_true(all(manifest$public_mic_examples[[name]]$required_columns %in% colnames(data)))
     expect_identical(anyDuplicated(data$ar_bank_id), 0L)
+
+    suggested_cols <- strsplit(
+      public_manifest$suggested_mic_cols[public_manifest$dataset_name == name],
+      ",",
+      fixed = TRUE
+    )[[1]]
+    expect_true(all(suggested_cols %in% colnames(data)))
   }
 })
 
@@ -136,6 +139,8 @@ test_that("streamlit validation contract remains lightweight and internally cons
     "summary.json",
     "amrc_report.md",
     "amrc_report.html",
+    "amrc_report.pdf",
+    "amrc_output_bundle.zip",
     "amrc_result_bundle.rds",
     "phenotype_cluster_elbow.png",
     "external_cluster_elbow.png",

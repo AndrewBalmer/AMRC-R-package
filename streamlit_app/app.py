@@ -14,12 +14,42 @@ import streamlit as st
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND = REPO_ROOT / "streamlit_app" / "amrc_streamlit_backend.R"
+GENERIC_EXAMPLE_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "generic"
+
+DEMO_SPECS = {
+    "generic_mic_only": {
+        "label": "Generic MIC only",
+        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+        "external_path": None,
+        "external_mode": None,
+    },
+    "generic_numeric_external": {
+        "label": "Generic MIC + numeric features",
+        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+        "external_path": GENERIC_EXAMPLE_ROOT / "external_numeric.csv",
+        "external_mode": "numeric_features",
+    },
+    "generic_character_external": {
+        "label": "Generic MIC + character features",
+        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+        "external_path": GENERIC_EXAMPLE_ROOT / "external_character.csv",
+        "external_mode": "character_features",
+    },
+}
 
 
 def read_uploaded_csv(uploaded_file) -> pd.DataFrame | None:
     if uploaded_file is None:
         return None
     return pd.read_csv(io.BytesIO(uploaded_file.getvalue()))
+
+
+def read_local_csv(path: Path | None) -> pd.DataFrame | None:
+    if path is None:
+        return None
+    if not path.exists():
+        raise FileNotFoundError(f"Bundled example file is missing: {path}")
+    return pd.read_csv(path)
 
 
 def none_option(label: str = "(none)") -> str:
@@ -57,15 +87,122 @@ def save_uploaded_file(uploaded_file, target: Path) -> None:
     target.write_bytes(uploaded_file.getvalue())
 
 
+def save_dataframe(df: pd.DataFrame, target: Path) -> None:
+    df.to_csv(target, index=False)
+
+
+def clear_demo_selection() -> None:
+    for key in (
+        "demo_key",
+        "demo_label",
+        "demo_phenotype_path",
+        "demo_external_path",
+    ):
+        st.session_state.pop(key, None)
+
+
+def apply_demo_selection(demo_key: str) -> None:
+    spec = DEMO_SPECS[demo_key]
+    phenotype_df = read_local_csv(spec["phenotype_path"])
+    phenotype_columns = phenotype_df.columns.tolist()
+    metadata_cols = [col for col in ("lineage", "source") if col in phenotype_columns]
+    mic_cols = [col for col in ("drug_a", "drug_b", "drug_c") if col in phenotype_columns]
+
+    st.session_state["demo_key"] = demo_key
+    st.session_state["demo_label"] = spec["label"]
+    st.session_state["demo_phenotype_path"] = str(spec["phenotype_path"])
+    st.session_state["demo_external_path"] = (
+        str(spec["external_path"]) if spec["external_path"] is not None else None
+    )
+    st.session_state["phenotype_id_col"] = "isolate_id"
+    st.session_state["mic_cols"] = mic_cols
+    st.session_state["metadata_cols"] = metadata_cols
+    st.session_state["transform"] = "log2"
+    st.session_state["less_than"] = "numeric"
+    st.session_state["greater_than"] = "numeric"
+    st.session_state["fill_col"] = "lineage" if "lineage" in metadata_cols else none_option()
+    st.session_state["facet_by"] = none_option()
+    st.session_state["group_col"] = "lineage" if "lineage" in metadata_cols else none_option()
+    st.session_state["grid_spacing_one"] = True
+    st.session_state["density"] = False
+    st.session_state["use_clustering"] = True
+    st.session_state["n_clusters"] = 3
+    st.session_state["cluster_max_k"] = 6
+    st.session_state["cluster_distinct_col"] = "isolate_id"
+    st.session_state["phenotype_rotation_degrees"] = 0.0
+    st.session_state["external_rotation_degrees"] = 0.0
+    st.session_state["reference_cluster_mode"] = "auto"
+    st.session_state["reference_filter_col"] = none_option()
+    st.session_state["reference_filter_values"] = []
+    st.session_state["reference_x_max"] = 0.0
+    st.session_state["reference_y_max"] = 0.0
+    st.session_state["reference_x_break_step"] = 0.0
+    st.session_state["reference_y_break_step"] = 0.0
+    st.session_state["reference_annotation_text"] = ""
+    st.session_state["reference_annotation_x"] = 0.0
+    st.session_state["reference_annotation_y"] = 0.0
+    st.session_state["report_pdf"] = False
+
+    if spec["external_path"] is None:
+        st.session_state["use_external"] = False
+        st.session_state["use_reference_summary"] = False
+    else:
+        external_df = read_local_csv(spec["external_path"])
+        external_columns = external_df.columns.tolist()
+        st.session_state["use_external"] = True
+        st.session_state["external_mode"] = spec["external_mode"]
+        st.session_state["external_id_col"] = "isolate_id"
+        st.session_state["external_feature_cols"] = [
+            col for col in external_columns if col != "isolate_id"
+        ]
+        st.session_state["use_reference_summary"] = True
+        st.session_state["reference_col"] = "lineage" if "lineage" in phenotype_columns else "isolate_id"
+        ref_values = phenotype_df[st.session_state["reference_col"]].dropna().astype(str).tolist()
+        st.session_state["reference_value"] = ref_values[0] if ref_values else ""
+
+
+def active_demo_key() -> str | None:
+    value = st.session_state.get("demo_key")
+    return value if value in DEMO_SPECS else None
+
+
+def active_demo_label() -> str | None:
+    return st.session_state.get("demo_label")
+
+
+def apply_rotation_preset(key: str, value: float) -> None:
+    st.session_state[key] = float(value)
+
+
+def copy_input_source(uploaded_file, local_path: Path | None, target: Path, fallback_df: pd.DataFrame | None = None) -> None:
+    if uploaded_file is not None:
+        save_uploaded_file(uploaded_file, target)
+        return
+    if local_path is not None:
+        target.write_bytes(local_path.read_bytes())
+        return
+    if fallback_df is not None:
+        save_dataframe(fallback_df, target)
+        return
+    raise ValueError("No input source was provided.")
+
+
 def build_config(
     phenotype_upload,
     phenotype_df: pd.DataFrame,
     external_upload,
     external_df: pd.DataFrame | None,
     work_dir: Path,
+    phenotype_local_path: Path | None = None,
+    external_local_path: Path | None = None,
 ) -> dict:
     phenotype_path = work_dir / "phenotype.csv"
-    save_uploaded_file(phenotype_upload, phenotype_path)
+    copy_input_source(
+        uploaded_file=phenotype_upload,
+        local_path=phenotype_local_path,
+        target=phenotype_path,
+        fallback_df=phenotype_df,
+    )
 
     phenotype_id_col = st.session_state["phenotype_id_col"]
     mic_cols = st.session_state["mic_cols"]
@@ -94,6 +231,10 @@ def build_config(
         },
         "comparison": {
             "group_col": maybe_none(st.session_state.get("group_col")),
+        },
+        "report": {
+            "zip_bundle": True,
+            "pdf_export": bool(st.session_state.get("report_pdf")),
         },
         "clustering": {
             "enabled": bool(st.session_state.get("use_clustering")),
@@ -126,7 +267,12 @@ def build_config(
 
     if st.session_state["use_external"]:
         external_path = work_dir / "external.csv"
-        save_uploaded_file(external_upload, external_path)
+        copy_input_source(
+            uploaded_file=external_upload,
+            local_path=external_local_path,
+            target=external_path,
+            fallback_df=external_df,
+        )
         external_mode = st.session_state["external_mode"]
         external_id_col = st.session_state["external_id_col"]
         external_feature_cols = st.session_state.get("external_feature_cols", [])
@@ -186,7 +332,9 @@ def run_backend(config: dict) -> dict:
         "summary.json",
         "amrc_report.md",
         "amrc_report.html",
+        "amrc_report.pdf",
         "amrc_result_bundle.rds",
+        "amrc_output_bundle.zip",
     ):
         path = work_dir / name
         if path.exists():
@@ -227,6 +375,20 @@ st.markdown(
     h2, h3 {
         color: #202020;
     }
+    [data-testid="stMetric"] {
+        background: #fbfbfb;
+        border: 1px solid #d9d9d9;
+        padding: 0.75rem 0.9rem;
+        border-radius: 8px;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        border: 1px solid #d9d9d9;
+        background: #fafafa;
+    }
     div.stButton > button[kind="primary"] {
         background-color: #E41A1C;
         color: white;
@@ -265,20 +427,35 @@ st.markdown(
 )
 
 with st.sidebar:
+    st.header("Quick demo")
+    st.caption("Use the bundled package fixtures for fast QA and demo runs.")
+    demo_button_cols = st.columns(3)
+    if demo_button_cols[0].button("MIC only", use_container_width=True):
+        apply_demo_selection("generic_mic_only")
+    if demo_button_cols[1].button("Numeric ext.", use_container_width=True):
+        apply_demo_selection("generic_numeric_external")
+    if demo_button_cols[2].button("Character ext.", use_container_width=True):
+        apply_demo_selection("generic_character_external")
+    if active_demo_key() is not None:
+        st.caption(f"Active bundled demo: {active_demo_label()}")
+        if st.button("Clear demo selection", use_container_width=True):
+            clear_demo_selection()
+
     st.header("Phenotype Input")
     phenotype_upload = st.file_uploader("Phenotype MIC CSV", type=["csv"])
 
+demo_phenotype_path = Path(st.session_state["demo_phenotype_path"]) if st.session_state.get("demo_phenotype_path") else None
+demo_external_path = Path(st.session_state["demo_external_path"]) if st.session_state.get("demo_external_path") else None
+
 phenotype_df = read_uploaded_csv(phenotype_upload)
+if phenotype_df is None and demo_phenotype_path is not None:
+    phenotype_df = read_local_csv(demo_phenotype_path)
 
 if phenotype_df is not None:
     columns = phenotype_df.columns.tolist()
 
     with st.sidebar:
-        st.selectbox(
-            "Phenotype ID column",
-            options=columns,
-            key="phenotype_id_col",
-        )
+        st.selectbox("Phenotype ID column", options=columns, key="phenotype_id_col")
 
         default_mic = columns[1:min(len(columns), 4)]
         st.multiselect(
@@ -329,6 +506,15 @@ if phenotype_df is not None:
             help="Use this after calibration if you want one doubling dilution per grid interval.",
         )
         st.checkbox("Add density contours", value=False, key="density")
+        preset_cols = st.columns(4)
+        if preset_cols[0].button("0°", key="phen-rot-0", use_container_width=True):
+            apply_rotation_preset("phenotype_rotation_degrees", 0)
+        if preset_cols[1].button("+15°", key="phen-rot-15", use_container_width=True):
+            apply_rotation_preset("phenotype_rotation_degrees", 15)
+        if preset_cols[2].button("-15°", key="phen-rot-neg15", use_container_width=True):
+            apply_rotation_preset("phenotype_rotation_degrees", -15)
+        if preset_cols[3].button("326°", key="phen-rot-spn", use_container_width=True):
+            apply_rotation_preset("phenotype_rotation_degrees", 326)
         st.number_input(
             "Phenotype rotation (degrees)",
             min_value=-360.0,
@@ -357,6 +543,8 @@ if phenotype_df is not None:
         with st.sidebar:
             external_upload = st.file_uploader("External CSV", type=["csv"])
         external_df = read_uploaded_csv(external_upload)
+        if external_df is None and demo_external_path is not None:
+            external_df = read_local_csv(demo_external_path)
 
         if external_df is not None:
             external_columns = external_df.columns.tolist()
@@ -391,6 +579,15 @@ if phenotype_df is not None:
                         key="external_feature_cols",
                     )
 
+                external_rot_cols = st.columns(4)
+                if external_rot_cols[0].button("0°", key="ext-rot-0", use_container_width=True):
+                    apply_rotation_preset("external_rotation_degrees", 0)
+                if external_rot_cols[1].button("+15°", key="ext-rot-15", use_container_width=True):
+                    apply_rotation_preset("external_rotation_degrees", 15)
+                if external_rot_cols[2].button("-15°", key="ext-rot-neg15", use_container_width=True):
+                    apply_rotation_preset("external_rotation_degrees", -15)
+                if external_rot_cols[3].button("326°", key="ext-rot-spn", use_container_width=True):
+                    apply_rotation_preset("external_rotation_degrees", 326)
                 st.number_input(
                     "External rotation (degrees)",
                     min_value=-360.0,
@@ -507,6 +704,8 @@ if phenotype_df is not None:
 
     with left:
         st.subheader("Input Preview")
+        if active_demo_key() is not None and phenotype_upload is None:
+            st.caption(f"Previewing bundled demo input: {active_demo_label()}")
         st.dataframe(phenotype_df.head(10), use_container_width=True)
         if external_df is not None:
             st.subheader("External Preview")
@@ -517,12 +716,18 @@ if phenotype_df is not None:
         st.markdown(
             "- Requires `Rscript` plus the package dependencies available in the local environment.\n"
             "- This v1 app focuses on the stable generic map workflow, not the full mixed-model layer.\n"
-            "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider."
+            "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider.\n"
+            "- The bundled demo buttons above are intended for quick QA and style checks without preparing your own files first."
+        )
+        st.checkbox(
+            "Export PDF report",
+            value=bool(st.session_state.get("report_pdf", False)),
+            key="report_pdf",
         )
 
         can_run = bool(st.session_state.get("mic_cols"))
         if st.session_state["use_external"]:
-            can_run = can_run and external_upload is not None
+            can_run = can_run and (external_upload is not None or demo_external_path is not None)
 
         if st.button("Run analysis", disabled=not can_run, type="primary"):
             with st.spinner("Running R backend..."):
@@ -534,6 +739,8 @@ if phenotype_df is not None:
                         external_upload=external_upload,
                         external_df=external_df,
                         work_dir=work_dir,
+                        phenotype_local_path=demo_phenotype_path,
+                        external_local_path=demo_external_path,
                     )
                     st.session_state["amrc_app_result"] = run_backend(config)
                 except Exception as exc:  # noqa: BLE001
@@ -672,6 +879,13 @@ if result:
                     file_name="amrc_report.html",
                     mime="text/html",
                 )
+            if "amrc_report.pdf" in result["files"]:
+                st.download_button(
+                    label="Download analysis report (.pdf)",
+                    data=result["files"]["amrc_report.pdf"],
+                    file_name="amrc_report.pdf",
+                    mime="application/pdf",
+                )
 
     extra_downloads = []
     if "summary.json" in result["files"]:
@@ -682,6 +896,10 @@ if result:
         extra_downloads.append(("Download report (.md)", "amrc_report.md", "text/markdown"))
     if "amrc_report.html" in result["files"]:
         extra_downloads.append(("Download report (.html)", "amrc_report.html", "text/html"))
+    if "amrc_report.pdf" in result["files"]:
+        extra_downloads.append(("Download report (.pdf)", "amrc_report.pdf", "application/pdf"))
+    if "amrc_output_bundle.zip" in result["files"]:
+        extra_downloads.append(("Download output bundle (.zip)", "amrc_output_bundle.zip", "application/zip"))
 
     if extra_downloads:
         st.subheader("Download bundles")

@@ -40,6 +40,7 @@ The goal is to make it unambiguous which data assets:
 - the compact `mapping_08` pneumococcal case-study bundle under
   `inst/extdata/examples/spneumoniae-08/`
 - tiny public cross-species MIC subsets under `inst/extdata/examples/public-mic/`
+  now spanning enteric, non-fermenter, and staphylococcal examples
 
 ### Generated on demand
 
@@ -53,7 +54,7 @@ The goal is to make it unambiguous which data assets:
 
 - full public redistribution of the larger non-mini notebook-scale source data
 - whether future public example bundles should remain tiny curated subsets or
-  expand to larger species-diverse fixtures
+  expand further beyond the current small multi-species teaching collection
 
 ## Working rules
 

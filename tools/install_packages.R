@@ -28,12 +28,15 @@ analysis_packages <- c(
   "FactoMineR",
   "ggpubr",
   "patchwork",
+  "png",
+  "ragg",
   "factoextra",
   "NbClust",
   "proxy",
   "ggforce",
   "ggnewscale",
-  "doRNG"
+  "doRNG",
+  "vdiffr"
 )
 
 install_missing_packages <- function(

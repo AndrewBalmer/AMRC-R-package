@@ -243,6 +243,11 @@ The package now includes generic plotting helpers for the main map workflows:
   `amrc_compose_map_reference_panel()`, and
   `amrc_compose_phenotype_external_reference_panel()` for the recurring
   manuscript/thesis multi-panel figure layouts
+- `amrc_compose_manuscript_side_by_side_panel()`,
+  `amrc_compose_manuscript_triptych_panel()`,
+  `amrc_compose_thesis_storyboard_panel()`, and
+  `amrc_compose_manuscript_cluster_story_panel()` for the most common
+  manuscript/thesis figure presets used across the legacy notebooks
 
 For group-level phenotype-versus-external summaries, the generic comparison
 layer also now includes:
@@ -360,14 +365,17 @@ coordinates and MLST metadata:
 amrc_spneumoniae_example_paths("mapping_08")
 ```
 
-The package also ships three tiny public MIC subsets from CDC AR Isolate Bank
-detail pages for cross-species examples:
+The package also ships tiny public MIC subsets from CDC AR Isolate Bank detail
+pages for cross-species examples:
 
 ```r
 amrc_public_mic_example_specs()
 amrc_example_data("salmonella_enterica_mic")
 amrc_example_data("campylobacter_jejuni_mic")
 amrc_example_data("escherichia_coli_o157_mic")
+amrc_example_data("acinetobacter_baumannii_mic")
+amrc_example_data("pseudomonas_aeruginosa_mic")
+amrc_example_data("staphylococcus_aureus_mic")
 ```
 
 These are deliberately small teaching/demo fixtures rather than benchmark

@@ -864,13 +864,29 @@ test_that("manuscript panel composers assemble plot layouts", {
 
   grid_panel <- amrc_compose_manuscript_panel_grid(list(map_plot, ref_plot), ncol = 2)
   pair_panel <- amrc_compose_map_reference_panel(map_plot, ref_plot)
+  side_panel <- amrc_compose_manuscript_side_by_side_panel(map_plot, ref_plot)
+  row_panel <- amrc_compose_manuscript_triptych_panel(map_plot, map_plot, ref_plot)
   triptych_panel <- amrc_compose_phenotype_external_reference_panel(
     phenotype_plot = map_plot,
     external_plot = map_plot,
     reference_plot = ref_plot
   )
+  storyboard_panel <- amrc_compose_thesis_storyboard_panel(
+    top_left = map_plot,
+    top_right = map_plot,
+    bottom_plot = ref_plot
+  )
+  cluster_story_panel <- amrc_compose_manuscript_cluster_story_panel(
+    phenotype_plot = map_plot,
+    external_plot = map_plot,
+    feature_plot = ref_plot
+  )
 
   expect_s3_class(grid_panel, "patchwork")
   expect_s3_class(pair_panel, "patchwork")
+  expect_s3_class(side_panel, "patchwork")
+  expect_s3_class(row_panel, "patchwork")
   expect_s3_class(triptych_panel, "patchwork")
+  expect_s3_class(storyboard_panel, "patchwork")
+  expect_s3_class(cluster_story_panel, "patchwork")
 })

@@ -28,6 +28,9 @@ amrc_example_data_paths <- function(mustWork = TRUE) {
     salmonella_enterica_mic = file.path(public_root, "salmonella_enterica_mic.csv"),
     campylobacter_jejuni_mic = file.path(public_root, "campylobacter_jejuni_mic.csv"),
     escherichia_coli_o157_mic = file.path(public_root, "escherichia_coli_o157_mic.csv"),
+    acinetobacter_baumannii_mic = file.path(public_root, "acinetobacter_baumannii_mic.csv"),
+    pseudomonas_aeruginosa_mic = file.path(public_root, "pseudomonas_aeruginosa_mic.csv"),
+    staphylococcus_aureus_mic = file.path(public_root, "staphylococcus_aureus_mic.csv"),
     public_mic_manifest = file.path(public_root, "public_mic_manifest.csv")
   )
 
@@ -66,6 +69,9 @@ amrc_example_data <- function(
     "salmonella_enterica_mic",
     "campylobacter_jejuni_mic",
     "escherichia_coli_o157_mic",
+    "acinetobacter_baumannii_mic",
+    "pseudomonas_aeruginosa_mic",
+    "staphylococcus_aureus_mic",
     "public_mic_manifest"
   )
 ) {

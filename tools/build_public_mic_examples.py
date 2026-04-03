@@ -13,13 +13,13 @@ from bs4 import BeautifulSoup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO_ROOT / "inst" / "extdata" / "examples" / "public-mic"
-PANEL_ID = 6
 DETAIL_URL = "https://wwwn.cdc.gov/ArIsolateBank/Panel/IsolateDetail?IsolateID={isolate_id}&PanelID={panel_id}"
-PANEL_URL = f"https://wwwn.cdc.gov/ArIsolateBank/Panel/PanelDetail?ID={PANEL_ID}"
+PANEL_URL = "https://wwwn.cdc.gov/ArIsolateBank/Panel/PanelDetail?ID={panel_id}"
 
 EXAMPLES = {
     "salmonella_enterica_mic": {
         "species_group": "Salmonella enterica",
+        "panel_id": 6,
         "isolate_ids": [401, 404, 408, 410],
         "suggested_mic_cols": [
             "amoxicillin_clavulanic_acid",
@@ -32,6 +32,7 @@ EXAMPLES = {
     },
     "campylobacter_jejuni_mic": {
         "species_group": "Campylobacter jejuni",
+        "panel_id": 6,
         "isolate_ids": [412, 413, 414, 415],
         "suggested_mic_cols": [
             "azithromycin",
@@ -44,6 +45,7 @@ EXAMPLES = {
     },
     "escherichia_coli_o157_mic": {
         "species_group": "Escherichia coli O157",
+        "panel_id": 6,
         "isolate_ids": [427, 428, 429, 430],
         "suggested_mic_cols": [
             "amoxicillin_clavulanic_acid",
@@ -52,6 +54,48 @@ EXAMPLES = {
             "ciprofloxacin",
             "gentamicin",
             "tetracycline",
+        ],
+    },
+    "acinetobacter_baumannii_mic": {
+        "species_group": "Acinetobacter baumannii",
+        "panel_id": 1,
+        "isolate_ids": [273, 274, 275, 276],
+        "suggested_mic_cols": [
+            "cefepime",
+            "ceftazidime",
+            "ciprofloxacin",
+            "gentamicin",
+            "imipenem",
+            "meropenem",
+            "minocycline",
+        ],
+    },
+    "pseudomonas_aeruginosa_mic": {
+        "species_group": "Pseudomonas aeruginosa",
+        "panel_id": 12,
+        "isolate_ids": [229, 230, 231, 232],
+        "suggested_mic_cols": [
+            "aztreonam",
+            "cefepime",
+            "ceftazidime",
+            "ciprofloxacin",
+            "imipenem",
+            "meropenem",
+            "tobramycin",
+        ],
+    },
+    "staphylococcus_aureus_mic": {
+        "species_group": "Staphylococcus aureus",
+        "panel_id": 13,
+        "isolate_ids": [461, 462, 463, 464],
+        "suggested_mic_cols": [
+            "ceftaroline",
+            "clindamycin",
+            "daptomycin",
+            "linezolid",
+            "oxacillin",
+            "penicillin",
+            "vancomycin",
         ],
     },
 }
@@ -172,13 +216,15 @@ def main() -> None:
     manifest_rows = []
 
     for dataset_name, spec in EXAMPLES.items():
+        panel_id = spec["panel_id"]
+        panel_url = PANEL_URL.format(panel_id=panel_id)
         rows = []
         for isolate_id in spec["isolate_ids"]:
-            detail_url = DETAIL_URL.format(isolate_id=isolate_id, panel_id=PANEL_ID)
+            detail_url = DETAIL_URL.format(isolate_id=isolate_id, panel_id=panel_id)
             parsed = parse_isolate_detail(fetch_text(detail_url))
             parsed["species_group"] = spec["species_group"]
-            parsed["panel_id"] = str(PANEL_ID)
-            parsed["panel_url"] = PANEL_URL
+            parsed["panel_id"] = str(panel_id)
+            parsed["panel_url"] = panel_url
             parsed["detail_url"] = detail_url
             rows.append(parsed)
 
@@ -190,8 +236,8 @@ def main() -> None:
                 "file_name": csv_path.name,
                 "species_group": spec["species_group"],
                 "n_isolates": str(len(rows)),
-                "panel_id": str(PANEL_ID),
-                "panel_url": PANEL_URL,
+                "panel_id": str(panel_id),
+                "panel_url": panel_url,
                 "suggested_id_col": "ar_bank_id",
                 "suggested_metadata_cols": "species_group,organism,source,biosample_accession",
                 "suggested_mic_cols": ",".join(spec["suggested_mic_cols"]),

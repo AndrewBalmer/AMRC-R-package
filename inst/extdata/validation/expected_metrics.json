@@ -30,8 +30,20 @@
       "rows": 4,
       "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "ampicillin", "ceftriaxone", "ciprofloxacin", "gentamicin", "tetracycline"]
     },
+    "acinetobacter_baumannii_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "cefepime", "ceftazidime", "ciprofloxacin", "gentamicin", "imipenem", "meropenem", "minocycline"]
+    },
+    "pseudomonas_aeruginosa_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "aztreonam", "cefepime", "ceftazidime", "ciprofloxacin", "imipenem", "meropenem", "tobramycin"]
+    },
+    "staphylococcus_aureus_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "ceftaroline", "clindamycin", "daptomycin", "linezolid", "oxacillin", "penicillin", "vancomycin"]
+    },
     "public_mic_manifest": {
-      "rows": 3,
+      "rows": 6,
       "required_columns": ["dataset_name", "file_name", "species_group", "n_isolates", "suggested_id_col", "suggested_mic_cols"]
     }
   },
@@ -66,6 +78,8 @@
       "summary.json",
       "amrc_report.md",
       "amrc_report.html",
+      "amrc_report.pdf",
+      "amrc_output_bundle.zip",
       "amrc_result_bundle.rds",
       "phenotype_map.png",
       "phenotype_map_data.csv",

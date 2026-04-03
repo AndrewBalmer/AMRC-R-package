@@ -1701,6 +1701,133 @@ amrc_compose_phenotype_external_reference_panel <- function(
   combined + patchwork::plot_annotation(tag_levels = tag_levels)
 }
 
+#' Compose a Recurring Manuscript Side-by-Side Comparison Panel
+#'
+#' Mirrors the repeated two-panel `ggarrange(..., nrow = 1, ncol = 2)` layouts
+#' used throughout the manuscript and thesis notebooks.
+#'
+#' @param left_plot,right_plot `ggplot` objects.
+#' @param widths Relative panel widths.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_manuscript_side_by_side_panel <- function(
+  left_plot,
+  right_plot,
+  widths = c(1, 1),
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_compose_manuscript_panel_grid(
+    plots = list(left_plot, right_plot),
+    ncol = 2,
+    widths = widths,
+    collect_guides = collect_guides,
+    tag_levels = tag_levels
+  )
+}
+
+#' Compose a Recurring Manuscript Triptych Row
+#'
+#' Mirrors the common one-row, three-panel arrangement used for multi-drug map
+#' comparisons in the notebooks.
+#'
+#' @param plot_a,plot_b,plot_c `ggplot` objects.
+#' @param widths Relative panel widths.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_manuscript_triptych_panel <- function(
+  plot_a,
+  plot_b,
+  plot_c,
+  widths = c(1, 1, 1),
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_compose_manuscript_panel_grid(
+    plots = list(plot_a, plot_b, plot_c),
+    ncol = 3,
+    widths = widths,
+    collect_guides = collect_guides,
+    tag_levels = tag_levels
+  )
+}
+
+#' Compose a Recurring Thesis-Style Storyboard Panel
+#'
+#' Mirrors the repeated notebook layout with two smaller top-row panels and one
+#' wider bottom panel carrying the main interpretive graphic.
+#'
+#' @param top_left,top_right,bottom_plot `ggplot` objects.
+#' @param top_widths Relative widths of the top-row panels.
+#' @param bottom_height Relative height of the bottom panel.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_thesis_storyboard_panel <- function(
+  top_left,
+  top_right,
+  bottom_plot,
+  top_widths = c(1, 1),
+  bottom_height = 1.15,
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_require_patchwork()
+
+  top_row <- patchwork::wrap_plots(
+    list(top_left, top_right),
+    ncol = 2,
+    widths = top_widths,
+    guides = if (isTRUE(collect_guides)) "collect" else "keep"
+  )
+
+  (top_row / bottom_plot + patchwork::plot_layout(heights = c(1, bottom_height))) +
+    patchwork::plot_annotation(tag_levels = tag_levels)
+}
+
+#' Compose a Cluster-Story Figure in the Recurring Thesis Layout
+#'
+#' Convenience wrapper for the common phenotype/external-plus-feature-shift
+#' figure used in the clustering notebooks.
+#'
+#' @param phenotype_plot A phenotype map plot.
+#' @param external_plot An external or genotype map plot.
+#' @param feature_plot A differentiating-feature or effect-summary plot.
+#' @param top_widths Relative widths of the top-row panels.
+#' @param bottom_height Relative height of the bottom panel.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_manuscript_cluster_story_panel <- function(
+  phenotype_plot,
+  external_plot,
+  feature_plot,
+  top_widths = c(1, 1),
+  bottom_height = 1.15,
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_compose_thesis_storyboard_panel(
+    top_left = phenotype_plot,
+    top_right = external_plot,
+    bottom_plot = feature_plot,
+    top_widths = top_widths,
+    bottom_height = bottom_height,
+    collect_guides = collect_guides,
+    tag_levels = tag_levels
+  )
+}
+
 #' Plot Ranked Cluster-Difference Features
 #'
 #' @param feature_summary Output from

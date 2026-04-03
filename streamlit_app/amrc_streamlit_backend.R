@@ -183,6 +183,55 @@ amrc_escape_html <- function(text) {
   text
 }
 
+amrc_html_list <- function(items) {
+  items <- items[!is.na(items) & nzchar(items)]
+  if (length(items) == 0L) {
+    return("<p>None.</p>")
+  }
+  paste0(
+    "<ul>",
+    paste0("<li>", vapply(items, amrc_escape_html, character(1)), "</li>", collapse = ""),
+    "</ul>"
+  )
+}
+
+write_report_pdf <- function(markdown, output_dir) {
+  pdf_path <- file.path(output_dir, "amrc_report.pdf")
+  grDevices::pdf(pdf_path, width = 8.27, height = 11.69, family = "Helvetica")
+  on.exit(grDevices::dev.off(), add = TRUE)
+  grid::grid.newpage()
+  grid::grid.text(
+    markdown,
+    x = grid::unit(0.03, "npc"),
+    y = grid::unit(0.97, "npc"),
+    just = c("left", "top"),
+    gp = grid::gpar(fontfamily = "Helvetica", cex = 0.72)
+  )
+  pdf_path
+}
+
+write_output_archive <- function(output_dir, archive_name = "amrc_output_bundle.zip") {
+  archive_path <- file.path(output_dir, archive_name)
+  files <- list.files(output_dir, full.names = TRUE)
+  files <- files[basename(files) != archive_name]
+  if (length(files) == 0L) {
+    return(NULL)
+  }
+
+  old_wd <- getwd()
+  on.exit(setwd(old_wd), add = TRUE)
+  setwd(output_dir)
+
+  tryCatch(
+    {
+      utils::zip(zipfile = archive_name, files = basename(files), flags = "-rq")
+      archive_path
+    },
+    error = function(...) NULL,
+    warning = function(...) NULL
+  )
+}
+
 write_run_report <- function(summary, output_dir, config) {
   phenotype_lines <- c(
     sprintf("- isolates: %s", summary$phenotype$n_isolates %||% "NA"),
@@ -289,17 +338,60 @@ write_run_report <- function(summary, output_dir, config) {
   )
 
   markdown <- paste(report_lines, collapse = "\n")
+  output_files <- c(
+    "phenotype_map.png",
+    if (!is.null(summary$external)) c("external_map.png", "side_by_side_maps.png") else NULL,
+    if (!is.null(summary$external$reference)) "reference_distance_relationship.png" else NULL,
+    "summary.json",
+    if (isTRUE(config$report$pdf_export)) "amrc_report.pdf" else NULL,
+    if (isTRUE(config$report$zip_bundle)) "amrc_output_bundle.zip" else NULL,
+    "amrc_result_bundle.rds"
+  )
   html <- paste0(
     "<html><head><meta charset=\"utf-8\"><title>amrcartography analysis report</title>",
-    "<style>body{font-family:Helvetica,Arial,sans-serif;margin:2rem;line-height:1.5;color:#111;}",
-    "h1,h2{color:#111;} code{background:#f3f3f3;padding:0.1rem 0.25rem;}",
-    "ul{margin-top:0.5rem;} </style></head><body><pre style=\"white-space:pre-wrap;\">",
-    amrc_escape_html(markdown),
-    "</pre></body></html>"
+    "<style>",
+    "body{font-family:Helvetica,Arial,sans-serif;margin:2rem;line-height:1.55;color:#111;background:#fff;}",
+    "h1,h2{color:#111;margin-bottom:0.4rem;} h1{letter-spacing:0.01em;}",
+    "code{background:#f3f3f3;padding:0.1rem 0.25rem;border-radius:2px;}",
+    ".lede{border-left:4px solid #377EB8;background:#f7fbff;padding:0.85rem 1rem;margin:1rem 0 1.25rem 0;}",
+    ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin:1rem 0;}",
+    ".card{border:1px solid #d9d9d9;padding:1rem;border-radius:6px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.03);}",
+    ".metric{font-size:1.4rem;font-weight:700;color:#202020;}",
+    ".caption{color:#555;font-size:0.95rem;}",
+    "ul{margin-top:0.5rem;padding-left:1.1rem;}",
+    "</style></head><body>",
+    "<h1>amrcartography analysis report</h1>",
+    "<div class=\"lede\">",
+    "<strong>Calibration note.</strong> One-unit grid spacing should be interpreted as one doubling dilution only after the package calibration model has been applied.",
+    "</div>",
+    "<div class=\"grid\">",
+    "<div class=\"card\"><div class=\"caption\">Release target</div><div class=\"metric\">",
+    amrc_escape_html(summary$package_release_target %||% "unknown"),
+    "</div></div>",
+    "<div class=\"card\"><div class=\"caption\">Phenotype isolates</div><div class=\"metric\">",
+    amrc_escape_html(as.character(summary$phenotype$n_isolates %||% "NA")),
+    "</div></div>",
+    "<div class=\"card\"><div class=\"caption\">MIC variables</div><div class=\"metric\">",
+    amrc_escape_html(as.character(summary$phenotype$n_drugs %||% "NA")),
+    "</div></div>",
+    "<div class=\"card\"><div class=\"caption\">Phenotype stress</div><div class=\"metric\">",
+    amrc_escape_html(summary$phenotype$stress %fmt_or_na% 4),
+    "</div></div>",
+    "</div>",
+    "<h2>Phenotype workflow</h2>",
+    amrc_html_list(phenotype_lines),
+    "<h2>External workflow</h2>",
+    amrc_html_list(external_lines),
+    "<h2>Output files</h2>",
+    amrc_html_list(output_files),
+    "</body></html>"
   )
 
   writeLines(markdown, con = file.path(output_dir, "amrc_report.md"), useBytes = TRUE)
   writeLines(html, con = file.path(output_dir, "amrc_report.html"), useBytes = TRUE)
+  if (isTRUE(config$report$pdf_export)) {
+    write_report_pdf(markdown, output_dir = output_dir)
+  }
 }
 
 prepare_map_frame <- function(mds_result, metadata, id_col, prefix = "D") {
@@ -804,3 +896,7 @@ saveRDS(
   result_bundle,
   file = file.path(output_dir, "amrc_result_bundle.rds")
 )
+
+if (isTRUE(config$report$zip_bundle)) {
+  write_output_archive(output_dir = output_dir)
+}

@@ -449,11 +449,7 @@ validate_public_mic_examples <- function() {
     "Public MIC manifest"
   )
 
-  dataset_names <- c(
-    "salmonella_enterica_mic",
-    "campylobacter_jejuni_mic",
-    "escherichia_coli_o157_mic"
-  )
+  dataset_names <- as.character(manifest$dataset_name)
 
   for (name in dataset_names) {
     assert_non_empty_file(paths[[name]], paste("Bundled public MIC example", name))
@@ -544,6 +540,10 @@ validate_streamlit_backend <- function() {
     ),
     comparison = list(
       group_col = "lineage"
+    ),
+    report = list(
+      zip_bundle = TRUE,
+      pdf_export = TRUE
     ),
     clustering = list(
       enabled = TRUE,

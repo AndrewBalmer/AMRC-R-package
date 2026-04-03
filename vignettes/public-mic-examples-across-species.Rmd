@@ -36,6 +36,10 @@ public_specs <- amrc_public_mic_example_specs()
 public_specs[, c("dataset_name", "species_group", "n_isolates", "suggested_mic_cols")]
 ```
 
+The package currently includes six tiny public subsets spanning both Gram-
+negative and Gram-positive organisms. This vignette keeps the worked example
+to three species so it stays fast and compact.
+
 ## Define a lightweight species workflow helper
 
 ```{r}
