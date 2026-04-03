@@ -15,6 +15,12 @@ Current scope:
 - clean and standardise MIC values
 - compute a phenotype distance matrix and MDS map
 - calibrate maps onto MIC-style units using the package calibration model
+- surface map goodness-of-fit summaries for phenotype and external maps:
+  - stress
+  - R-squared from the calibration fit
+  - residual summaries
+  - stress-per-point summaries
+  - downloadable pairwise fit-distance tables
 - optional post-calibration rotation controls for phenotype and external maps
   plus quick preset buttons for common manuscript/thesis orientations
 - optionally cluster the phenotype map with configurable `k` and join-key

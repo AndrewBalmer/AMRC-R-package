@@ -379,7 +379,8 @@ amrc_example_data("staphylococcus_aureus_mic")
 ```
 
 These are deliberately small teaching/demo fixtures rather than benchmark
-datasets.
+datasets. The source resource and panel pages are documented in
+[docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md](docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md).
 
 ## Expected Runtime
 
@@ -394,6 +395,7 @@ datasets.
 The package now separates what ships in the repository from what is downloaded or generated locally.
 
 - Narrative provenance policy: [docs/DATA_PROVENANCE.md](docs/DATA_PROVENANCE.md)
+- Public example citation notes: [docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md](docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md)
 - Machine-readable provenance manifest: [data-raw/data-provenance.csv](data-raw/data-provenance.csv)
 - Package conversion roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Script-by-script migration audit: [docs/SCRIPT_AUDIT.md](docs/SCRIPT_AUDIT.md)

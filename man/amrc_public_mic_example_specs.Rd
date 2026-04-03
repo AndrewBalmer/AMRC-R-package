@@ -12,5 +12,7 @@ A \code{data.frame} describing the packaged public MIC examples.
 \description{
 Returns the packaged manifest describing the small public MIC subsets bundled
 for the cross-species vignette. The suggested MIC columns can be split on
-commas and passed directly to \code{\link[=amrc_standardise_mic_data]{amrc_standardise_mic_data()}}.
+commas and passed directly to \code{\link[=amrc_standardise_mic_data]{amrc_standardise_mic_data()}}. The manifest
+also carries source panel URLs and a short resource citation for the CDC &
+FDA Antimicrobial Resistance Isolate Bank examples.
 }

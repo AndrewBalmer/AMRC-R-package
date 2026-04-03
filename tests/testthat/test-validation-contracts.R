@@ -142,7 +142,15 @@ test_that("streamlit validation contract remains lightweight and internally cons
     "amrc_report.pdf",
     "amrc_output_bundle.zip",
     "amrc_result_bundle.rds",
+    "phenotype_fit_metrics.csv",
+    "phenotype_residual_summary.csv",
+    "phenotype_stress_summary.csv",
+    "phenotype_fit_distances.csv",
     "phenotype_cluster_elbow.png",
+    "external_fit_metrics.csv",
+    "external_residual_summary.csv",
+    "external_stress_summary.csv",
+    "external_fit_distances.csv",
     "external_cluster_elbow.png",
     "reference_distance_summary.csv"
   ) %in% required_files))

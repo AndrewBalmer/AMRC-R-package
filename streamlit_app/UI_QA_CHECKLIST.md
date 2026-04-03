@@ -44,6 +44,7 @@ correctness of results.
   calibration
 - clicking `Run analysis` produces:
   - phenotype map
+  - phenotype goodness-of-fit summaries and downloads
   - summary JSON block
   - output tables
   - downloadable `summary.json`
@@ -65,6 +66,7 @@ correctness of results.
   - external map
   - side-by-side map
   - comparison table
+  - external goodness-of-fit summaries and downloads
 
 ## Clustering workflow
 

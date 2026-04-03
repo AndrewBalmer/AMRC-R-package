@@ -344,9 +344,17 @@ def run_backend(config: dict) -> dict:
         "phenotype_map_data.csv",
         "phenotype_cluster_data.csv",
         "phenotype_cluster_scree.csv",
+        "phenotype_fit_metrics.csv",
+        "phenotype_residual_summary.csv",
+        "phenotype_stress_summary.csv",
+        "phenotype_fit_distances.csv",
         "comparison_data.csv",
         "external_cluster_data.csv",
         "external_cluster_scree.csv",
+        "external_fit_metrics.csv",
+        "external_residual_summary.csv",
+        "external_stress_summary.csv",
+        "external_fit_distances.csv",
         "reference_distance_table.csv",
         "reference_distance_summary.csv",
     ):
@@ -715,7 +723,7 @@ if phenotype_df is not None:
         st.subheader("Run")
         st.markdown(
             "- Requires `Rscript` plus the package dependencies available in the local environment.\n"
-            "- This v1 app focuses on the stable generic map workflow, not the full mixed-model layer.\n"
+            "- This v1 app covers phenotype-only and phenotype-plus-external/genotype map workflows, not the full mixed-model layer.\n"
             "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider.\n"
             "- The bundled demo buttons above are intended for quick QA and style checks without preparing your own files first."
         )
@@ -784,6 +792,42 @@ if result:
             f"dilation={external_calibration.get('dilation', 'NA')}, "
             f"rotation={external_calibration.get('rotation_degrees', 0)} degrees."
         )
+
+    fit_sections = []
+    if "phenotype_fit_metrics.csv" in result["tables"]:
+        fit_sections.append(
+            ("Phenotype fit", "phenotype_fit_metrics.csv", "phenotype_residual_summary.csv", "phenotype_stress_summary.csv")
+        )
+    if "external_fit_metrics.csv" in result["tables"]:
+        fit_sections.append(
+            ("External fit", "external_fit_metrics.csv", "external_residual_summary.csv", "external_stress_summary.csv")
+        )
+    if fit_sections:
+        st.subheader("Goodness-of-fit summaries")
+        fit_tabs = st.tabs([label for label, *_ in fit_sections])
+        for tab, (label, metrics_name, residual_name, stress_name) in zip(fit_tabs, fit_sections):
+            with tab:
+                st.markdown(f"**{label} metrics**")
+                st.dataframe(result["tables"][metrics_name], use_container_width=True)
+                if residual_name in result["tables"]:
+                    st.markdown("**Residual summary**")
+                    st.dataframe(result["tables"][residual_name], use_container_width=True)
+                if stress_name in result["tables"]:
+                    st.markdown("**Stress-per-point summary**")
+                    st.dataframe(result["tables"][stress_name], use_container_width=True)
+                download_cols = st.columns(4)
+                for col, name in zip(
+                    download_cols,
+                    [metrics_name, residual_name, stress_name, metrics_name.replace("_metrics.csv", "_distances.csv")],
+                ):
+                    if name in result["files"]:
+                        col.download_button(
+                            label=f"Download {name}",
+                            data=result["files"][name],
+                            file_name=name,
+                            mime="text/csv",
+                            key=f"download-{name}",
+                        )
 
     image_cols = st.columns(2)
     if "phenotype_map.png" in result["files"]:

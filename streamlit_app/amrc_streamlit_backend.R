@@ -232,6 +232,62 @@ write_output_archive <- function(output_dir, archive_name = "amrc_output_bundle.
   )
 }
 
+fit_report_metrics_frame <- function(fit_report, stress_value = NA_real_) {
+  data.frame(
+    stress = unname(stress_value %||% NA_real_),
+    r_squared = unname(fit_report$r_squared %||% NA_real_),
+    dilation = unname(fit_report$dilation %||% NA_real_),
+    correlation_estimate = unname(fit_report$correlation$estimate %||% NA_real_),
+    correlation_p_value = unname(fit_report$correlation$p.value %||% NA_real_),
+    correlation_method = fit_report$correlation$method %||% NA_character_,
+    n_distance_pairs = nrow(fit_report$distances %||% data.frame()),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+}
+
+write_fit_report_outputs <- function(fit_report, output_dir, prefix, stress_value = NA_real_) {
+  metrics <- fit_report_metrics_frame(fit_report, stress_value = stress_value)
+  residual_summary_path <- file.path(output_dir, paste0(prefix, "_residual_summary.csv"))
+  stress_summary_path <- file.path(output_dir, paste0(prefix, "_stress_summary.csv"))
+  fit_metrics_path <- file.path(output_dir, paste0(prefix, "_fit_metrics.csv"))
+  fit_distances_path <- file.path(output_dir, paste0(prefix, "_fit_distances.csv"))
+
+  utils::write.csv(
+    fit_report$residual_summary,
+    file = residual_summary_path,
+    row.names = FALSE
+  )
+  utils::write.csv(
+    fit_report$stress_summary,
+    file = stress_summary_path,
+    row.names = FALSE
+  )
+  utils::write.csv(
+    metrics,
+    file = fit_metrics_path,
+    row.names = FALSE
+  )
+  utils::write.csv(
+    fit_report$distances,
+    file = fit_distances_path,
+    row.names = FALSE
+  )
+
+  list(
+    metrics = metrics,
+    residual_summary = fit_report$residual_summary,
+    stress_summary = fit_report$stress_summary,
+    distances = fit_report$distances,
+    paths = list(
+      residual_summary = residual_summary_path,
+      stress_summary = stress_summary_path,
+      fit_metrics = fit_metrics_path,
+      fit_distances = fit_distances_path
+    )
+  )
+}
+
 write_run_report <- function(summary, output_dir, config) {
   phenotype_lines <- c(
     sprintf("- isolates: %s", summary$phenotype$n_isolates %||% "NA"),
@@ -264,6 +320,20 @@ write_run_report <- function(summary, output_dir, config) {
       sprintf(
         "- phenotype rotation (degrees): %s",
         summary$phenotype$calibration$rotation_degrees %fmt_or_na% 1
+      )
+    )
+  }
+  if (!is.null(summary$phenotype$fit)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf("- goodness-of-fit R squared: %s", summary$phenotype$fit$r_squared %fmt_or_na% 4),
+      sprintf(
+        "- pairwise distance correlation: %s",
+        summary$phenotype$fit$correlation_estimate %fmt_or_na% 4
+      ),
+      sprintf(
+        "- mean absolute residual: %s",
+        summary$phenotype$fit$mean_abs_residual %fmt_or_na% 4
       )
     )
   }
@@ -314,6 +384,20 @@ write_run_report <- function(summary, output_dir, config) {
         )
       )
     }
+    if (!is.null(summary$external$fit)) {
+      external_lines <- c(
+        external_lines,
+        sprintf("- goodness-of-fit R squared: %s", summary$external$fit$r_squared %fmt_or_na% 4),
+        sprintf(
+          "- pairwise distance correlation: %s",
+          summary$external$fit$correlation_estimate %fmt_or_na% 4
+        ),
+        sprintf(
+          "- mean absolute residual: %s",
+          summary$external$fit$mean_abs_residual %fmt_or_na% 4
+        )
+      )
+    }
   }
 
   report_lines <- c(
@@ -333,6 +417,16 @@ write_run_report <- function(summary, output_dir, config) {
     if (!is.null(summary$external)) "- `external_map.png`" else NULL,
     if (!is.null(summary$external)) "- `side_by_side_maps.png`" else NULL,
     if (!is.null(summary$external$reference)) "- `reference_distance_relationship.png`" else NULL,
+    "- `phenotype_fit_metrics.csv`",
+    "- `phenotype_residual_summary.csv`",
+    "- `phenotype_stress_summary.csv`",
+    "- `phenotype_fit_distances.csv`",
+    if (!is.null(summary$external)) c(
+      "- `external_fit_metrics.csv`",
+      "- `external_residual_summary.csv`",
+      "- `external_stress_summary.csv`",
+      "- `external_fit_distances.csv`"
+    ) else NULL,
     "- `summary.json`",
     "- `amrc_result_bundle.rds`"
   )
@@ -342,6 +436,16 @@ write_run_report <- function(summary, output_dir, config) {
     "phenotype_map.png",
     if (!is.null(summary$external)) c("external_map.png", "side_by_side_maps.png") else NULL,
     if (!is.null(summary$external$reference)) "reference_distance_relationship.png" else NULL,
+    "phenotype_fit_metrics.csv",
+    "phenotype_residual_summary.csv",
+    "phenotype_stress_summary.csv",
+    "phenotype_fit_distances.csv",
+    if (!is.null(summary$external)) c(
+      "external_fit_metrics.csv",
+      "external_residual_summary.csv",
+      "external_stress_summary.csv",
+      "external_fit_distances.csv"
+    ) else NULL,
     "summary.json",
     if (isTRUE(config$report$pdf_export)) "amrc_report.pdf" else NULL,
     if (isTRUE(config$report$zip_bundle)) "amrc_output_bundle.zip" else NULL,
@@ -491,9 +595,19 @@ mic_data <- amrc_fn("amrc_standardise_mic_data")(
 
 phenotype_distance <- amrc_fn("amrc_compute_mic_distance")(mic_data)
 phenotype_map <- amrc_fn("amrc_compute_mds")(phenotype_distance)
+phenotype_fit_report <- amrc_fn("amrc_map_fit_report")(
+  phenotype_map,
+  rotation_degrees = phenotype_rotation_degrees
+)
 phenotype_calibration <- amrc_fn("amrc_calibrate_mds")(
   phenotype_map,
   rotation_degrees = phenotype_rotation_degrees
+)
+phenotype_fit_outputs <- write_fit_report_outputs(
+  fit_report = phenotype_fit_report,
+  output_dir = output_dir,
+  prefix = "phenotype",
+  stress_value = phenotype_map$stress
 )
 phenotype_plot_data <- prepare_configuration_frame(
   configuration = phenotype_calibration$configuration,
@@ -580,6 +694,16 @@ summary <- list(
       dilation = unname(phenotype_calibration$dilation %||% NA_real_),
       rotation_degrees = phenotype_calibration$rotation_degrees %||% 0
     ),
+    fit = list(
+      r_squared = unname(phenotype_fit_report$r_squared %||% NA_real_),
+      correlation_estimate = unname(phenotype_fit_report$correlation$estimate %||% NA_real_),
+      correlation_p_value = unname(phenotype_fit_report$correlation$p.value %||% NA_real_),
+      correlation_method = phenotype_fit_report$correlation$method %||% NA_character_,
+      mean_abs_residual = phenotype_fit_report$residual_summary$mean_abs_residual[[1]] %||% NA_real_,
+      sd_abs_residual = phenotype_fit_report$residual_summary$sd_abs_residual[[1]] %||% NA_real_,
+      mean_spp = phenotype_fit_report$stress_summary$mean_spp[[1]] %||% NA_real_,
+      max_spp = phenotype_fit_report$stress_summary$max_spp[[1]] %||% NA_real_
+    ),
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
@@ -605,6 +729,8 @@ result_bundle <- list(
   mic_data = mic_data,
   phenotype_distance = phenotype_distance,
   phenotype_map = phenotype_map,
+  phenotype_fit_report = phenotype_fit_report,
+  phenotype_fit_outputs = phenotype_fit_outputs,
   phenotype_calibration = phenotype_calibration,
   phenotype_plot_data = phenotype_plot_data,
   phenotype_cluster = phenotype_cluster,
@@ -654,9 +780,19 @@ if (isTRUE(config$external$enabled)) {
   }
 
   external_map <- amrc_fn("amrc_compute_mds")(external_distance)
+  external_fit_report <- amrc_fn("amrc_map_fit_report")(
+    external_map,
+    rotation_degrees = external_rotation_degrees
+  )
   external_calibration <- amrc_fn("amrc_calibrate_mds")(
     external_map,
     rotation_degrees = external_rotation_degrees
+  )
+  external_fit_outputs <- write_fit_report_outputs(
+    fit_report = external_fit_report,
+    output_dir = output_dir,
+    prefix = "external",
+    stress_value = external_map$stress
   )
   comparison_bundle <- amrc_fn("amrc_prepare_map_data")(
     metadata = mic_data$metadata,
@@ -836,6 +972,16 @@ if (isTRUE(config$external$enabled)) {
       dilation = unname(external_calibration$dilation %||% NA_real_),
       rotation_degrees = external_calibration$rotation_degrees %||% 0
     ),
+    fit = list(
+      r_squared = unname(external_fit_report$r_squared %||% NA_real_),
+      correlation_estimate = unname(external_fit_report$correlation$estimate %||% NA_real_),
+      correlation_p_value = unname(external_fit_report$correlation$p.value %||% NA_real_),
+      correlation_method = external_fit_report$correlation$method %||% NA_character_,
+      mean_abs_residual = external_fit_report$residual_summary$mean_abs_residual[[1]] %||% NA_real_,
+      sd_abs_residual = external_fit_report$residual_summary$sd_abs_residual[[1]] %||% NA_real_,
+      mean_spp = external_fit_report$stress_summary$mean_spp[[1]] %||% NA_real_,
+      max_spp = external_fit_report$stress_summary$max_spp[[1]] %||% NA_real_
+    ),
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
@@ -872,6 +1018,8 @@ if (isTRUE(config$external$enabled)) {
   result_bundle$summary <- summary
   result_bundle$external_distance <- external_distance
   result_bundle$external_map <- external_map
+  result_bundle$external_fit_report <- external_fit_report
+  result_bundle$external_fit_outputs <- external_fit_outputs
   result_bundle$external_calibration <- external_calibration
   result_bundle$comparison_bundle <- comparison_bundle
   result_bundle$external_cluster <- external_cluster

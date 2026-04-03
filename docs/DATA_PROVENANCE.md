@@ -41,6 +41,7 @@ The goal is to make it unambiguous which data assets:
   `inst/extdata/examples/spneumoniae-08/`
 - tiny public cross-species MIC subsets under `inst/extdata/examples/public-mic/`
   now spanning enteric, non-fermenter, and staphylococcal examples
+  with source citation notes in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`
 
 ### Generated on demand
 

@@ -656,7 +656,13 @@ validate_streamlit_backend <- function() {
   )
 
   phenotype_map_data <- read_csv_keep_names(file.path(output_dir, "phenotype_map_data.csv"))
+  phenotype_fit_metrics <- read_csv_keep_names(file.path(output_dir, "phenotype_fit_metrics.csv"))
+  phenotype_residual_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_residual_summary.csv"))
+  phenotype_stress_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_stress_summary.csv"))
   comparison_data <- read_csv_keep_names(file.path(output_dir, "comparison_data.csv"))
+  external_fit_metrics <- read_csv_keep_names(file.path(output_dir, "external_fit_metrics.csv"))
+  external_residual_summary <- read_csv_keep_names(file.path(output_dir, "external_residual_summary.csv"))
+  external_stress_summary <- read_csv_keep_names(file.path(output_dir, "external_stress_summary.csv"))
   reference_table <- read_csv_keep_names(file.path(output_dir, "reference_distance_table.csv"))
 
   assert_has_columns(
@@ -665,9 +671,47 @@ validate_streamlit_backend <- function() {
     "Streamlit phenotype map data"
   )
   assert_has_columns(
+    phenotype_fit_metrics,
+    c("stress", "r_squared", "dilation", "correlation_estimate", "correlation_p_value"),
+    "Streamlit phenotype fit metrics"
+  )
+  assert_has_columns(
+    phenotype_residual_summary,
+    c("mean_abs_residual", "sd_abs_residual"),
+    "Streamlit phenotype residual summary"
+  )
+  assert_has_columns(
+    phenotype_stress_summary,
+    c("mean_spp", "sd_spp", "max_spp"),
+    "Streamlit phenotype stress summary"
+  )
+  assert_has_columns(
     comparison_data,
     c("isolate_id", "D1", "D2", "E1", "E2"),
     "Streamlit comparison data"
+  )
+  assert_has_columns(
+    external_fit_metrics,
+    c("stress", "r_squared", "dilation", "correlation_estimate", "correlation_p_value"),
+    "Streamlit external fit metrics"
+  )
+  assert_has_columns(
+    external_residual_summary,
+    c("mean_abs_residual", "sd_abs_residual"),
+    "Streamlit external residual summary"
+  )
+  assert_has_columns(
+    external_stress_summary,
+    c("mean_spp", "sd_spp", "max_spp"),
+    "Streamlit external stress summary"
+  )
+  assert_true(
+    isTRUE(phenotype_fit_metrics$r_squared[[1]] >= 0 && phenotype_fit_metrics$r_squared[[1]] <= 1),
+    "Streamlit phenotype fit R-squared is outside [0, 1]"
+  )
+  assert_true(
+    isTRUE(external_fit_metrics$r_squared[[1]] >= 0 && external_fit_metrics$r_squared[[1]] <= 1),
+    "Streamlit external fit R-squared is outside [0, 1]"
   )
   assert_true(
     "isolate_id" %in% colnames(reference_table),

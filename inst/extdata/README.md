@@ -6,7 +6,8 @@ This directory contains two kinds of package example data.
   the generic vignettes and tests.
 - `examples/public-mic/` holds tiny public CDC AR Isolate Bank MIC subsets used
   for the cross-species vignette, currently spanning enteric, non-fermenter,
-  and staphylococcal examples.
+  and staphylococcal examples. Citation notes for that resource are in
+  `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`.
 - `examples/spneumoniae-08/` holds the compact tracked data bundle used by the
   legacy `08-Mapping-external-variables` case-study notebook.
 - the `spneumoniae_*` files and `generated/` layout support the worked

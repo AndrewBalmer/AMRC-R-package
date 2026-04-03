@@ -238,6 +238,14 @@ def main() -> None:
                 "n_isolates": str(len(rows)),
                 "panel_id": str(panel_id),
                 "panel_url": panel_url,
+                "source_collection": "CDC & FDA Antimicrobial Resistance Isolate Bank",
+                "source_reference": (
+                    "Lutgring JD, Machado MJ, Benahmed FH, et al. "
+                    "FDA-CDC Antimicrobial Resistance Isolate Bank: a Publicly Available "
+                    "Resource To Support Research, Development, and Regulatory Requirements. "
+                    "J Clin Microbiol. 2018;56(2):e01415-17."
+                ),
+                "source_reference_doi": "10.1128/JCM.01415-17",
                 "suggested_id_col": "ar_bank_id",
                 "suggested_metadata_cols": "species_group,organism,source,biosample_accession",
                 "suggested_mic_cols": ",".join(spec["suggested_mic_cols"]),

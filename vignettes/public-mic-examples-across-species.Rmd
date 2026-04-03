@@ -20,10 +20,12 @@ benchmark datasets, but they are useful for checking that the generic workflow
 still behaves sensibly across different bacterial species and different MIC
 panels.
 
-The bundled public examples are curated from CDC AR Isolate Bank detail pages
-for a small set of isolates in the Enteric Pathogen Diversity panel. The raw
-MIC values intentionally retain censoring prefixes such as `<=` and `>`, so the
-generic MIC cleaning and calibration path is exercised on real public values.
+The bundled public examples are curated from public CDC & FDA Antimicrobial
+Resistance Isolate Bank isolate-detail pages. The raw MIC values intentionally
+retain censoring prefixes such as `<=` and `>`, so the generic MIC cleaning and
+calibration path is exercised on real public values. Source panel links and the
+recommended resource citation are collected in
+`docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`.
 
 ## Load the package and inspect the bundled species examples
 
