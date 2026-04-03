@@ -36,6 +36,20 @@ amrc_numeric_or_null <- function(x) {
   value
 }
 
+amrc_resolve_package_load_mode <- function(default = "source") {
+  mode <- Sys.getenv("AMRC_PACKAGE_LOAD_MODE", unset = "")
+  if (identical(mode, "")) {
+    return(default)
+  }
+  if (!(mode %in% c("source", "installed"))) {
+    stop(
+      "AMRC_PACKAGE_LOAD_MODE must be either 'source' or 'installed'.",
+      call. = FALSE
+    )
+  }
+  mode
+}
+
 amrc_positive_limit_or_null <- function(x) {
   value <- amrc_numeric_or_null(x)
   if (is.null(value) || !isTRUE(value > 0)) {
@@ -100,12 +114,15 @@ repo_root <- normalizePath(config$repo_root, mustWork = TRUE)
 output_dir <- normalizePath(config$output_dir, winslash = "/", mustWork = FALSE)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
+amrc_load_package <- function(repo_root, load_mode = c("source", "installed")) {
+  load_mode <- match.arg(load_mode)
+  prefer_installed <- identical(load_mode, "installed")
+
   if (isTRUE(prefer_installed) && requireNamespace("amrcartography", quietly = TRUE)) {
     return(invisible(TRUE))
   }
 
-  if (requireNamespace("pkgload", quietly = TRUE)) {
+  if (identical(load_mode, "source") && requireNamespace("pkgload", quietly = TRUE)) {
     pkgload::load_all(
       path = repo_root,
       export_all = FALSE,
@@ -117,22 +134,24 @@ amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
     return(invisible(TRUE))
   }
 
-  if (requireNamespace("amrcartography", quietly = TRUE)) {
+  if (identical(load_mode, "installed") && requireNamespace("amrcartography", quietly = TRUE)) {
     return(invisible(TRUE))
   }
 
   stop(
-    "Neither pkgload nor an installed copy of amrcartography is available. ",
-    "Install pkgload to run the app from the repo checkout, or install the package first.",
+    if (identical(load_mode, "source")) {
+      "pkgload is required to run the Streamlit app directly from the repo checkout."
+    } else {
+      "An installed copy of amrcartography is required for installed-package mode."
+    },
     call. = FALSE
   )
 
   invisible(TRUE)
 }
 
-prefer_installed_package <- identical(Sys.getenv("AMRC_PACKAGE_LOAD_MODE"), "installed")
-
-amrc_load_package(repo_root, prefer_installed = prefer_installed_package)
+package_load_mode <- amrc_resolve_package_load_mode(default = "source")
+amrc_load_package(repo_root, load_mode = package_load_mode)
 
 amrc_fn <- function(name) getExportedValue("amrcartography", name)
 
@@ -182,6 +201,24 @@ write_run_report <- function(summary, output_dir, config) {
     )
   }
 
+  if (!is.null(summary$phenotype$calibration)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf(
+        "- calibration: %s",
+        summary$phenotype$calibration$note %||% "model-based MIC calibration"
+      ),
+      sprintf(
+        "- phenotype dilation: %s",
+        summary$phenotype$calibration$dilation %fmt_or_na% 4
+      ),
+      sprintf(
+        "- phenotype rotation (degrees): %s",
+        summary$phenotype$calibration$rotation_degrees %fmt_or_na% 1
+      )
+    )
+  }
+
   external_lines <- c("- external workflow disabled")
   if (!is.null(summary$external)) {
     external_lines <- c(
@@ -208,6 +245,24 @@ write_run_report <- function(summary, output_dir, config) {
         sprintf("- reference value: %s", summary$external$reference$reference_value %||% "NA"),
         sprintf("- reference rows: %s", summary$external$reference$n_rows %||% "NA"),
         sprintf("- reference mode: %s", summary$external$reference$cluster_mode %||% "NA")
+      )
+    }
+
+    if (!is.null(summary$external$calibration)) {
+      external_lines <- c(
+        external_lines,
+        sprintf(
+          "- calibration: %s",
+          summary$external$calibration$note %||% "model-based MIC calibration"
+        ),
+        sprintf(
+          "- external dilation: %s",
+          summary$external$calibration$dilation %fmt_or_na% 4
+        ),
+        sprintf(
+          "- external rotation (degrees): %s",
+          summary$external$calibration$rotation_degrees %fmt_or_na% 1
+        )
       )
     }
   }
@@ -250,6 +305,14 @@ write_run_report <- function(summary, output_dir, config) {
 prepare_map_frame <- function(mds_result, metadata, id_col, prefix = "D") {
   coords <- as.data.frame(mds_result$conf, stringsAsFactors = FALSE, check.names = FALSE)
   colnames(coords) <- paste0(prefix, seq_len(ncol(coords)))
+  prepare_configuration_frame(coords, metadata = metadata, id_col = id_col)
+}
+
+prepare_configuration_frame <- function(configuration, metadata, id_col, prefix = NULL) {
+  coords <- as.data.frame(configuration, stringsAsFactors = FALSE, check.names = FALSE)
+  if (!is.null(prefix)) {
+    colnames(coords) <- paste0(prefix, seq_len(ncol(coords)))
+  }
 
   ids <- rownames(coords)
   if (is.null(ids) || any(!nzchar(ids))) {
@@ -301,6 +364,8 @@ facet_by <- amrc_scalar_or_null(config$plot$facet_by)
 group_col <- amrc_scalar_or_null(config$comparison$group_col)
 grid_spacing <- if (isTRUE(config$plot$grid_spacing_one)) 1 else NULL
 density_mode <- if (isTRUE(config$plot$density)) "contour" else "none"
+phenotype_rotation_degrees <- amrc_numeric_or_null(config$plot$phenotype_rotation_degrees)
+external_rotation_degrees <- amrc_numeric_or_null(config$plot$external_rotation_degrees)
 cluster_enabled <- isTRUE(config$clustering$enabled)
 cluster_n <- as.integer(config$clustering$n_clusters %||% 4L)
 cluster_max_k <- as.integer(config$clustering$max_k %||% max(cluster_n + 2L, 10L))
@@ -334,8 +399,12 @@ mic_data <- amrc_fn("amrc_standardise_mic_data")(
 
 phenotype_distance <- amrc_fn("amrc_compute_mic_distance")(mic_data)
 phenotype_map <- amrc_fn("amrc_compute_mds")(phenotype_distance)
-phenotype_plot_data <- prepare_map_frame(
-  mds_result = phenotype_map,
+phenotype_calibration <- amrc_fn("amrc_calibrate_mds")(
+  phenotype_map,
+  rotation_degrees = phenotype_rotation_degrees
+)
+phenotype_plot_data <- prepare_configuration_frame(
+  configuration = phenotype_calibration$configuration,
   metadata = mic_data$metadata,
   id_col = id_col,
   prefix = "D"
@@ -413,6 +482,12 @@ summary <- list(
     n_isolates = nrow(phenotype_plot_data),
     n_drugs = ncol(mic_data$mic),
     stress = unname(phenotype_map$stress %||% NA_real_),
+    calibration = list(
+      mode = "model_based_1mic",
+      note = "Use calibration to place map coordinates on MIC-style units; one-unit grid spacing corresponds to one doubling dilution only after calibration.",
+      dilation = unname(phenotype_calibration$dilation %||% NA_real_),
+      rotation_degrees = phenotype_calibration$rotation_degrees %||% 0
+    ),
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
@@ -438,6 +513,7 @@ result_bundle <- list(
   mic_data = mic_data,
   phenotype_distance = phenotype_distance,
   phenotype_map = phenotype_map,
+  phenotype_calibration = phenotype_calibration,
   phenotype_plot_data = phenotype_plot_data,
   phenotype_cluster = phenotype_cluster,
   phenotype_cluster_data = phenotype_cluster_data
@@ -486,12 +562,18 @@ if (isTRUE(config$external$enabled)) {
   }
 
   external_map <- amrc_fn("amrc_compute_mds")(external_distance)
+  external_calibration <- amrc_fn("amrc_calibrate_mds")(
+    external_map,
+    rotation_degrees = external_rotation_degrees
+  )
   comparison_bundle <- amrc_fn("amrc_prepare_map_data")(
     metadata = mic_data$metadata,
     phenotype_mds = phenotype_map,
     external_mds = external_map,
     id_col = id_col,
-    group_col = group_col
+    group_col = group_col,
+    phenotype_rotation_degrees = phenotype_rotation_degrees,
+    external_rotation_degrees = external_rotation_degrees
   )
 
   external_plot <- amrc_fn("amrc_plot_map")(
@@ -656,6 +738,12 @@ if (isTRUE(config$external$enabled)) {
     mode = mode,
     n_isolates = nrow(comparison_bundle$data),
     stress = unname(external_map$stress %||% NA_real_),
+    calibration = list(
+      mode = "model_based_1mic",
+      note = "Use calibration to place map coordinates on MIC-style units; one-unit grid spacing corresponds to one doubling dilution only after calibration.",
+      dilation = unname(external_calibration$dilation %||% NA_real_),
+      rotation_degrees = external_calibration$rotation_degrees %||% 0
+    ),
     clustering = if (isTRUE(cluster_enabled)) {
       list(
         n_clusters = cluster_n,
@@ -692,6 +780,7 @@ if (isTRUE(config$external$enabled)) {
   result_bundle$summary <- summary
   result_bundle$external_distance <- external_distance
   result_bundle$external_map <- external_map
+  result_bundle$external_calibration <- external_calibration
   result_bundle$comparison_bundle <- comparison_bundle
   result_bundle$external_cluster <- external_cluster
   result_bundle$external_cluster_data <- external_cluster_data

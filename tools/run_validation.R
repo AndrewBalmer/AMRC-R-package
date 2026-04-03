@@ -65,7 +65,7 @@ amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
     return(invisible(TRUE))
   }
 
-  if (requireNamespace("pkgload", quietly = TRUE)) {
+  if (!isTRUE(prefer_installed) && requireNamespace("pkgload", quietly = TRUE)) {
     pkgload::load_all(
       path = repo_root,
       export_all = FALSE,
@@ -76,19 +76,31 @@ amrc_load_package <- function(repo_root, prefer_installed = FALSE) {
     return(invisible(TRUE))
   }
 
-  if (requireNamespace("amrcartography", quietly = TRUE)) {
+  if (isTRUE(prefer_installed) && requireNamespace("amrcartography", quietly = TRUE)) {
     return(invisible(TRUE))
   }
 
   stop(
-    "Neither pkgload nor an installed copy of amrcartography is available. ",
-    "Install pkgload for source-checkout validation, or install the package first.",
+    if (isTRUE(prefer_installed)) {
+      "An installed copy of amrcartography is required for installed-package validation."
+    } else {
+      "pkgload is required for source-checkout validation."
+    },
     call. = FALSE
   )
 }
 
 prefer_installed_package <- identical(Sys.getenv("AMRC_PACKAGE_LOAD_MODE"), "installed") ||
-  (identical(Sys.getenv("CI"), "true") && !identical(stage, "smoke"))
+  {
+    load_mode <- Sys.getenv("AMRC_PACKAGE_LOAD_MODE", unset = "")
+    if (identical(load_mode, "installed")) {
+      TRUE
+    } else if (identical(load_mode, "source")) {
+      FALSE
+    } else {
+      identical(Sys.getenv("CI"), "true") && !identical(stage, "smoke")
+    }
+  }
 
 amrc_load_package(repo_root, prefer_installed = prefer_installed_package)
 amrc_fn <- function(name) getExportedValue("amrcartography", name)
@@ -112,6 +124,24 @@ report_note <- function(label, msg) {
 report_fail <- function(label, msg) {
   failures <<- c(failures, paste0(label, ": ", msg))
   message("[FAIL] ", label, " - ", msg)
+}
+
+report_runtime_context <- function() {
+  report_note("Validation stage", stage)
+  report_note(
+    "Package load mode",
+    if (isTRUE(prefer_installed_package)) "installed" else "source"
+  )
+  report_note("CI environment", Sys.getenv("CI", unset = "false"))
+  report_note(".libPaths()", paste(.libPaths(), collapse = " | "))
+  report_note(
+    "Namespace availability",
+    paste(
+      sprintf("amrcartography=%s", requireNamespace("amrcartography", quietly = TRUE)),
+      sprintf("pkgload=%s", requireNamespace("pkgload", quietly = TRUE)),
+      collapse = ", "
+    )
+  )
 }
 
 run_check <- function(label, expr) {
@@ -209,6 +239,7 @@ run_rscript <- function(script_path, script_args = character(), label = basename
 }
 
 metrics <- jsonlite::read_json(manifest_path, simplifyVector = TRUE)
+report_runtime_context()
 
 validate_generic_examples <- function() {
   paths <- amrc_fn("amrc_example_data_paths")()
@@ -403,6 +434,55 @@ validate_mapping_08_bundle <- function() {
   )
 }
 
+validate_public_mic_examples <- function() {
+  paths <- amrc_fn("amrc_example_data_paths")()
+  manifest <- amrc_fn("amrc_public_mic_example_specs")()
+
+  assert_identical_scalar(
+    nrow(manifest),
+    metrics$public_mic_examples$public_mic_manifest$rows,
+    "Public MIC manifest row count changed"
+  )
+  assert_has_columns(
+    manifest,
+    metrics$public_mic_examples$public_mic_manifest$required_columns,
+    "Public MIC manifest"
+  )
+
+  dataset_names <- c(
+    "salmonella_enterica_mic",
+    "campylobacter_jejuni_mic",
+    "escherichia_coli_o157_mic"
+  )
+
+  for (name in dataset_names) {
+    assert_non_empty_file(paths[[name]], paste("Bundled public MIC example", name))
+    data <- amrc_fn("amrc_example_data")(name)
+
+    assert_identical_scalar(
+      nrow(data),
+      metrics$public_mic_examples[[name]]$rows,
+      paste("Bundled public MIC row count changed for", name)
+    )
+    assert_has_columns(
+      data,
+      metrics$public_mic_examples[[name]]$required_columns,
+      paste("Bundled public MIC data", name)
+    )
+    assert_unique_ids(data, "ar_bank_id", paste("Bundled public MIC data", name))
+
+    suggested_cols <- strsplit(
+      manifest$suggested_mic_cols[manifest$dataset_name == name],
+      ",",
+      fixed = TRUE
+    )[[1]]
+    assert_true(
+      all(suggested_cols %in% colnames(data)),
+      paste("Public MIC manifest suggested_mic_cols no longer match dataset columns for", name)
+    )
+  }
+}
+
 validate_source_generated_artifacts <- function() {
   generated_root <- file.path(repo_root, "inst", "extdata", "generated", "spneumoniae")
   required_paths <- file.path(generated_root, metrics$source_generated$required_files)
@@ -457,8 +537,10 @@ validate_streamlit_backend <- function() {
     plot = list(
       fill_col = "lineage",
       facet_by = "",
-      grid_spacing_one = FALSE,
-      density = FALSE
+      grid_spacing_one = TRUE,
+      density = FALSE,
+      phenotype_rotation_degrees = 15,
+      external_rotation_degrees = -20
     ),
     comparison = list(
       group_col = "lineage"
@@ -529,9 +611,31 @@ validate_streamlit_backend <- function() {
     metrics$streamlit_smoke$phenotype_n_drugs,
     "Streamlit backend phenotype drug count changed"
   )
+  assert_identical_scalar(
+    summary$phenotype$calibration$mode,
+    "model_based_1mic",
+    "Streamlit backend phenotype calibration mode changed"
+  )
+  assert_true(
+    is.numeric(summary$phenotype$calibration$dilation),
+    "Streamlit backend phenotype calibration dilation is not numeric"
+  )
+  assert_true(
+    isTRUE(all.equal(as.numeric(summary$phenotype$calibration$rotation_degrees), 15)),
+    "Streamlit backend phenotype rotation changed"
+  )
   assert_true(
     !is.null(summary$external$reference$n_rows),
     "Streamlit backend summary is missing external reference row count"
+  )
+  assert_identical_scalar(
+    summary$external$calibration$mode,
+    "model_based_1mic",
+    "Streamlit backend external calibration mode changed"
+  )
+  assert_true(
+    isTRUE(all.equal(as.numeric(summary$external$calibration$rotation_degrees), -20)),
+    "Streamlit backend external rotation changed"
   )
   assert_true(
     isTRUE(all.equal(as.numeric(summary$external$reference$x_break_step), 1)),
@@ -590,6 +694,7 @@ run_smoke_stage <- function() {
   })
 
   run_check("Bundled generic examples remain valid", validate_generic_examples())
+  run_check("Bundled public MIC examples remain valid", validate_public_mic_examples())
   run_check("Packaged mapping_08 bundle remains internally consistent", validate_mapping_08_bundle())
   run_check("Tracked generated source artifacts remain present", validate_source_generated_artifacts())
   run_check("Streamlit backend contract smoke check passes", validate_streamlit_backend())

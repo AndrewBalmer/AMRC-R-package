@@ -17,6 +17,24 @@
       "cols": 6
     }
   },
+  "public_mic_examples": {
+    "salmonella_enterica_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "ampicillin", "ceftriaxone", "ciprofloxacin", "gentamicin", "tetracycline"]
+    },
+    "campylobacter_jejuni_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "azithromycin", "ciprofloxacin", "erythromycin", "florfenicol", "tetracycline"]
+    },
+    "escherichia_coli_o157_mic": {
+      "rows": 4,
+      "required_columns": ["ar_bank_id", "species_group", "organism", "source", "biosample_accession", "ampicillin", "ceftriaxone", "ciprofloxacin", "gentamicin", "tetracycline"]
+    },
+    "public_mic_manifest": {
+      "rows": 3,
+      "required_columns": ["dataset_name", "file_name", "species_group", "n_isolates", "suggested_id_col", "suggested_mic_cols"]
+    }
+  },
   "spneumoniae_08": {
     "phenotype_metadata_rows": 3628,
     "phenotype_map_rows": 3628,

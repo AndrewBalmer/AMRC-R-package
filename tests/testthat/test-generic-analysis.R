@@ -842,3 +842,35 @@ test_that("generic visualisation helpers build plots", {
   expect_s3_class(variance_plot, "ggplot")
   expect_no_error(ggplot2::ggplot_build(variance_plot))
 })
+
+test_that("manuscript panel composers assemble plot layouts", {
+  skip_if_not_installed("patchwork")
+
+  base_data <- data.frame(
+    x = c(0, 1, 2),
+    y = c(0, 1, 0),
+    cluster = c("A", "B", "A"),
+    stringsAsFactors = FALSE
+  )
+
+  map_plot <- amrc_plot_map(base_data, x = "x", y = "y", fill_col = "cluster")
+  ref_plot <- amrc_plot_reference_distance_relationship(
+    data.frame(
+      external_distance = c(0.5, 1, 1.5),
+      phenotype_distance = c(0.4, 1.1, 1.4),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  grid_panel <- amrc_compose_manuscript_panel_grid(list(map_plot, ref_plot), ncol = 2)
+  pair_panel <- amrc_compose_map_reference_panel(map_plot, ref_plot)
+  triptych_panel <- amrc_compose_phenotype_external_reference_panel(
+    phenotype_plot = map_plot,
+    external_plot = map_plot,
+    reference_plot = ref_plot
+  )
+
+  expect_s3_class(grid_panel, "patchwork")
+  expect_s3_class(pair_panel, "patchwork")
+  expect_s3_class(triptych_panel, "patchwork")
+})

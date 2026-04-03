@@ -4,6 +4,8 @@ This directory contains two kinds of package example data.
 
 - `examples/generic/` holds small generic MIC and external-data examples used in
   the generic vignettes and tests.
+- `examples/public-mic/` holds tiny public CDC AR Isolate Bank MIC subsets used
+  for the cross-species vignette.
 - `examples/spneumoniae-08/` holds the compact tracked data bundle used by the
   legacy `08-Mapping-external-variables` case-study notebook.
 - the `spneumoniae_*` files and `generated/` layout support the worked

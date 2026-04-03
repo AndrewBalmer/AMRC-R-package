@@ -93,6 +93,35 @@ test_that("validation metrics manifest matches packaged mapping_08 bundle counts
   expect_length(bundle$deleted_labids, manifest$spneumoniae_08$deleted_labids_bundle_count)
 })
 
+test_that("validation metrics manifest matches packaged public MIC examples", {
+  skip_if_not_installed("jsonlite")
+
+  manifest <- jsonlite::read_json(
+    validation_manifest_path(),
+    simplifyVector = TRUE
+  )
+
+  public_manifest <- amrc_public_mic_example_specs()
+  expect_equal(
+    nrow(public_manifest),
+    manifest$public_mic_examples$public_mic_manifest$rows
+  )
+  expect_true(all(
+    manifest$public_mic_examples$public_mic_manifest$required_columns %in% colnames(public_manifest)
+  ))
+
+  for (name in c(
+    "salmonella_enterica_mic",
+    "campylobacter_jejuni_mic",
+    "escherichia_coli_o157_mic"
+  )) {
+    data <- amrc_example_data(name)
+    expect_equal(nrow(data), manifest$public_mic_examples[[name]]$rows)
+    expect_true(all(manifest$public_mic_examples[[name]]$required_columns %in% colnames(data)))
+    expect_identical(anyDuplicated(data$ar_bank_id), 0L)
+  }
+})
+
 test_that("streamlit validation contract remains lightweight and internally consistent", {
   skip_if_not_installed("jsonlite")
 

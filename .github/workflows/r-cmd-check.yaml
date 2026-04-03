@@ -9,6 +9,9 @@ on:
 
 permissions: read-all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   R-CMD-check:
     strategy:
@@ -63,7 +66,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rmarkdown, any::knitr, any::jsonlite
+          extra-packages: any::rmarkdown, any::knitr, any::jsonlite, any::pkgload
           needs: check
 
       - name: Install package
@@ -71,7 +74,7 @@ jobs:
 
       - name: Run staged validation sanity checks
         env:
-          AMRC_PACKAGE_LOAD_MODE: installed
+          AMRC_PACKAGE_LOAD_MODE: source
         run: Rscript tools/run_validation.R --stage ci
 
       - name: Run README example workflow

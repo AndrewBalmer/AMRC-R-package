@@ -21,6 +21,7 @@ legacy_analysis_packages <- c(
   "cluster",
   "FactoMineR",
   "ggpubr",
+  "patchwork",
   "factoextra",
   "NbClust",
   "proxy",

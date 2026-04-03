@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -88,6 +89,8 @@ def build_config(
             "facet_by": maybe_none(st.session_state.get("facet_by")),
             "grid_spacing_one": st.session_state["grid_spacing_one"],
             "density": st.session_state["density"],
+            "phenotype_rotation_degrees": maybe_number(st.session_state.get("phenotype_rotation_degrees")),
+            "external_rotation_degrees": maybe_number(st.session_state.get("external_rotation_degrees")),
         },
         "comparison": {
             "group_col": maybe_none(st.session_state.get("group_col")),
@@ -151,6 +154,7 @@ def run_backend(config: dict) -> dict:
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
+        env={**os.environ, "AMRC_PACKAGE_LOAD_MODE": "source"},
     )
 
     if completed.returncode != 0:
@@ -252,7 +256,9 @@ st.markdown(
         '<div class="amrc-style-note">'
         "Maps, cluster overlays, and reference plots are rendered through the package plotting "
         "helpers so the app keeps the manuscript cartography theme, palette, and point styling "
-        "rather than using a separate visual system."
+        "rather than using a separate visual system. MIC-scale spacing comes from the package "
+        "calibration model: use calibration plus a 1-unit grid if you want one doubling dilution "
+        "per major grid step, rather than trying to dilate the map by hand."
         "</div>"
     ),
     unsafe_allow_html=True,
@@ -316,8 +322,22 @@ if phenotype_df is not None:
         st.selectbox("Colour by", options=metadata_options, key="fill_col")
         st.selectbox("Facet by", options=metadata_options, key="facet_by")
         st.selectbox("Group column", options=metadata_options, key="group_col")
-        st.checkbox("Use 1-unit grid spacing", value=False, key="grid_spacing_one")
+        st.checkbox(
+            "Use 1-unit grid spacing",
+            value=False,
+            key="grid_spacing_one",
+            help="Use this after calibration if you want one doubling dilution per grid interval.",
+        )
         st.checkbox("Add density contours", value=False, key="density")
+        st.number_input(
+            "Phenotype rotation (degrees)",
+            min_value=-360.0,
+            max_value=360.0,
+            value=0.0,
+            step=1.0,
+            key="phenotype_rotation_degrees",
+            help="Optional post-calibration rotation. The map dilation still comes from the calibration model.",
+        )
 
         st.header("Clustering")
         cluster_distinct_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
@@ -370,6 +390,16 @@ if phenotype_df is not None:
                         ][: min(6, max(1, len(external_columns) - 1))],
                         key="external_feature_cols",
                     )
+
+                st.number_input(
+                    "External rotation (degrees)",
+                    min_value=-360.0,
+                    max_value=360.0,
+                    value=0.0,
+                    step=1.0,
+                    key="external_rotation_degrees",
+                    help="Optional post-calibration rotation for the external/genotype map.",
+                )
 
                 st.header("Reference Summary")
                 reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
@@ -486,7 +516,8 @@ if phenotype_df is not None:
         st.subheader("Run")
         st.markdown(
             "- Requires `Rscript` plus the package dependencies available in the local environment.\n"
-            "- This v1 app focuses on the stable generic map workflow, not the full mixed-model layer."
+            "- This v1 app focuses on the stable generic map workflow, not the full mixed-model layer.\n"
+            "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider."
         )
 
         can_run = bool(st.session_state.get("mic_cols"))
@@ -530,6 +561,22 @@ if result:
         metric_cols[3].metric("External stress", f"{external_summary.get('stress', float('nan')):.3f}" if external_summary.get("stress") is not None else "NA")
     else:
         metric_cols[3].metric("External workflow", "off")
+
+    phenotype_calibration = phenotype_summary.get("calibration") or {}
+    if phenotype_calibration:
+        st.caption(
+            "Phenotype map calibration: "
+            f"dilation={phenotype_calibration.get('dilation', 'NA')}, "
+            f"rotation={phenotype_calibration.get('rotation_degrees', 0)} degrees. "
+            "Follow this calibration if you want one-unit grid spacing to mean one doubling dilution."
+        )
+    external_calibration = external_summary.get("calibration") or {}
+    if external_calibration:
+        st.caption(
+            "External map calibration: "
+            f"dilation={external_calibration.get('dilation', 'NA')}, "
+            f"rotation={external_calibration.get('rotation_degrees', 0)} degrees."
+        )
 
     image_cols = st.columns(2)
     if "phenotype_map.png" in result["files"]:

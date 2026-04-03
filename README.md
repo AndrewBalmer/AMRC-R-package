@@ -182,6 +182,12 @@ transform. Use `less_than = "numeric"` / `greater_than = "numeric"` to strip
 the qualifier and keep the reported number, or `less_than = "half"` /
 `greater_than = "double"` to shift censored values by one doubling dilution.
 
+If you want map coordinates to correspond to MIC-style units, follow the
+package calibration helpers rather than manually dilating the configuration.
+`amrc_fit_distance_calibration()` and `amrc_calibrate_mds()` implement the same
+model-based scaling used in the manuscript notebooks, so `grid_spacing = 1`
+only has the intended one-doubling-dilution interpretation after calibration.
+
 ## External Data Formats
 
 The package currently supports four generic ways to bring in the non-MIC
@@ -233,6 +239,10 @@ The package now includes generic plotting helpers for the main map workflows:
   `amrc_plot_distance_histogram()`, and
   `amrc_plot_reference_distance_relationship()` for the main comparison and
   clustering plots
+- `amrc_compose_manuscript_panel_grid()`,
+  `amrc_compose_map_reference_panel()`, and
+  `amrc_compose_phenotype_external_reference_panel()` for the recurring
+  manuscript/thesis multi-panel figure layouts
 
 For group-level phenotype-versus-external summaries, the generic comparison
 layer also now includes:
@@ -349,6 +359,19 @@ coordinates and MLST metadata:
 ```r
 amrc_spneumoniae_example_paths("mapping_08")
 ```
+
+The package also ships three tiny public MIC subsets from CDC AR Isolate Bank
+detail pages for cross-species examples:
+
+```r
+amrc_public_mic_example_specs()
+amrc_example_data("salmonella_enterica_mic")
+amrc_example_data("campylobacter_jejuni_mic")
+amrc_example_data("escherichia_coli_o157_mic")
+```
+
+These are deliberately small teaching/demo fixtures rather than benchmark
+datasets.
 
 ## Expected Runtime
 

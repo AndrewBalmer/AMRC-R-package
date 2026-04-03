@@ -1580,6 +1580,127 @@ amrc_plot_side_by_side_maps <- function(
   )
 }
 
+amrc_require_patchwork <- function() {
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    stop(
+      "Package 'patchwork' is required for manuscript panel composition. ",
+      "Install it to use the panel composer helpers.",
+      call. = FALSE
+    )
+  }
+}
+
+#' Compose Multiple Plots into a Manuscript-Style Panel Grid
+#'
+#' Provides a lightweight, reusable wrapper around `patchwork::wrap_plots()`
+#' using the package's manuscript-style defaults. This is intended as the
+#' generic replacement for the ad hoc panel assembly used throughout the
+#' manuscript and thesis notebooks.
+#'
+#' @param plots A list of `ggplot` objects.
+#' @param ncol,nrow Optional grid dimensions.
+#' @param widths,heights Optional panel layout controls passed to
+#'   `patchwork::wrap_plots()`.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_manuscript_panel_grid <- function(
+  plots,
+  ncol = NULL,
+  nrow = NULL,
+  widths = NULL,
+  heights = NULL,
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_require_patchwork()
+
+  if (!is.list(plots) || length(plots) == 0L) {
+    stop("plots must be a non-empty list of ggplot objects.", call. = FALSE)
+  }
+
+  patchwork::wrap_plots(
+    plots,
+    ncol = ncol,
+    nrow = nrow,
+    widths = widths,
+    heights = heights,
+    guides = if (isTRUE(collect_guides)) "collect" else "keep"
+  ) +
+    patchwork::plot_annotation(tag_levels = tag_levels)
+}
+
+#' Compose a Map and Reference Plot as a Manuscript-Style Figure Panel
+#'
+#' @param map_plot A phenotype or external map plot.
+#' @param reference_plot A reference-distance relationship plot.
+#' @param widths Relative panel widths.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_map_reference_panel <- function(
+  map_plot,
+  reference_plot,
+  widths = c(1, 1),
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_compose_manuscript_panel_grid(
+    plots = list(map_plot, reference_plot),
+    ncol = 2,
+    widths = widths,
+    collect_guides = collect_guides,
+    tag_levels = tag_levels
+  )
+}
+
+#' Compose Phenotype, External, and Reference Panels in the Manuscript Layout
+#'
+#' Builds the most common manuscript comparison layout: phenotype map and
+#' external map on the top row, with an optional full-width reference-distance
+#' panel below them.
+#'
+#' @param phenotype_plot A phenotype map plot.
+#' @param external_plot An external or genotype map plot.
+#' @param reference_plot Optional reference-distance relationship plot.
+#' @param top_widths Relative widths of the top-row map panels.
+#' @param bottom_height Relative height of the optional bottom panel.
+#' @param collect_guides Logical; collect shared legends.
+#' @param tag_levels Tag style passed to `patchwork::plot_annotation()`.
+#'
+#' @return A patchwork-composed plot object.
+#' @export
+amrc_compose_phenotype_external_reference_panel <- function(
+  phenotype_plot,
+  external_plot,
+  reference_plot = NULL,
+  top_widths = c(1, 1),
+  bottom_height = 1,
+  collect_guides = TRUE,
+  tag_levels = "A"
+) {
+  amrc_require_patchwork()
+
+  top_row <- patchwork::wrap_plots(
+    list(phenotype_plot, external_plot),
+    ncol = 2,
+    widths = top_widths,
+    guides = if (isTRUE(collect_guides)) "collect" else "keep"
+  )
+
+  combined <- if (is.null(reference_plot)) {
+    top_row
+  } else {
+    top_row / reference_plot + patchwork::plot_layout(heights = c(1, bottom_height))
+  }
+
+  combined + patchwork::plot_annotation(tag_levels = tag_levels)
+}
+
 #' Plot Ranked Cluster-Difference Features
 #'
 #' @param feature_summary Output from

@@ -5,7 +5,9 @@
 \title{Load a Bundled Generic Example Dataset}
 \usage{
 amrc_example_data(
-  name = c("mic_raw", "external_numeric", "external_character", "external_distance")
+  name = c("mic_raw", "external_numeric", "external_character", "external_distance",
+    "salmonella_enterica_mic", "campylobacter_jejuni_mic", "escherichia_coli_o157_mic",
+    "public_mic_manifest")
 )
 }
 \arguments{

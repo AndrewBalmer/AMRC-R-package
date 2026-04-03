@@ -20,7 +20,7 @@ The goal is to make it unambiguous which data assets:
 - code, package metadata, and documentation
 - historical manuscript artefacts already committed under `Previous_AMRC_manuscript/`
 - manifests and provenance tables
-- small generated example fixtures if added later for tests
+- small generated example fixtures and compact public teaching/demo subsets
 
 ### Does not ship in the repository by default
 
@@ -34,6 +34,13 @@ The goal is to make it unambiguous which data assets:
 - large derived matrices
 - manuscript-era exploratory `.RData` objects
 
+### Ships in the package now
+
+- generic toy MIC/external examples under `inst/extdata/examples/generic/`
+- the compact `mapping_08` pneumococcal case-study bundle under
+  `inst/extdata/examples/spneumoniae-08/`
+- tiny public cross-species MIC subsets under `inst/extdata/examples/public-mic/`
+
 ### Generated on demand
 
 - processed phenotype MIC tables
@@ -44,12 +51,9 @@ The goal is to make it unambiguous which data assets:
 
 ### Currently unresolved
 
-- `MIC_S.Pneumo_metadata.csv`
-- `Meta_data_spneumoniae_isolates_post_2015.csv`
-
-These two files are referenced by the deferred external-variable notebook and
-are not currently available in the repository. That notebook is intentionally
-out of scope until the source and redistribution status of those files are clear.
+- full public redistribution of the larger non-mini notebook-scale source data
+- whether future public example bundles should remain tiny curated subsets or
+  expand to larger species-diverse fixtures
 
 ## Working rules
 

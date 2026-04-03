@@ -1,0 +1,156 @@
+---
+title: "Public MIC Examples Across Species"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Public MIC Examples Across Species}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette shows a small cross-species workflow using tiny public MIC
+subsets bundled with the package. These are teaching/demo fixtures, not
+benchmark datasets, but they are useful for checking that the generic workflow
+still behaves sensibly across different bacterial species and different MIC
+panels.
+
+The bundled public examples are curated from CDC AR Isolate Bank detail pages
+for a small set of isolates in the Enteric Pathogen Diversity panel. The raw
+MIC values intentionally retain censoring prefixes such as `<=` and `>`, so the
+generic MIC cleaning and calibration path is exercised on real public values.
+
+## Load the package and inspect the bundled species examples
+
+```{r}
+if (!"package:amrcartography" %in% search()) {
+  library(amrcartography)
+}
+
+public_specs <- amrc_public_mic_example_specs()
+public_specs[, c("dataset_name", "species_group", "n_isolates", "suggested_mic_cols")]
+```
+
+## Define a lightweight species workflow helper
+
+```{r}
+build_species_example <- function(dataset_name) {
+  spec <- public_specs[public_specs$dataset_name == dataset_name, , drop = FALSE]
+  stopifnot(nrow(spec) == 1)
+
+  mic_cols <- strsplit(spec$suggested_mic_cols, ",", fixed = TRUE)[[1]]
+  data <- amrc_example_data(dataset_name)
+
+  mic_data <- amrc_standardise_mic_data(
+    data = data,
+    id_col = "ar_bank_id",
+    mic_cols = mic_cols,
+    metadata_cols = c("species_group", "organism", "source", "biosample_accession"),
+    transform = "log2",
+    less_than = "numeric",
+    greater_than = "numeric"
+  )
+
+  phenotype_distance <- amrc_compute_mic_distance(mic_data)
+  phenotype_map <- amrc_compute_mds(phenotype_distance, itmax = 100, eps = 1e-06)
+  calibrated <- amrc_calibrate_mds(phenotype_map)
+
+  plot_data <- data.frame(
+    ar_bank_id = rownames(calibrated$configuration),
+    D1 = calibrated$configuration[, 1],
+    D2 = calibrated$configuration[, 2],
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  plot_data <- merge(plot_data, mic_data$metadata, by = "ar_bank_id", all.x = TRUE, sort = FALSE)
+
+  list(
+    spec = spec,
+    mic_cols = mic_cols,
+    mic_data = mic_data,
+    phenotype_distance = phenotype_distance,
+    phenotype_map = phenotype_map,
+    calibrated = calibrated,
+    plot_data = plot_data,
+    plot = amrc_plot_map(
+      data = plot_data,
+      x = "D1",
+      y = "D2",
+      point_fill = "#377EB8",
+      grid_spacing = 1,
+      use_cartography_theme = TRUE
+    ) +
+      ggplot2::labs(title = spec$species_group[[1]])
+  )
+}
+```
+
+## Build three small species-specific maps
+
+```{r}
+salmonella_example <- build_species_example("salmonella_enterica_mic")
+campy_example <- build_species_example("campylobacter_jejuni_mic")
+ecoli_example <- build_species_example("escherichia_coli_o157_mic")
+```
+
+Each species uses its own suggested MIC columns from the bundled manifest:
+
+```{r}
+list(
+  salmonella = salmonella_example$mic_cols,
+  campylobacter = campy_example$mic_cols,
+  ecoli_o157 = ecoli_example$mic_cols
+)
+```
+
+## Why calibration matters for 1-MIC spacing
+
+The coordinates are calibrated before plotting. That is the intended route to
+MIC-style map units. A one-unit grid should be interpreted as one doubling
+dilution only after `amrc_fit_distance_calibration()` /
+`amrc_calibrate_mds()` have been applied.
+
+```{r}
+rbind(
+  data.frame(
+    species = salmonella_example$spec$species_group,
+    dilation = salmonella_example$calibrated$dilation
+  ),
+  data.frame(
+    species = campy_example$spec$species_group,
+    dilation = campy_example$calibrated$dilation
+  ),
+  data.frame(
+    species = ecoli_example$spec$species_group,
+    dilation = ecoli_example$calibrated$dilation
+  )
+)
+```
+
+## Compose the species maps with the manuscript-style panel helper
+
+```{r}
+if (requireNamespace("patchwork", quietly = TRUE)) {
+  amrc_compose_manuscript_panel_grid(
+    plots = list(
+      salmonella_example$plot,
+      campy_example$plot,
+      ecoli_example$plot
+    ),
+    ncol = 3
+  )
+}
+```
+
+## Notes
+
+- These are deliberately tiny public examples intended for documentation and
+  validation.
+- They are useful for testing the generic MIC cleaning and calibration flow on
+  real public values.
+- They are not large enough for any serious biological interpretation.

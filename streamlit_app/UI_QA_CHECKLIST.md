@@ -28,6 +28,10 @@ correctness of results.
 - ID column selector populates correctly
 - MIC column selector populates correctly
 - metadata selectors populate correctly
+- phenotype rotation control accepts values without breaking the run
+- if `Use 1-unit grid spacing` is enabled, remember this should be interpreted
+  as one doubling dilution only because the backend applies model-based
+  calibration
 - clicking `Run analysis` produces:
   - phenotype map
   - summary JSON block
@@ -40,6 +44,7 @@ correctness of results.
 
 - enable external structure
 - upload a valid external CSV
+- external rotation control accepts values without breaking the run
 - external mode selector behaves correctly for:
   - numeric features
   - character features
@@ -72,6 +77,7 @@ correctness of results.
 ## Visual fidelity checks
 
 - map points use the manuscript-style palette and black outlines
+- calibration note is visible in the app copy and report summary
 - cluster plots look consistent with package outputs
 - reference-distance plot styling matches package defaults
 - app shell does not visually clash with the package plot style

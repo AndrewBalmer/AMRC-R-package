@@ -13,6 +13,8 @@ Current scope:
 - choose ID, MIC, and metadata columns
 - clean and standardise MIC values
 - compute a phenotype distance matrix and MDS map
+- calibrate maps onto MIC-style units using the package calibration model
+- optional post-calibration rotation controls for phenotype and external maps
 - optionally cluster the phenotype map with configurable `k` and join-key
   controls
 - cluster scree/elbow diagnostics for phenotype and external map clustering
@@ -40,6 +42,8 @@ Deliberately not in v1:
 - epistasis/permutation workflows
 - notebook-specific figure layouts
 - full clustering/association orchestration
+- a free-form manual dilation slider: the intended route to 1-MIC spacing is
+  the package calibration model, not arbitrary rescaling
 
 ## Run
 
@@ -61,6 +65,14 @@ Start the app from the repo root:
 ```bash
 streamlit run streamlit_app/app.py
 ```
+
+## Calibration note
+
+If you want one-unit grid spacing to mean one doubling dilution, follow the
+package calibration step. The app exposes post-calibration rotation controls,
+but the dilation itself comes from `amrc_fit_distance_calibration()` /
+`amrc_calibrate_mds()` so the scaling stays consistent with the manuscript and
+thesis figures.
 
 ## Lightweight UI QA
 
