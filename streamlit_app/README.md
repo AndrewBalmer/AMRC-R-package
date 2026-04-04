@@ -108,6 +108,13 @@ python3 streamlit_app/check_ui_contract.py
 For manual browser-level QA, use:
 
 - [streamlit_app/UI_QA_CHECKLIST.md](UI_QA_CHECKLIST.md)
+- [streamlit_app/UI_QA_RESULTS.md](UI_QA_RESULTS.md)
+
+For a repeatable browser-level smoke pass against a running local app:
+
+```bash
+python streamlit_app/run_browser_qa.py --url http://127.0.0.1:8502
+```
 
 ## Known limitation
 

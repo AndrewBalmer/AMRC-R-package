@@ -764,8 +764,6 @@ if error:
 
 if result:
     st.subheader("Summary")
-    st.json(result["summary"], expanded=True)
-
     metric_cols = st.columns(4)
     phenotype_summary = result["summary"].get("phenotype", {})
     external_summary = result["summary"].get("external") or {}
@@ -793,144 +791,6 @@ if result:
             f"rotation={external_calibration.get('rotation_degrees', 0)} degrees."
         )
 
-    fit_sections = []
-    if "phenotype_fit_metrics.csv" in result["tables"]:
-        fit_sections.append(
-            ("Phenotype fit", "phenotype_fit_metrics.csv", "phenotype_residual_summary.csv", "phenotype_stress_summary.csv")
-        )
-    if "external_fit_metrics.csv" in result["tables"]:
-        fit_sections.append(
-            ("External fit", "external_fit_metrics.csv", "external_residual_summary.csv", "external_stress_summary.csv")
-        )
-    if fit_sections:
-        st.subheader("Goodness-of-fit summaries")
-        fit_tabs = st.tabs([label for label, *_ in fit_sections])
-        for tab, (label, metrics_name, residual_name, stress_name) in zip(fit_tabs, fit_sections):
-            with tab:
-                st.markdown(f"**{label} metrics**")
-                st.dataframe(result["tables"][metrics_name], use_container_width=True)
-                if residual_name in result["tables"]:
-                    st.markdown("**Residual summary**")
-                    st.dataframe(result["tables"][residual_name], use_container_width=True)
-                if stress_name in result["tables"]:
-                    st.markdown("**Stress-per-point summary**")
-                    st.dataframe(result["tables"][stress_name], use_container_width=True)
-                download_cols = st.columns(4)
-                for col, name in zip(
-                    download_cols,
-                    [metrics_name, residual_name, stress_name, metrics_name.replace("_metrics.csv", "_distances.csv")],
-                ):
-                    if name in result["files"]:
-                        col.download_button(
-                            label=f"Download {name}",
-                            data=result["files"][name],
-                            file_name=name,
-                            mime="text/csv",
-                            key=f"download-{name}",
-                        )
-
-    image_cols = st.columns(2)
-    if "phenotype_map.png" in result["files"]:
-        image_cols[0].image(result["files"]["phenotype_map.png"], caption="Phenotype map")
-    if "external_map.png" in result["files"]:
-        image_cols[1].image(result["files"]["external_map.png"], caption="External map")
-
-    if "side_by_side_maps.png" in result["files"]:
-        st.image(result["files"]["side_by_side_maps.png"], caption="Side-by-side phenotype vs external maps")
-
-    cluster_images = []
-    if "phenotype_cluster_map.png" in result["files"]:
-        cluster_images.append(("Phenotype clusters", result["files"]["phenotype_cluster_map.png"]))
-    if "external_cluster_map.png" in result["files"]:
-        cluster_images.append(("External clusters", result["files"]["external_cluster_map.png"]))
-    if cluster_images:
-        st.subheader("Cluster overlays")
-        cluster_cols = st.columns(len(cluster_images))
-        for col, (caption, image_bytes) in zip(cluster_cols, cluster_images):
-            col.image(image_bytes, caption=caption)
-
-    scree_images = []
-    if "phenotype_cluster_elbow.png" in result["files"]:
-        scree_images.append(("Phenotype cluster scree", result["files"]["phenotype_cluster_elbow.png"]))
-    if "external_cluster_elbow.png" in result["files"]:
-        scree_images.append(("External cluster scree", result["files"]["external_cluster_elbow.png"]))
-    if scree_images:
-        st.subheader("Cluster scree diagnostics")
-        scree_cols = st.columns(len(scree_images))
-        for col, (caption, image_bytes) in zip(scree_cols, scree_images):
-            col.image(image_bytes, caption=caption)
-        scree_tables = []
-        if "phenotype_cluster_scree.csv" in result["tables"]:
-            scree_tables.append(("Phenotype scree table", "phenotype_cluster_scree.csv"))
-        if "external_cluster_scree.csv" in result["tables"]:
-            scree_tables.append(("External scree table", "external_cluster_scree.csv"))
-        if scree_tables:
-            scree_table_cols = st.columns(len(scree_tables))
-            for col, (caption, name) in zip(scree_table_cols, scree_tables):
-                col.markdown(f"**{caption}**")
-                col.dataframe(result["tables"][name], use_container_width=True, height=220)
-                col.download_button(
-                    label=f"Download {name}",
-                    data=result["files"][name],
-                    file_name=name,
-                    mime="text/csv",
-                    key=f"download-{name}",
-                )
-
-    if "reference_distance_relationship.png" in result["files"]:
-        st.subheader("Reference-distance relationship")
-        st.image(
-            result["files"]["reference_distance_relationship.png"],
-            caption="Phenotype vs external distance from the selected reference",
-        )
-
-    if result["tables"]:
-        st.subheader("Output Tables")
-        for name, table in result["tables"].items():
-            st.markdown(f"**{name}**")
-            st.dataframe(table.head(50), use_container_width=True)
-            st.download_button(
-                label=f"Download {name}",
-                data=result["files"][name],
-                file_name=name,
-                mime="text/csv",
-            )
-
-    if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
-        st.subheader("Report export")
-        report_tabs = st.tabs(["Preview", "Downloads"])
-        with report_tabs[0]:
-            if "amrc_report.md" in result["files"]:
-                st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))
-            elif "amrc_report.html" in result["files"]:
-                st.components.v1.html(
-                    result["files"]["amrc_report.html"].decode("utf-8"),
-                    height=500,
-                    scrolling=True,
-                )
-        with report_tabs[1]:
-            if "amrc_report.md" in result["files"]:
-                st.download_button(
-                    label="Download analysis report (.md)",
-                    data=result["files"]["amrc_report.md"],
-                    file_name="amrc_report.md",
-                    mime="text/markdown",
-                )
-            if "amrc_report.html" in result["files"]:
-                st.download_button(
-                    label="Download analysis report (.html)",
-                    data=result["files"]["amrc_report.html"],
-                    file_name="amrc_report.html",
-                    mime="text/html",
-                )
-            if "amrc_report.pdf" in result["files"]:
-                st.download_button(
-                    label="Download analysis report (.pdf)",
-                    data=result["files"]["amrc_report.pdf"],
-                    file_name="amrc_report.pdf",
-                    mime="application/pdf",
-                )
-
     extra_downloads = []
     if "summary.json" in result["files"]:
         extra_downloads.append(("Download summary.json", "summary.json", "application/json"))
@@ -945,12 +805,162 @@ if result:
     if "amrc_output_bundle.zip" in result["files"]:
         extra_downloads.append(("Download output bundle (.zip)", "amrc_output_bundle.zip", "application/zip"))
 
-    if extra_downloads:
-        st.subheader("Download bundles")
-        for label, filename, mime in extra_downloads:
-            st.download_button(
-                label=label,
-                data=result["files"][filename],
-                file_name=filename,
-                mime=mime,
+    result_tabs = st.tabs(["Maps", "Diagnostics", "Tables", "Reports", "Raw summary"])
+
+    with result_tabs[0]:
+        image_cols = st.columns(2)
+        if "phenotype_map.png" in result["files"]:
+            image_cols[0].image(result["files"]["phenotype_map.png"], caption="Phenotype map")
+        if "external_map.png" in result["files"]:
+            image_cols[1].image(result["files"]["external_map.png"], caption="External map")
+
+        if "side_by_side_maps.png" in result["files"]:
+            st.image(result["files"]["side_by_side_maps.png"], caption="Side-by-side phenotype vs external maps")
+
+        cluster_images = []
+        if "phenotype_cluster_map.png" in result["files"]:
+            cluster_images.append(("Phenotype clusters", result["files"]["phenotype_cluster_map.png"]))
+        if "external_cluster_map.png" in result["files"]:
+            cluster_images.append(("External clusters", result["files"]["external_cluster_map.png"]))
+        if cluster_images:
+            st.subheader("Cluster overlays")
+            cluster_cols = st.columns(len(cluster_images))
+            for col, (caption, image_bytes) in zip(cluster_cols, cluster_images):
+                col.image(image_bytes, caption=caption)
+
+        if "reference_distance_relationship.png" in result["files"]:
+            st.subheader("Reference-distance relationship")
+            st.image(
+                result["files"]["reference_distance_relationship.png"],
+                caption="Phenotype vs external distance from the selected reference",
             )
+
+    with result_tabs[1]:
+        fit_sections = []
+        if "phenotype_fit_metrics.csv" in result["tables"]:
+            fit_sections.append(
+                ("Phenotype fit", "phenotype_fit_metrics.csv", "phenotype_residual_summary.csv", "phenotype_stress_summary.csv")
+            )
+        if "external_fit_metrics.csv" in result["tables"]:
+            fit_sections.append(
+                ("External fit", "external_fit_metrics.csv", "external_residual_summary.csv", "external_stress_summary.csv")
+            )
+        if fit_sections:
+            st.subheader("Goodness-of-fit summaries")
+            fit_tabs = st.tabs([label for label, *_ in fit_sections])
+            for tab, (label, metrics_name, residual_name, stress_name) in zip(fit_tabs, fit_sections):
+                with tab:
+                    st.markdown(f"**{label} metrics**")
+                    st.dataframe(result["tables"][metrics_name], use_container_width=True)
+                    if residual_name in result["tables"]:
+                        st.markdown("**Residual summary**")
+                        st.dataframe(result["tables"][residual_name], use_container_width=True)
+                    if stress_name in result["tables"]:
+                        st.markdown("**Stress-per-point summary**")
+                        st.dataframe(result["tables"][stress_name], use_container_width=True)
+                    download_cols = st.columns(4)
+                    for col, name in zip(
+                        download_cols,
+                        [metrics_name, residual_name, stress_name, metrics_name.replace("_metrics.csv", "_distances.csv")],
+                    ):
+                        if name in result["files"]:
+                            col.download_button(
+                                label=f"Download {name}",
+                                data=result["files"][name],
+                                file_name=name,
+                                mime="text/csv",
+                                key=f"download-{name}",
+                            )
+
+        scree_images = []
+        if "phenotype_cluster_elbow.png" in result["files"]:
+            scree_images.append(("Phenotype cluster scree", result["files"]["phenotype_cluster_elbow.png"]))
+        if "external_cluster_elbow.png" in result["files"]:
+            scree_images.append(("External cluster scree", result["files"]["external_cluster_elbow.png"]))
+        if scree_images:
+            st.subheader("Cluster scree diagnostics")
+            scree_cols = st.columns(len(scree_images))
+            for col, (caption, image_bytes) in zip(scree_cols, scree_images):
+                col.image(image_bytes, caption=caption)
+            scree_tables = []
+            if "phenotype_cluster_scree.csv" in result["tables"]:
+                scree_tables.append(("Phenotype scree table", "phenotype_cluster_scree.csv"))
+            if "external_cluster_scree.csv" in result["tables"]:
+                scree_tables.append(("External scree table", "external_cluster_scree.csv"))
+            if scree_tables:
+                scree_table_cols = st.columns(len(scree_tables))
+                for col, (caption, name) in zip(scree_table_cols, scree_tables):
+                    col.markdown(f"**{caption}**")
+                    col.dataframe(result["tables"][name], use_container_width=True, height=220)
+                    col.download_button(
+                        label=f"Download {name}",
+                        data=result["files"][name],
+                        file_name=name,
+                        mime="text/csv",
+                        key=f"download-{name}",
+                    )
+
+    with result_tabs[2]:
+        if result["tables"]:
+            st.subheader("Output tables")
+            for name, table in result["tables"].items():
+                st.markdown(f"**{name}**")
+                st.dataframe(table.head(50), use_container_width=True)
+                st.download_button(
+                    label=f"Download {name}",
+                    data=result["files"][name],
+                    file_name=name,
+                    mime="text/csv",
+                    key=f"table-{name}",
+                )
+
+    with result_tabs[3]:
+        if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
+            st.subheader("Report export")
+            report_tabs = st.tabs(["Preview", "Downloads"])
+            with report_tabs[0]:
+                if "amrc_report.md" in result["files"]:
+                    st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))
+                elif "amrc_report.html" in result["files"]:
+                    st.components.v1.html(
+                        result["files"]["amrc_report.html"].decode("utf-8"),
+                        height=500,
+                        scrolling=True,
+                    )
+            with report_tabs[1]:
+                if "amrc_report.md" in result["files"]:
+                    st.download_button(
+                        label="Download analysis report (.md)",
+                        data=result["files"]["amrc_report.md"],
+                        file_name="amrc_report.md",
+                        mime="text/markdown",
+                    )
+                if "amrc_report.html" in result["files"]:
+                    st.download_button(
+                        label="Download analysis report (.html)",
+                        data=result["files"]["amrc_report.html"],
+                        file_name="amrc_report.html",
+                        mime="text/html",
+                    )
+                if "amrc_report.pdf" in result["files"]:
+                    st.download_button(
+                        label="Download analysis report (.pdf)",
+                        data=result["files"]["amrc_report.pdf"],
+                        file_name="amrc_report.pdf",
+                        mime="application/pdf",
+                    )
+
+        if extra_downloads:
+            st.subheader("Download bundles")
+            for label, filename, mime in extra_downloads:
+                st.download_button(
+                    label=label,
+                    data=result["files"][filename],
+                    file_name=filename,
+                    mime=mime,
+                    key=f"bundle-{filename}",
+                )
+
+    with result_tabs[4]:
+        with st.expander("Show raw summary JSON", expanded=False):
+            st.json(result["summary"], expanded=True)

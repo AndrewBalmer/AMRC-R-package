@@ -24,7 +24,8 @@ part of the supported package/app workflow:
 
 The audit also used the screenshot baselines under
 `tests/visual-regression/baseline/` plus direct inspection of the generated
-figures in `docs/manuscript-figures/`.
+figures in `docs/manuscript-figures/`, together with the browser-level app QA
+notes in `streamlit_app/UI_QA_RESULTS.md`.
 
 ## Style elements currently preserved
 
@@ -43,6 +44,9 @@ figures in `docs/manuscript-figures/`.
 - `docs/manuscript-figures/figure03_cross_species.png`
 - `docs/manuscript-figures/figure04_spneumoniae_validation.png`
 - visual regression baselines in `tests/visual-regression/baseline/`
+- browser screenshots captured during the 4 April 2026 QA pass:
+  - `.tmp_browser_artifacts/02_mic_only_result.png`
+  - `.tmp_browser_artifacts/03_numeric_external_result.png`
 
 ## Remaining gaps
 
