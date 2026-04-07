@@ -372,15 +372,44 @@ st.markdown(
     <style>
     .stApp {
         background-color: #ffffff;
+        color: #202020;
+    }
+    .stApp,
+    .stApp p,
+    .stApp li,
+    .stApp label,
+    .stApp span,
+    .stApp div,
+    .stMarkdown,
+    .stCaption,
+    .stText,
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] *,
+    [data-testid="stMetric"],
+    [data-testid="stMetric"] *,
+    .stTabs [data-baseweb="tab"],
+    .stTabs [data-baseweb="tab"] *,
+    [data-baseweb="select"] *,
+    [data-baseweb="radio"] *,
+    [data-baseweb="checkbox"] *,
+    .stMultiSelect [data-baseweb="tag"] {
+        color: #202020;
     }
     [data-testid="stSidebar"] {
         background-color: #fafafa;
         border-right: 1px solid #dddddd;
     }
+    [data-testid="stSidebar"] .stCaption {
+        color: #4d4d4d;
+    }
     h1, h2, h3 {
         letter-spacing: 0.01em;
+        color: #202020;
     }
     h2, h3 {
+        color: #202020;
+    }
+    code, pre {
         color: #202020;
     }
     [data-testid="stMetric"] {
@@ -402,9 +431,21 @@ st.markdown(
         color: white;
         border: 1px solid black;
     }
+    div.stButton > button[kind="secondary"] {
+        color: #202020;
+        border: 1px solid #bdbdbd;
+    }
     div.stButton > button[kind="primary"]:hover {
         background-color: #C91A14;
         color: white;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        color: #202020;
+        border-color: #7f7f7f;
+    }
+    .stDownloadButton > button {
+        color: #202020;
+        border: 1px solid #bdbdbd;
     }
     .amrc-style-note {
         border-left: 4px solid #377EB8;
