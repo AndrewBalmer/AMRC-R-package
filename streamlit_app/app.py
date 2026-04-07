@@ -15,27 +15,161 @@ import streamlit as st
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND = REPO_ROOT / "streamlit_app" / "amrc_streamlit_backend.R"
 GENERIC_EXAMPLE_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "generic"
+SPNEUMONIAE_08_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "spneumoniae-08"
+LOCAL_SUIS_ROOT = Path("/Users/ab69/AMR_cartography_suis")
 
-DEMO_SPECS = {
-    "generic_mic_only": {
-        "label": "Generic MIC only",
-        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
-        "external_path": None,
-        "external_mode": None,
-    },
-    "generic_numeric_external": {
-        "label": "Generic MIC + numeric features",
-        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
-        "external_path": GENERIC_EXAMPLE_ROOT / "external_numeric.csv",
-        "external_mode": "numeric_features",
-    },
-    "generic_character_external": {
-        "label": "Generic MIC + character features",
-        "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
-        "external_path": GENERIC_EXAMPLE_ROOT / "external_character.csv",
-        "external_mode": "character_features",
-    },
-}
+
+def existing_path(path: Path) -> Path | None:
+    return path if path.exists() else None
+
+
+def demo_specs() -> dict[str, dict]:
+    specs: dict[str, dict] = {
+        "generic_mic_only": {
+            "label": "Generic MIC only",
+            "scope": "Bundled package demo",
+            "note": "Small generic MIC teaching fixture for fast QA and smoke runs.",
+            "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+            "phenotype_id_col": "isolate_id",
+            "mic_cols": ["drug_a", "drug_b", "drug_c"],
+            "metadata_cols": ["lineage", "source"],
+            "transform": "log2",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "fill_col": "lineage",
+            "group_col": "lineage",
+            "cluster_distinct_col": "isolate_id",
+            "n_clusters": 3,
+            "cluster_max_k": 6,
+            "phenotype_rotation_degrees": 0.0,
+            "external_rotation_degrees": 0.0,
+            "external_path": None,
+            "external_mode": None,
+            "reference_enabled": False,
+        },
+        "generic_numeric_external": {
+            "label": "Generic MIC + numeric features",
+            "scope": "Bundled package demo",
+            "note": "Small generic fixture with aligned numeric external features.",
+            "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+            "phenotype_id_col": "isolate_id",
+            "mic_cols": ["drug_a", "drug_b", "drug_c"],
+            "metadata_cols": ["lineage", "source"],
+            "transform": "log2",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "fill_col": "lineage",
+            "group_col": "lineage",
+            "cluster_distinct_col": "isolate_id",
+            "n_clusters": 3,
+            "cluster_max_k": 6,
+            "phenotype_rotation_degrees": 0.0,
+            "external_rotation_degrees": 0.0,
+            "external_path": GENERIC_EXAMPLE_ROOT / "external_numeric.csv",
+            "external_mode": "numeric_features",
+            "external_id_col": "isolate_id",
+            "external_feature_cols": ["axis1", "axis2"],
+            "reference_enabled": True,
+            "reference_col": "lineage",
+        },
+        "generic_character_external": {
+            "label": "Generic MIC + character features",
+            "scope": "Bundled package demo",
+            "note": "Small generic fixture with aligned character-state external data.",
+            "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
+            "phenotype_id_col": "isolate_id",
+            "mic_cols": ["drug_a", "drug_b", "drug_c"],
+            "metadata_cols": ["lineage", "source"],
+            "transform": "log2",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "fill_col": "lineage",
+            "group_col": "lineage",
+            "cluster_distinct_col": "isolate_id",
+            "n_clusters": 3,
+            "cluster_max_k": 6,
+            "phenotype_rotation_degrees": 0.0,
+            "external_rotation_degrees": 0.0,
+            "external_path": GENERIC_EXAMPLE_ROOT / "external_character.csv",
+            "external_mode": "character_features",
+            "external_id_col": "isolate_id",
+            "reference_enabled": True,
+            "reference_col": "lineage",
+        },
+    }
+
+    spn_phenotype = existing_path(SPNEUMONIAE_08_ROOT / "meta_data_Spneumoniae.csv")
+    spn_external = existing_path(SPNEUMONIAE_08_ROOT / "genotype_map_calibrated.csv")
+    if spn_phenotype is not None:
+        specs["spneumoniae_case_study"] = {
+            "label": "S. pneumoniae case study",
+            "scope": "Bundled large case study",
+            "note": "3628-isolate packaged pneumococcal MIC case study with optional genotype-map coordinates for external comparison.",
+            "phenotype_path": spn_phenotype,
+            "phenotype_id_col": "LABID",
+            "mic_cols": [
+                "Penicillin",
+                "Amoxicillin",
+                "Meropenem",
+                "Cefotaxime",
+                "Ceftriaxone",
+                "Cefuroxime",
+            ],
+            "metadata_cols": ["PT"],
+            "transform": "log2",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "fill_col": "PT",
+            "group_col": "PT",
+            "cluster_distinct_col": "LABID",
+            "n_clusters": 6,
+            "cluster_max_k": 10,
+            "phenotype_rotation_degrees": 326.0,
+            "external_rotation_degrees": 0.0,
+            "external_path": spn_external,
+            "external_mode": "numeric_features" if spn_external is not None else None,
+            "external_id_col": "LABID",
+            "external_feature_cols": ["G1", "G2"],
+            "reference_enabled": spn_external is not None,
+            "reference_col": "PT",
+        }
+
+    suis_required = {
+        "phenotype_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "phenotype_map_input_non_divergent_log2.csv",
+        "phenotype_metadata_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "mic_metadata_non_divergent.csv",
+        "external_path": LOCAL_SUIS_ROOT / "results" / "04_process_genotypes_and_pbps" / "pbp_distance_matrix_non_divergent.csv",
+    }
+    if all(path.exists() for path in suis_required.values()):
+        specs["suis_case_study"] = {
+            "label": "S. suis case study",
+            "scope": "Local large case study",
+            "note": "633-isolate phenotype panel with local S. suis genotype distance matrix from the sibling AMR_cartography_suis checkout.",
+            "phenotype_path": suis_required["phenotype_path"],
+            "phenotype_metadata_path": suis_required["phenotype_metadata_path"],
+            "phenotype_id_col": "LABID",
+            "mic_cols": ["Amoxicillin", "Cefquinome", "Ceftiofur", "Penicillin"],
+            "metadata_cols": ["BAPS2_1092", "Genome.Set", "Pathogen", "Source", "Year"],
+            "transform": "none",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "fill_col": "BAPS2_1092",
+            "group_col": "BAPS2_1092",
+            "cluster_distinct_col": "LABID",
+            "n_clusters": 5,
+            "cluster_max_k": 10,
+            "phenotype_rotation_degrees": 230.0,
+            "external_rotation_degrees": 0.0,
+            "external_path": suis_required["external_path"],
+            "external_mode": "precomputed_distance",
+            "external_id_col": "LABID",
+            "reference_enabled": True,
+            "reference_col": "BAPS2_1092",
+        }
+
+    return specs
+
+
+DEMO_SPECS = demo_specs()
 
 
 def read_uploaded_csv(uploaded_file) -> pd.DataFrame | None:
@@ -92,45 +226,75 @@ def save_dataframe(df: pd.DataFrame, target: Path) -> None:
 
 
 def clear_demo_selection() -> None:
-    for key in (
-        "demo_key",
-        "demo_label",
-        "demo_phenotype_path",
-        "demo_external_path",
-    ):
+    for key in ("demo_key", "demo_label"):
         st.session_state.pop(key, None)
+
+
+def load_demo_phenotype_dataframe(spec: dict) -> pd.DataFrame:
+    phenotype_df = read_local_csv(spec["phenotype_path"])
+    metadata_path = spec.get("phenotype_metadata_path")
+    if metadata_path is None:
+        return phenotype_df
+
+    metadata_df = read_local_csv(metadata_path)
+    id_col = spec["phenotype_id_col"]
+    overlap_cols = [
+        col for col in metadata_df.columns
+        if col != id_col and col in phenotype_df.columns
+    ]
+    if overlap_cols:
+        metadata_df = metadata_df.drop(columns=overlap_cols)
+    return phenotype_df.merge(metadata_df, on=id_col, how="left")
+
+
+def load_demo_external_dataframe(spec: dict) -> pd.DataFrame | None:
+    external_path = spec.get("external_path")
+    if external_path is None:
+        return None
+    return read_local_csv(external_path)
+
+
+def demo_catalog_frame() -> pd.DataFrame:
+    rows = []
+    for key, spec in DEMO_SPECS.items():
+        rows.append(
+            {
+                "Key": key,
+                "Dataset": spec["label"],
+                "Scope": spec.get("scope", "Demo"),
+                "External": "yes" if spec.get("external_path") is not None else "no",
+                "Note": spec.get("note", ""),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def apply_demo_selection(demo_key: str) -> None:
     spec = DEMO_SPECS[demo_key]
-    phenotype_df = read_local_csv(spec["phenotype_path"])
+    phenotype_df = load_demo_phenotype_dataframe(spec)
     phenotype_columns = phenotype_df.columns.tolist()
-    metadata_cols = [col for col in ("lineage", "source") if col in phenotype_columns]
-    mic_cols = [col for col in ("drug_a", "drug_b", "drug_c") if col in phenotype_columns]
+    metadata_cols = [col for col in spec.get("metadata_cols", []) if col in phenotype_columns]
+    mic_cols = [col for col in spec.get("mic_cols", []) if col in phenotype_columns]
 
     st.session_state["demo_key"] = demo_key
     st.session_state["demo_label"] = spec["label"]
-    st.session_state["demo_phenotype_path"] = str(spec["phenotype_path"])
-    st.session_state["demo_external_path"] = (
-        str(spec["external_path"]) if spec["external_path"] is not None else None
-    )
-    st.session_state["phenotype_id_col"] = "isolate_id"
+    st.session_state["phenotype_id_col"] = spec["phenotype_id_col"]
     st.session_state["mic_cols"] = mic_cols
     st.session_state["metadata_cols"] = metadata_cols
-    st.session_state["transform"] = "log2"
-    st.session_state["less_than"] = "numeric"
-    st.session_state["greater_than"] = "numeric"
-    st.session_state["fill_col"] = "lineage" if "lineage" in metadata_cols else none_option()
+    st.session_state["transform"] = spec.get("transform", "log2")
+    st.session_state["less_than"] = spec.get("less_than", "numeric")
+    st.session_state["greater_than"] = spec.get("greater_than", "numeric")
+    st.session_state["fill_col"] = spec.get("fill_col", none_option()) if spec.get("fill_col") in metadata_cols else none_option()
     st.session_state["facet_by"] = none_option()
-    st.session_state["group_col"] = "lineage" if "lineage" in metadata_cols else none_option()
+    st.session_state["group_col"] = spec.get("group_col", none_option()) if spec.get("group_col") in metadata_cols else none_option()
     st.session_state["grid_spacing_one"] = True
     st.session_state["density"] = False
     st.session_state["use_clustering"] = True
-    st.session_state["n_clusters"] = 3
-    st.session_state["cluster_max_k"] = 6
-    st.session_state["cluster_distinct_col"] = "isolate_id"
-    st.session_state["phenotype_rotation_degrees"] = 0.0
-    st.session_state["external_rotation_degrees"] = 0.0
+    st.session_state["n_clusters"] = spec.get("n_clusters", 3)
+    st.session_state["cluster_max_k"] = spec.get("cluster_max_k", 6)
+    st.session_state["cluster_distinct_col"] = spec.get("cluster_distinct_col", spec["phenotype_id_col"])
+    st.session_state["phenotype_rotation_degrees"] = spec.get("phenotype_rotation_degrees", 0.0)
+    st.session_state["external_rotation_degrees"] = spec.get("external_rotation_degrees", 0.0)
     st.session_state["reference_cluster_mode"] = "auto"
     st.session_state["reference_filter_col"] = none_option()
     st.session_state["reference_filter_values"] = []
@@ -143,22 +307,24 @@ def apply_demo_selection(demo_key: str) -> None:
     st.session_state["reference_annotation_y"] = 0.0
     st.session_state["report_pdf"] = False
 
-    if spec["external_path"] is None:
+    if spec.get("external_path") is None:
         st.session_state["use_external"] = False
         st.session_state["use_reference_summary"] = False
     else:
-        external_df = read_local_csv(spec["external_path"])
+        external_df = load_demo_external_dataframe(spec)
         external_columns = external_df.columns.tolist()
         st.session_state["use_external"] = True
         st.session_state["external_mode"] = spec["external_mode"]
-        st.session_state["external_id_col"] = "isolate_id"
+        st.session_state["external_id_col"] = spec.get("external_id_col", spec["phenotype_id_col"])
         st.session_state["external_feature_cols"] = [
-            col for col in external_columns if col != "isolate_id"
+            col for col in spec.get("external_feature_cols", external_columns)
+            if col in external_columns and col != st.session_state["external_id_col"]
         ]
-        st.session_state["use_reference_summary"] = True
-        st.session_state["reference_col"] = "lineage" if "lineage" in phenotype_columns else "isolate_id"
+        st.session_state["use_reference_summary"] = bool(spec.get("reference_enabled", True))
+        reference_default = spec.get("reference_col", metadata_cols[0] if metadata_cols else spec["phenotype_id_col"])
+        st.session_state["reference_col"] = reference_default if reference_default in phenotype_columns else spec["phenotype_id_col"]
         ref_values = phenotype_df[st.session_state["reference_col"]].dropna().astype(str).tolist()
-        st.session_state["reference_value"] = ref_values[0] if ref_values else ""
+        st.session_state["reference_value"] = str(spec.get("reference_value", ref_values[0] if ref_values else ""))
 
 
 def active_demo_key() -> str | None:
@@ -426,6 +592,18 @@ st.markdown(
         border: 1px solid #d9d9d9;
         background: #fafafa;
     }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: #111111;
+        border-color: #111111;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"],
+    .stTabs [data-baseweb="tab"][aria-selected="true"] * {
+        color: #ffffff !important;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="false"],
+    .stTabs [data-baseweb="tab"][aria-selected="false"] * {
+        color: #202020 !important;
+    }
     div.stButton > button[kind="primary"] {
         background-color: #E41A1C;
         color: white;
@@ -486,19 +664,34 @@ with st.sidebar:
     if demo_button_cols[2].button("Character ext.", use_container_width=True):
         apply_demo_selection("generic_character_external")
     if active_demo_key() is not None:
-        st.caption(f"Active bundled demo: {active_demo_label()}")
+        st.caption(f"Active exploration dataset: {active_demo_label()}")
         if st.button("Clear demo selection", use_container_width=True):
             clear_demo_selection()
 
+    st.header("Exploration datasets")
+    st.caption("Larger case studies and reproducible exploration inputs available in this checkout.")
+    case_button_cols = st.columns(2)
+    if "spneumoniae_case_study" in DEMO_SPECS and case_button_cols[0].button("S. pneumoniae", use_container_width=True):
+        apply_demo_selection("spneumoniae_case_study")
+    if "suis_case_study" in DEMO_SPECS and case_button_cols[1].button("S. suis", use_container_width=True):
+        apply_demo_selection("suis_case_study")
+    with st.expander("Available datasets", expanded=False):
+        st.dataframe(
+            demo_catalog_frame()[["Dataset", "Scope", "External"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+        active_key = active_demo_key()
+        if active_key is not None:
+            st.caption(DEMO_SPECS[active_key].get("note", ""))
+
     st.header("Phenotype Input")
     phenotype_upload = st.file_uploader("Phenotype MIC CSV", type=["csv"])
-
-demo_phenotype_path = Path(st.session_state["demo_phenotype_path"]) if st.session_state.get("demo_phenotype_path") else None
-demo_external_path = Path(st.session_state["demo_external_path"]) if st.session_state.get("demo_external_path") else None
+active_spec = DEMO_SPECS.get(active_demo_key()) if active_demo_key() is not None else None
 
 phenotype_df = read_uploaded_csv(phenotype_upload)
-if phenotype_df is None and demo_phenotype_path is not None:
-    phenotype_df = read_local_csv(demo_phenotype_path)
+if phenotype_df is None and active_spec is not None:
+    phenotype_df = load_demo_phenotype_dataframe(active_spec)
 
 if phenotype_df is not None:
     columns = phenotype_df.columns.tolist()
@@ -592,8 +785,8 @@ if phenotype_df is not None:
         with st.sidebar:
             external_upload = st.file_uploader("External CSV", type=["csv"])
         external_df = read_uploaded_csv(external_upload)
-        if external_df is None and demo_external_path is not None:
-            external_df = read_local_csv(demo_external_path)
+        if external_df is None and active_spec is not None:
+            external_df = load_demo_external_dataframe(active_spec)
 
         if external_df is not None:
             external_columns = external_df.columns.tolist()
@@ -754,7 +947,7 @@ if phenotype_df is not None:
     with left:
         st.subheader("Input Preview")
         if active_demo_key() is not None and phenotype_upload is None:
-            st.caption(f"Previewing bundled demo input: {active_demo_label()}")
+            st.caption(f"Previewing exploration dataset: {active_demo_label()}")
         st.dataframe(phenotype_df.head(10), use_container_width=True)
         if external_df is not None:
             st.subheader("External Preview")
@@ -766,7 +959,7 @@ if phenotype_df is not None:
             "- Requires `Rscript` plus the package dependencies available in the local environment.\n"
             "- This v1 app covers phenotype-only and phenotype-plus-external/genotype map workflows, not the full mixed-model layer.\n"
             "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider.\n"
-            "- The bundled demo buttons above are intended for quick QA and style checks without preparing your own files first."
+            "- The generic demo buttons are for fast QA; the larger case-study buttons are slower because they recompute maps, diagnostics, clustering, and reports on real datasets."
         )
         st.checkbox(
             "Export PDF report",
@@ -776,7 +969,9 @@ if phenotype_df is not None:
 
         can_run = bool(st.session_state.get("mic_cols"))
         if st.session_state["use_external"]:
-            can_run = can_run and (external_upload is not None or demo_external_path is not None)
+            can_run = can_run and (
+                external_upload is not None or (active_spec is not None and active_spec.get("external_path") is not None)
+            )
 
         if st.button("Run analysis", disabled=not can_run, type="primary"):
             with st.spinner("Running R backend..."):
@@ -788,8 +983,8 @@ if phenotype_df is not None:
                         external_upload=external_upload,
                         external_df=external_df,
                         work_dir=work_dir,
-                        phenotype_local_path=demo_phenotype_path,
-                        external_local_path=demo_external_path,
+                        phenotype_local_path=None,
+                        external_local_path=None,
                     )
                     st.session_state["amrc_app_result"] = run_backend(config)
                 except Exception as exc:  # noqa: BLE001
