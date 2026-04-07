@@ -188,10 +188,141 @@ amrc_html_list <- function(items) {
   if (length(items) == 0L) {
     return("<p>None.</p>")
   }
+  items <- sub("^[-*]\\s+", "", items)
   paste0(
     "<ul>",
     paste0("<li>", vapply(items, amrc_escape_html, character(1)), "</li>", collapse = ""),
     "</ul>"
+  )
+}
+
+amrc_markdown_list <- function(items) {
+  items <- items[!is.na(items) & nzchar(items)]
+  if (length(items) == 0L) {
+    return("None.")
+  }
+  paste0("- ", sub("^[-*]\\s+", "", items))
+}
+
+amrc_collect_report_figures <- function(output_dir, summary) {
+  candidates <- list(
+    list(
+      file = "phenotype_map.png",
+      title = "Phenotype map",
+      caption = "Primary phenotype map calibrated to MIC-style units."
+    ),
+    list(
+      file = "phenotype_cluster_map.png",
+      title = "Phenotype cluster overlay",
+      caption = "Phenotype map with cluster assignments overlaid."
+    ),
+    list(
+      file = "phenotype_cluster_elbow.png",
+      title = "Phenotype scree diagnostic",
+      caption = "Cluster scree / elbow diagnostic for the phenotype map."
+    )
+  )
+
+  if (!is.null(summary$external)) {
+    candidates <- c(
+      candidates,
+      list(
+        list(
+          file = "external_map.png",
+          title = "External/genotype map",
+          caption = "External structure map rendered with the same manuscript-style visual language."
+        ),
+        list(
+          file = "side_by_side_maps.png",
+          title = "Phenotype versus external panel",
+          caption = "Side-by-side phenotype and external/genotype maps."
+        ),
+        list(
+          file = "external_cluster_map.png",
+          title = "External cluster overlay",
+          caption = "External/genotype map with cluster assignments overlaid."
+        ),
+        list(
+          file = "external_cluster_elbow.png",
+          title = "External scree diagnostic",
+          caption = "Cluster scree / elbow diagnostic for the external/genotype map."
+        )
+      )
+    )
+  }
+
+  if (!is.null(summary$external$reference)) {
+    candidates <- c(
+      candidates,
+      list(
+        list(
+          file = "reference_distance_relationship.png",
+          title = "Reference-distance relationship",
+          caption = "Phenotype versus external distance from the selected reference group."
+        )
+      )
+    )
+  }
+
+  figures <- Filter(
+    f = function(x) file.exists(file.path(output_dir, x$file)),
+    x = candidates
+  )
+
+  if (length(figures) == 0L) {
+    return(figures)
+  }
+
+  for (i in seq_along(figures)) {
+    figures[[i]]$path <- file.path(output_dir, figures[[i]]$file)
+  }
+  figures
+}
+
+amrc_markdown_figure_section <- function(figures) {
+  if (length(figures) == 0L) {
+    return(character())
+  }
+
+  lines <- c("## Figures", "")
+  for (figure in figures) {
+    lines <- c(
+      lines,
+      sprintf("### %s", figure$title),
+      "",
+      sprintf("![%s](%s)", figure$title, figure$file),
+      "",
+      figure$caption,
+      ""
+    )
+  }
+  lines
+}
+
+amrc_html_figure_section <- function(figures) {
+  if (length(figures) == 0L) {
+    return("")
+  }
+
+  cards <- vapply(
+    figures,
+    function(figure) {
+      paste0(
+        "<div class=\"figure-card\">",
+        "<h3>", amrc_escape_html(figure$title), "</h3>",
+        "<img src=\"", amrc_escape_html(figure$file), "\" alt=\"", amrc_escape_html(figure$title), "\" />",
+        "<p class=\"figure-caption\">", amrc_escape_html(figure$caption), "</p>",
+        "</div>"
+      )
+    },
+    character(1)
+  )
+
+  paste0(
+    "<h2>Figures</h2>",
+    "<div class=\"figure-grid\">",
+    paste(cards, collapse = ""),
+    "</div>"
   )
 }
 
@@ -290,17 +421,17 @@ write_fit_report_outputs <- function(fit_report, output_dir, prefix, stress_valu
 
 write_run_report <- function(summary, output_dir, config) {
   phenotype_lines <- c(
-    sprintf("- isolates: %s", summary$phenotype$n_isolates %||% "NA"),
-    sprintf("- MIC variables: %s", summary$phenotype$n_drugs %||% "NA"),
-    sprintf("- stress: %s", summary$phenotype$stress %fmt_or_na% 4)
+    sprintf("Isolates: %s", summary$phenotype$n_isolates %||% "NA"),
+    sprintf("MIC variables: %s", summary$phenotype$n_drugs %||% "NA"),
+    sprintf("Stress: %s", summary$phenotype$stress %fmt_or_na% 4)
   )
 
   if (!is.null(summary$phenotype$clustering)) {
     phenotype_lines <- c(
       phenotype_lines,
-      sprintf("- phenotype clusters: %s", summary$phenotype$clustering$n_clusters %||% "NA"),
+      sprintf("Phenotype clusters: %s", summary$phenotype$clustering$n_clusters %||% "NA"),
       sprintf(
-        "- phenotype selected inertia: %s",
+        "Phenotype selected inertia: %s",
         summary$phenotype$clustering$selected_inertia %fmt_or_na% 4
       )
     )
@@ -310,15 +441,15 @@ write_run_report <- function(summary, output_dir, config) {
     phenotype_lines <- c(
       phenotype_lines,
       sprintf(
-        "- calibration: %s",
+        "Calibration: %s",
         summary$phenotype$calibration$note %||% "model-based MIC calibration"
       ),
       sprintf(
-        "- phenotype dilation: %s",
+        "Phenotype dilation: %s",
         summary$phenotype$calibration$dilation %fmt_or_na% 4
       ),
       sprintf(
-        "- phenotype rotation (degrees): %s",
+        "Phenotype rotation (degrees): %s",
         summary$phenotype$calibration$rotation_degrees %fmt_or_na% 1
       )
     )
@@ -326,32 +457,32 @@ write_run_report <- function(summary, output_dir, config) {
   if (!is.null(summary$phenotype$fit)) {
     phenotype_lines <- c(
       phenotype_lines,
-      sprintf("- goodness-of-fit R squared: %s", summary$phenotype$fit$r_squared %fmt_or_na% 4),
+      sprintf("Goodness-of-fit R squared: %s", summary$phenotype$fit$r_squared %fmt_or_na% 4),
       sprintf(
-        "- pairwise distance correlation: %s",
+        "Pairwise distance correlation: %s",
         summary$phenotype$fit$correlation_estimate %fmt_or_na% 4
       ),
       sprintf(
-        "- mean absolute residual: %s",
+        "Mean absolute residual: %s",
         summary$phenotype$fit$mean_abs_residual %fmt_or_na% 4
       )
     )
   }
 
-  external_lines <- c("- external workflow disabled")
+  external_lines <- c("External workflow disabled")
   if (!is.null(summary$external)) {
     external_lines <- c(
-      sprintf("- mode: %s", summary$external$mode %||% "NA"),
-      sprintf("- isolates in comparison: %s", summary$external$n_isolates %||% "NA"),
-      sprintf("- stress: %s", summary$external$stress %fmt_or_na% 4)
+      sprintf("Mode: %s", summary$external$mode %||% "NA"),
+      sprintf("Isolates in comparison: %s", summary$external$n_isolates %||% "NA"),
+      sprintf("Stress: %s", summary$external$stress %fmt_or_na% 4)
     )
 
     if (!is.null(summary$external$clustering)) {
       external_lines <- c(
         external_lines,
-        sprintf("- external clusters: %s", summary$external$clustering$n_clusters %||% "NA"),
+        sprintf("External clusters: %s", summary$external$clustering$n_clusters %||% "NA"),
         sprintf(
-          "- external selected inertia: %s",
+          "External selected inertia: %s",
           summary$external$clustering$selected_inertia %fmt_or_na% 4
         )
       )
@@ -360,10 +491,10 @@ write_run_report <- function(summary, output_dir, config) {
     if (!is.null(summary$external$reference)) {
       external_lines <- c(
         external_lines,
-        sprintf("- reference column: %s", summary$external$reference$reference_col %||% "NA"),
-        sprintf("- reference value: %s", summary$external$reference$reference_value %||% "NA"),
-        sprintf("- reference rows: %s", summary$external$reference$n_rows %||% "NA"),
-        sprintf("- reference mode: %s", summary$external$reference$cluster_mode %||% "NA")
+        sprintf("Reference column: %s", summary$external$reference$reference_col %||% "NA"),
+        sprintf("Reference value: %s", summary$external$reference$reference_value %||% "NA"),
+        sprintf("Reference rows: %s", summary$external$reference$n_rows %||% "NA"),
+        sprintf("Reference mode: %s", summary$external$reference$cluster_mode %||% "NA")
       )
     }
 
@@ -371,15 +502,15 @@ write_run_report <- function(summary, output_dir, config) {
       external_lines <- c(
         external_lines,
         sprintf(
-          "- calibration: %s",
+          "Calibration: %s",
           summary$external$calibration$note %||% "model-based MIC calibration"
         ),
         sprintf(
-          "- external dilation: %s",
+          "External dilation: %s",
           summary$external$calibration$dilation %fmt_or_na% 4
         ),
         sprintf(
-          "- external rotation (degrees): %s",
+          "External rotation (degrees): %s",
           summary$external$calibration$rotation_degrees %fmt_or_na% 1
         )
       )
@@ -387,48 +518,56 @@ write_run_report <- function(summary, output_dir, config) {
     if (!is.null(summary$external$fit)) {
       external_lines <- c(
         external_lines,
-        sprintf("- goodness-of-fit R squared: %s", summary$external$fit$r_squared %fmt_or_na% 4),
+        sprintf("Goodness-of-fit R squared: %s", summary$external$fit$r_squared %fmt_or_na% 4),
         sprintf(
-          "- pairwise distance correlation: %s",
+          "Pairwise distance correlation: %s",
           summary$external$fit$correlation_estimate %fmt_or_na% 4
         ),
         sprintf(
-          "- mean absolute residual: %s",
+          "Mean absolute residual: %s",
           summary$external$fit$mean_abs_residual %fmt_or_na% 4
         )
       )
     }
   }
 
+  output_items <- c(
+    "`phenotype_map.png`",
+    if (!is.null(summary$external)) c("`external_map.png`", "`side_by_side_maps.png`") else NULL,
+    if (!is.null(summary$external$reference)) "`reference_distance_relationship.png`" else NULL,
+    "`phenotype_fit_metrics.csv`",
+    "`phenotype_residual_summary.csv`",
+    "`phenotype_stress_summary.csv`",
+    "`phenotype_fit_distances.csv`",
+    if (!is.null(summary$external)) c(
+      "`external_fit_metrics.csv`",
+      "`external_residual_summary.csv`",
+      "`external_stress_summary.csv`",
+      "`external_fit_distances.csv`"
+    ) else NULL,
+    "`summary.json`",
+    "`amrc_result_bundle.rds`"
+  )
+  figures <- amrc_collect_report_figures(output_dir = output_dir, summary = summary)
+
   report_lines <- c(
     "# amrcartography analysis report",
     "",
-    sprintf("- package release target: `%s`", summary$package_release_target %||% "unknown"),
-    sprintf("- phenotype source: `%s`", basename(config$phenotype$path %||% "unknown")),
+    amrc_markdown_list(c(
+      sprintf("Package release target: `%s`", summary$package_release_target %||% "unknown"),
+      sprintf("Phenotype source: `%s`", basename(config$phenotype$path %||% "unknown"))
+    )),
     "",
     "## Phenotype workflow",
-    phenotype_lines,
+    amrc_markdown_list(phenotype_lines),
     "",
     "## External workflow",
-    external_lines,
+    amrc_markdown_list(external_lines),
     "",
     "## Output files",
-    "- `phenotype_map.png`",
-    if (!is.null(summary$external)) "- `external_map.png`" else NULL,
-    if (!is.null(summary$external)) "- `side_by_side_maps.png`" else NULL,
-    if (!is.null(summary$external$reference)) "- `reference_distance_relationship.png`" else NULL,
-    "- `phenotype_fit_metrics.csv`",
-    "- `phenotype_residual_summary.csv`",
-    "- `phenotype_stress_summary.csv`",
-    "- `phenotype_fit_distances.csv`",
-    if (!is.null(summary$external)) c(
-      "- `external_fit_metrics.csv`",
-      "- `external_residual_summary.csv`",
-      "- `external_stress_summary.csv`",
-      "- `external_fit_distances.csv`"
-    ) else NULL,
-    "- `summary.json`",
-    "- `amrc_result_bundle.rds`"
+    amrc_markdown_list(output_items),
+    "",
+    amrc_markdown_figure_section(figures)
   )
 
   markdown <- paste(report_lines, collapse = "\n")
@@ -456,6 +595,7 @@ write_run_report <- function(summary, output_dir, config) {
     "<style>",
     "body{font-family:Helvetica,Arial,sans-serif;margin:2rem;line-height:1.55;color:#111;background:#fff;}",
     "h1,h2{color:#111;margin-bottom:0.4rem;} h1{letter-spacing:0.01em;}",
+    "h3{color:#111;margin:0 0 0.6rem 0;}",
     "code{background:#f3f3f3;padding:0.1rem 0.25rem;border-radius:2px;}",
     ".lede{border-left:4px solid #377EB8;background:#f7fbff;padding:0.85rem 1rem;margin:1rem 0 1.25rem 0;}",
     ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin:1rem 0;}",
@@ -463,6 +603,10 @@ write_run_report <- function(summary, output_dir, config) {
     ".metric{font-size:1.4rem;font-weight:700;color:#202020;}",
     ".caption{color:#555;font-size:0.95rem;}",
     "ul{margin-top:0.5rem;padding-left:1.1rem;}",
+    ".figure-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin:1rem 0;}",
+    ".figure-card{border:1px solid #d9d9d9;padding:0.9rem;border-radius:6px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.03);}",
+    ".figure-card img{width:100%;height:auto;border:1px solid #ececec;border-radius:4px;background:#fff;}",
+    ".figure-caption{margin:0.75rem 0 0 0;color:#444;font-size:0.95rem;}",
     "</style></head><body>",
     "<h1>amrcartography analysis report</h1>",
     "<div class=\"lede\">",
@@ -486,6 +630,7 @@ write_run_report <- function(summary, output_dir, config) {
     amrc_html_list(phenotype_lines),
     "<h2>External workflow</h2>",
     amrc_html_list(external_lines),
+    amrc_html_figure_section(figures),
     "<h2>Output files</h2>",
     amrc_html_list(output_files),
     "</body></html>"

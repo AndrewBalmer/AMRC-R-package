@@ -1155,14 +1155,14 @@ if result:
             st.subheader("Report export")
             report_tabs = st.tabs(["Preview", "Downloads"])
             with report_tabs[0]:
-                if "amrc_report.md" in result["files"]:
-                    st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))
-                elif "amrc_report.html" in result["files"]:
+                if "amrc_report.html" in result["files"]:
                     st.components.v1.html(
                         result["files"]["amrc_report.html"].decode("utf-8"),
-                        height=500,
+                        height=900,
                         scrolling=True,
                     )
+                elif "amrc_report.md" in result["files"]:
+                    st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))
             with report_tabs[1]:
                 if "amrc_report.md" in result["files"]:
                     st.download_button(
