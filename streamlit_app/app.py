@@ -237,6 +237,50 @@ def demo_specs() -> dict[str, dict]:
 
 DEMO_SPECS = demo_specs()
 
+WIDGET_DEFAULTS = {
+    "mic_cols": [],
+    "metadata_cols": [],
+    "transform": "log2",
+    "less_than": "numeric",
+    "greater_than": "numeric",
+    "drop_incomplete": True,
+    "phenotype_fill_col": "(none)",
+    "genotype_fill_col": "(none)",
+    "phenotype_facet_by": "(none)",
+    "genotype_facet_by": "(none)",
+    "comparison_group_col": "(none)",
+    "phenotype_grid_spacing_one": False,
+    "genotype_grid_spacing_one": False,
+    "phenotype_density": False,
+    "genotype_density": False,
+    "phenotype_rotation_degrees": 0.0,
+    "genotype_rotation_degrees": 0.0,
+    "phenotype_use_clustering": False,
+    "genotype_use_clustering": False,
+    "phenotype_n_clusters": 4,
+    "genotype_n_clusters": 4,
+    "phenotype_cluster_max_k": 10,
+    "genotype_cluster_max_k": 10,
+    "use_genotype_map": False,
+    "genotype_mode": "precomputed_distance",
+    "genotype_feature_cols": [],
+    "use_reference_summary": False,
+    "reference_cluster_mode": "auto",
+    "reference_filter_col": "(none)",
+    "reference_filter_values": [],
+    "reference_x_max": 0.0,
+    "reference_x_break_step": 0.0,
+    "reference_y_max": 0.0,
+    "reference_y_break_step": 0.0,
+    "reference_annotation_text": "",
+    "reference_annotation_x": 0.0,
+    "reference_annotation_y": 0.0,
+    "report_pdf": False,
+}
+
+for widget_key, widget_value in WIDGET_DEFAULTS.items():
+    st.session_state.setdefault(widget_key, widget_value)
+
 
 def read_uploaded_csv(uploaded_file) -> pd.DataFrame | None:
     if uploaded_file is None:
@@ -847,7 +891,7 @@ with overview_right:
     st.caption("Packaged exploration datasets available in this checkout")
     st.dataframe(
         demo_catalog_frame()[["Dataset", "Scope", "Genotype map"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -876,23 +920,23 @@ with st.sidebar:
 
     st.subheader("Quick demos")
     demo_button_cols = st.columns(3)
-    if demo_button_cols[0].button("MIC only", use_container_width=True):
+    if demo_button_cols[0].button("MIC only", width="stretch"):
         apply_demo_selection("generic_mic_only")
-    if demo_button_cols[1].button("Numeric features", use_container_width=True):
+    if demo_button_cols[1].button("Numeric features", width="stretch"):
         apply_demo_selection("generic_numeric_external")
-    if demo_button_cols[2].button("Character features", use_container_width=True):
+    if demo_button_cols[2].button("Character features", width="stretch"):
         apply_demo_selection("generic_character_external")
 
     st.subheader("Large case studies")
     case_button_cols = st.columns(2)
-    if "spneumoniae_case_study" in DEMO_SPECS and case_button_cols[0].button("S. pneumoniae", use_container_width=True):
+    if "spneumoniae_case_study" in DEMO_SPECS and case_button_cols[0].button("S. pneumoniae", width="stretch"):
         apply_demo_selection("spneumoniae_case_study")
-    if "suis_case_study" in DEMO_SPECS and case_button_cols[1].button("S. suis", use_container_width=True):
+    if "suis_case_study" in DEMO_SPECS and case_button_cols[1].button("S. suis", width="stretch"):
         apply_demo_selection("suis_case_study")
     if active_demo_key() is not None:
         st.caption(f"Active dataset: {active_demo_label()}")
         st.caption(DEMO_SPECS[active_demo_key()].get("note", ""))
-        if st.button("Clear selected dataset", use_container_width=True):
+        if st.button("Clear selected dataset", width="stretch"):
             clear_demo_selection()
 
     st.subheader("Phenotype MIC input")
@@ -943,26 +987,24 @@ if phenotype_df is not None:
         st.selectbox("Phenotype ID column", options=columns, key="phenotype_id_col")
 
         default_mic = columns[1:min(len(columns), 4)]
-        if "mic_cols" not in st.session_state:
+        if not st.session_state["mic_cols"]:
             st.session_state["mic_cols"] = default_mic
         st.multiselect(
             "MIC columns",
             options=[col for col in columns if col != st.session_state["phenotype_id_col"]],
-            default=default_mic,
             key="mic_cols",
         )
         st.multiselect(
             "Metadata columns",
             options=[col for col in columns if col != st.session_state["phenotype_id_col"]],
-            default=[],
             key="metadata_cols",
         )
 
         st.subheader("MIC cleaning and transform")
-        st.selectbox("Transform", options=["log2", "none"], index=0, key="transform")
-        st.selectbox("Less-than handling", options=["numeric", "half"], index=0, key="less_than")
-        st.selectbox("Greater-than handling", options=["numeric", "double"], index=0, key="greater_than")
-        st.checkbox("Drop isolates with incomplete MIC panels", value=True, key="drop_incomplete")
+        st.selectbox("Transform", options=["log2", "none"], key="transform")
+        st.selectbox("Less-than handling", options=["numeric", "half"], key="less_than")
+        st.selectbox("Greater-than handling", options=["numeric", "double"], key="greater_than")
+        st.checkbox("Drop isolates with incomplete MIC panels", key="drop_incomplete")
 
         metadata_options = [none_option()] + st.session_state["metadata_cols"]
         cluster_distinct_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
@@ -973,34 +1015,32 @@ if phenotype_df is not None:
             st.selectbox("Comparison grouping column", options=metadata_options, key="comparison_group_col")
             st.checkbox(
                 "Show 1-unit MIC gridlines on phenotype map",
-                value=False,
                 key="phenotype_grid_spacing_one",
                 help="Use this after calibration if you want one doubling dilution per grid interval.",
             )
-            st.checkbox("Add phenotype density contours", value=False, key="phenotype_density")
+            st.checkbox("Add phenotype density contours", key="phenotype_density")
             preset_cols = st.columns(4)
-            if preset_cols[0].button("0°", key="phen-rot-0", use_container_width=True):
+            if preset_cols[0].button("0°", key="phen-rot-0", width="stretch"):
                 apply_rotation_preset("phenotype_rotation_degrees", 0)
-            if preset_cols[1].button("+15°", key="phen-rot-15", use_container_width=True):
+            if preset_cols[1].button("+15°", key="phen-rot-15", width="stretch"):
                 apply_rotation_preset("phenotype_rotation_degrees", 15)
-            if preset_cols[2].button("-15°", key="phen-rot-neg15", use_container_width=True):
+            if preset_cols[2].button("-15°", key="phen-rot-neg15", width="stretch"):
                 apply_rotation_preset("phenotype_rotation_degrees", -15)
-            if preset_cols[3].button("326°", key="phen-rot-spn", use_container_width=True):
+            if preset_cols[3].button("326°", key="phen-rot-spn", width="stretch"):
                 apply_rotation_preset("phenotype_rotation_degrees", 326)
             st.number_input(
                 "Phenotype rotation (degrees)",
                 min_value=-360.0,
                 max_value=360.0,
-                value=0.0,
                 step=1.0,
                 key="phenotype_rotation_degrees",
                 help="Optional post-calibration rotation for the phenotype map. The 1-MIC scaling still comes from calibration, not manual dilation.",
             )
 
         with st.expander("Phenotype clustering", expanded=False):
-            st.checkbox("Overlay phenotype clusters", value=False, key="phenotype_use_clustering")
-            st.number_input("Phenotype number of clusters", min_value=2, max_value=20, value=4, step=1, key="phenotype_n_clusters")
-            st.number_input("Phenotype max scree k", min_value=2, max_value=30, value=10, step=1, key="phenotype_cluster_max_k")
+            st.checkbox("Overlay phenotype clusters", key="phenotype_use_clustering")
+            st.number_input("Phenotype number of clusters", min_value=2, max_value=20, step=1, key="phenotype_n_clusters")
+            st.number_input("Phenotype max scree k", min_value=2, max_value=30, step=1, key="phenotype_cluster_max_k")
             st.selectbox(
                 "Phenotype cluster distinct units by",
                 options=cluster_distinct_options,
@@ -1008,7 +1048,7 @@ if phenotype_df is not None:
             )
 
         st.subheader("Optional genotype / structure map")
-        st.checkbox("Add genotype / structure map", value=False, key="use_genotype_map")
+        st.checkbox("Add genotype / structure map", key="use_genotype_map")
 
     if st.session_state["use_genotype_map"]:
         with st.sidebar:
@@ -1049,13 +1089,14 @@ if phenotype_df is not None:
                         key="genotype_id_col",
                     )
                     if st.session_state["genotype_mode"] != "precomputed_distance":
+                        if not st.session_state["genotype_feature_cols"]:
+                            st.session_state["genotype_feature_cols"] = [
+                                col for col in external_columns
+                                if col != st.session_state["genotype_id_col"]
+                            ][: min(6, max(1, len(external_columns) - 1))]
                         st.multiselect(
                             "Genotype / structure feature columns",
                             options=[col for col in external_columns if col != st.session_state["genotype_id_col"]],
-                            default=[
-                                col for col in external_columns
-                                if col != st.session_state["genotype_id_col"]
-                            ][: min(6, max(1, len(external_columns) - 1))],
                             key="genotype_feature_cols",
                         )
 
@@ -1064,34 +1105,32 @@ if phenotype_df is not None:
                     st.selectbox("Facet genotype map by", options=metadata_options, key="genotype_facet_by")
                     st.checkbox(
                         "Show 1-unit gridlines on genotype map",
-                        value=False,
                         key="genotype_grid_spacing_one",
                         help="This is separate from the phenotype grid and should only be used after calibration.",
                     )
-                    st.checkbox("Add genotype density contours", value=False, key="genotype_density")
+                    st.checkbox("Add genotype density contours", key="genotype_density")
                     genotype_rot_cols = st.columns(4)
-                    if genotype_rot_cols[0].button("0°", key="geno-rot-0", use_container_width=True):
+                    if genotype_rot_cols[0].button("0°", key="geno-rot-0", width="stretch"):
                         apply_rotation_preset("genotype_rotation_degrees", 0)
-                    if genotype_rot_cols[1].button("+15°", key="geno-rot-15", use_container_width=True):
+                    if genotype_rot_cols[1].button("+15°", key="geno-rot-15", width="stretch"):
                         apply_rotation_preset("genotype_rotation_degrees", 15)
-                    if genotype_rot_cols[2].button("-15°", key="geno-rot-neg15", use_container_width=True):
+                    if genotype_rot_cols[2].button("-15°", key="geno-rot-neg15", width="stretch"):
                         apply_rotation_preset("genotype_rotation_degrees", -15)
-                    if genotype_rot_cols[3].button("326°", key="geno-rot-spn", use_container_width=True):
+                    if genotype_rot_cols[3].button("326°", key="geno-rot-spn", width="stretch"):
                         apply_rotation_preset("genotype_rotation_degrees", 326)
                     st.number_input(
                         "Genotype rotation (degrees)",
                         min_value=-360.0,
                         max_value=360.0,
-                        value=0.0,
                         step=1.0,
                         key="genotype_rotation_degrees",
                         help="Optional post-calibration rotation for the genotype / structure map.",
                     )
 
                 with st.expander("Genotype clustering", expanded=False):
-                    st.checkbox("Overlay genotype clusters", value=False, key="genotype_use_clustering")
-                    st.number_input("Genotype number of clusters", min_value=2, max_value=20, value=4, step=1, key="genotype_n_clusters")
-                    st.number_input("Genotype max scree k", min_value=2, max_value=30, value=10, step=1, key="genotype_cluster_max_k")
+                    st.checkbox("Overlay genotype clusters", key="genotype_use_clustering")
+                    st.number_input("Genotype number of clusters", min_value=2, max_value=20, step=1, key="genotype_n_clusters")
+                    st.number_input("Genotype max scree k", min_value=2, max_value=30, step=1, key="genotype_cluster_max_k")
                     st.selectbox(
                         "Genotype cluster distinct units by",
                         options=cluster_distinct_options,
@@ -1102,7 +1141,7 @@ if phenotype_df is not None:
                 reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
                 if st.session_state.get("reference_col") not in reference_options:
                     st.session_state["reference_col"] = reference_options[0]
-                st.checkbox("Compute phenotype-vs-genotype reference summary", value=False, key="use_reference_summary")
+                st.checkbox("Compute phenotype-vs-genotype reference summary", key="use_reference_summary")
                 st.selectbox("Reference column", options=reference_options, key="reference_col")
                 st.selectbox(
                     "Reference summary mode",
@@ -1138,19 +1177,18 @@ if phenotype_df is not None:
                     st.multiselect(
                         "Reference filter values",
                         options=sorted(filter_values),
-                        default=[],
                         key="reference_filter_values",
                     )
                 else:
                     st.session_state["reference_filter_values"] = []
-                st.number_input("Reference plot x max (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_x_max")
-                st.number_input("Reference plot x break step (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_x_break_step")
-                st.number_input("Reference plot y max (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_y_max")
-                st.number_input("Reference plot y break step (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_y_break_step")
-                st.text_input("Reference annotation text", value="", key="reference_annotation_text")
+                st.number_input("Reference plot x max (0 = auto)", min_value=0.0, step=0.5, key="reference_x_max")
+                st.number_input("Reference plot x break step (0 = auto)", min_value=0.0, step=0.5, key="reference_x_break_step")
+                st.number_input("Reference plot y max (0 = auto)", min_value=0.0, step=0.5, key="reference_y_max")
+                st.number_input("Reference plot y break step (0 = auto)", min_value=0.0, step=0.5, key="reference_y_break_step")
+                st.text_input("Reference annotation text", key="reference_annotation_text")
                 annotation_cols = st.columns(2)
-                annotation_cols[0].number_input("Annotation x", value=0.0, step=0.5, key="reference_annotation_x")
-                annotation_cols[1].number_input("Annotation y", value=0.0, step=0.5, key="reference_annotation_y")
+                annotation_cols[0].number_input("Annotation x", step=0.5, key="reference_annotation_x")
+                annotation_cols[1].number_input("Annotation y", step=0.5, key="reference_annotation_y")
 
 with main_col:
     if phenotype_df is None:
@@ -1165,10 +1203,10 @@ with main_col:
             st.subheader("Phenotype input preview")
             if active_demo_key() is not None and phenotype_upload is None:
                 st.caption(f"Previewing dataset: {active_demo_label()}")
-            st.dataframe(phenotype_df.head(10), use_container_width=True)
+            st.dataframe(phenotype_df.head(10), width="stretch")
             if external_df is not None:
                 st.subheader("Genotype / structure preview")
-                st.dataframe(external_df.head(10), use_container_width=True)
+                st.dataframe(external_df.head(10), width="stretch")
 
         with preview_cols[1]:
             st.subheader("Run analysis")
@@ -1181,7 +1219,6 @@ with main_col:
             )
             st.checkbox(
                 "Export PDF report",
-                value=bool(st.session_state.get("report_pdf", False)),
                 key="report_pdf",
             )
 
@@ -1305,13 +1342,13 @@ if result:
             for tab, (label, metrics_name, residual_name, stress_name) in zip(fit_tabs, fit_sections):
                 with tab:
                     st.markdown(f"**{label} metrics**")
-                    st.dataframe(result["tables"][metrics_name], use_container_width=True)
+                    st.dataframe(result["tables"][metrics_name], width="stretch")
                     if residual_name in result["tables"]:
                         st.markdown("**Residual summary**")
-                        st.dataframe(result["tables"][residual_name], use_container_width=True)
+                        st.dataframe(result["tables"][residual_name], width="stretch")
                     if stress_name in result["tables"]:
                         st.markdown("**Stress-per-point summary**")
-                        st.dataframe(result["tables"][stress_name], use_container_width=True)
+                        st.dataframe(result["tables"][stress_name], width="stretch")
                     download_cols = st.columns(4)
                     for col, name in zip(
                         download_cols,
@@ -1345,7 +1382,7 @@ if result:
                 scree_table_cols = st.columns(len(scree_tables))
                 for col, (caption, name) in zip(scree_table_cols, scree_tables):
                     col.markdown(f"**{caption}**")
-                    col.dataframe(result["tables"][name], use_container_width=True, height=220)
+                    col.dataframe(result["tables"][name], width="stretch", height=220)
                     col.download_button(
                         label=f"Download {name}",
                         data=result["files"][name],
@@ -1359,7 +1396,7 @@ if result:
             st.subheader("Output tables")
             for name, table in result["tables"].items():
                 st.markdown(f"**{name}**")
-                st.dataframe(table.head(50), use_container_width=True)
+                st.dataframe(table.head(50), width="stretch")
                 st.download_button(
                     label=f"Download {name}",
                     data=result["files"][name],
@@ -1374,10 +1411,9 @@ if result:
             report_tabs = st.tabs(["Preview", "Downloads"])
             with report_tabs[0]:
                 if "amrc_report.html" in result["files"]:
-                    st.components.v1.html(
+                    st.html(
                         result["files"]["amrc_report.html"].decode("utf-8"),
-                        height=900,
-                        scrolling=True,
+                        width="stretch",
                     )
                 elif "amrc_report.md" in result["files"]:
                     st.markdown(result["files"]["amrc_report.md"].decode("utf-8"))

@@ -14,6 +14,18 @@ async def wait_for_completion(page, needle: str, timeout_seconds: int = 120) -> 
     raise RuntimeError(f"Timed out waiting for '{needle}' to appear in the app output.")
 
 
+async def wait_for_all(page, needles: list[str], timeout_seconds: int = 120) -> str:
+    for _ in range(timeout_seconds):
+        text = await page.locator("body").inner_text()
+        if all(needle in text for needle in needles) and "Running R backend..." not in text:
+            return text
+        await page.wait_for_timeout(1000)
+    raise RuntimeError(
+        "Timed out waiting for all expected app outputs to appear:\n- "
+        + "\n- ".join(needles)
+    )
+
+
 async def run_browser_qa(url: str, out_dir: Path) -> None:
     from playwright.async_api import async_playwright
 
@@ -42,7 +54,14 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
         await page.get_by_role("button", name="Numeric features").click()
         await page.wait_for_timeout(1500)
         await page.get_by_role("button", name="Run analysis").click()
-        numeric_text = await wait_for_completion(page, "Genotype / structure map")
+        numeric_text = await wait_for_all(
+            page,
+            [
+                "Genotype / structure map",
+                "Side-by-side phenotype and genotype / structure maps",
+                "Reference-distance relationship",
+            ],
+        )
         await page.screenshot(path=str(out_dir / "03_numeric_external_result.png"), full_page=True)
         await page.get_by_role("tab", name="Diagnostics").click()
         await page.wait_for_timeout(750)

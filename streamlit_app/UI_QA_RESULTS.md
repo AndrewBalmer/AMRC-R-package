@@ -97,6 +97,6 @@ Screenshot:
 - This pass did not exercise PDF export in-browser.
 - This pass did not test advanced association workflows, which are still
   intentionally outside the current app surface.
-- Streamlit still emits deprecation warnings for some `use_container_width`
-  calls and for `st.components.v1.html`; these are not blocking, but they
-  should be cleaned up in a later polish pass.
+- The current QA pass focused on the phenotype-first, genotype / structure
+  comparison, and report/export surfaces rather than the not-yet-exposed
+  advanced association layer.
