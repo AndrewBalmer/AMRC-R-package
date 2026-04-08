@@ -1,7 +1,7 @@
 # Streamlit Prototype
 
-This directory contains an experimental Streamlit front end for the generic
-`amrcartography` workflow.
+This directory contains an experimental phenotype-first Streamlit front end for
+the generic `amrcartography` workflow.
 
 The app intentionally renders package-backed plots using the manuscript-aligned
 cartography style, so the visual language stays consistent across the original
@@ -14,28 +14,33 @@ Current scope:
 - upload a phenotype MIC CSV
 - choose ID, MIC, and metadata columns
 - clean and standardise MIC values
+- demonstrate MIC cleaning and `log2` transformation in-app for the bundled raw
+  `S. suis` example
 - compute a phenotype distance matrix and MDS map
 - calibrate maps onto MIC-style units using the package calibration model
-- surface map goodness-of-fit summaries for phenotype and external maps:
+- surface map goodness-of-fit summaries for phenotype and genotype / structure
+  maps:
   - stress
   - R-squared from the calibration fit
   - residual summaries
   - stress-per-point summaries
   - downloadable pairwise fit-distance tables
-- optional post-calibration rotation controls for phenotype and external maps
+- optional post-calibration rotation controls for phenotype and genotype /
+  structure maps
   plus quick preset buttons for common manuscript/thesis orientations
 - optionally cluster the phenotype map with configurable `k` and join-key
   controls
-- cluster scree/elbow diagnostics for phenotype and external map clustering
+- cluster scree/elbow diagnostics for phenotype and genotype / structure map
+  clustering
 - scree tables surfaced alongside the elbow plots in the UI
-- optionally upload an external/genotype structure as:
+- optionally upload a genotype / structure input as:
   - a precomputed distance matrix
   - a numeric feature table
   - a character-state feature table
   - an aligned sequence/allele table
-- fit an external map
-- generate a side-by-side phenotype/external map comparison
-- optionally cluster the external map with the same controls
+- fit a genotype / structure map
+- generate a side-by-side phenotype/genotype map comparison
+- optionally cluster the genotype / structure map with separate controls
 - optionally compute reference-distance summaries against a selected metadata
   group or isolate
 - filter reference-distance summaries by a chosen metadata column/value set
@@ -91,8 +96,8 @@ thesis figures.
 The sidebar includes quick demo buttons for:
 
 - generic MIC only
-- generic MIC plus numeric external features
-- generic MIC plus character external features
+- generic MIC plus numeric genotype / structure features
+- generic MIC plus character genotype / structure features
 
 These are intended for QA, screenshots, and style checks without having to
 prepare upload files first.

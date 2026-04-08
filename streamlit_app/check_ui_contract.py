@@ -25,23 +25,22 @@ def main() -> int:
     assert "amrcartography" in title_values, "App title is missing."
 
     captions = [node.value for node in app.caption]
-    assert any("generic phenotype/external workflow" in text for text in captions), (
-        "Expected app caption describing the generic phenotype/external workflow."
+    assert any("Phenotype-first cartography app" in text for text in captions), (
+        "Expected app caption describing the phenotype-first workflow."
     )
 
     markdown_blocks = [node.value for node in app.markdown]
-    assert any("manuscript cartography theme" in block for block in markdown_blocks), (
-        "Expected manuscript-style note in app shell."
+    assert any("one doubling dilution" in block for block in markdown_blocks), (
+        "Expected calibration note in app shell."
     )
 
     sidebar_headers = [node.value for node in app.sidebar.header]
-    assert "Quick demo" in sidebar_headers, "Sidebar quick demo header is missing."
-    assert "Phenotype Input" in sidebar_headers, "Sidebar phenotype header is missing."
+    assert "Phenotype-first workflow" in sidebar_headers, "Sidebar phenotype-first header is missing."
 
     button_labels = [node.label for node in app.button]
     assert "MIC only" in button_labels, "Expected bundled MIC-only demo button."
-    assert "Numeric ext." in button_labels, "Expected bundled numeric external demo button."
-    assert "Character ext." in button_labels, "Expected bundled character external demo button."
+    assert "Numeric features" in button_labels, "Expected bundled numeric feature demo button."
+    assert "Character features" in button_labels, "Expected bundled character feature demo button."
 
     uploader_labels = [node.label for node in app.file_uploader]
     assert "Phenotype MIC CSV" in uploader_labels, "Phenotype file uploader is missing."

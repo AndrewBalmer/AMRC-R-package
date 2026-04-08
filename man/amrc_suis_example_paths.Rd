@@ -14,6 +14,9 @@ A named list of file paths.
 }
 \description{
 Returns the installed-file paths for the compact \verb{S. suis} example bundle
-used by the Streamlit app and reproducibility checks. This helper is
-case-study infrastructure, not part of the primary generic MIC API.
+used by the Streamlit app and reproducibility checks. The bundle includes a
+raw MIC phenotype panel for the phenotype-first app workflow, alongside the
+earlier processed log2 panel retained for regression compatibility. This
+helper is case-study infrastructure, not part of the primary generic MIC
+API.
 }

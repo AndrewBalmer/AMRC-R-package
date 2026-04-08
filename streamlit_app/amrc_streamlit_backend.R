@@ -205,6 +205,7 @@ amrc_markdown_list <- function(items) {
 }
 
 amrc_collect_report_figures <- function(output_dir, summary) {
+  comparison_summary <- summary$genotype %||% summary$external
   candidates <- list(
     list(
       file = "phenotype_map.png",
@@ -223,42 +224,42 @@ amrc_collect_report_figures <- function(output_dir, summary) {
     )
   )
 
-  if (!is.null(summary$external)) {
+  if (!is.null(comparison_summary)) {
     candidates <- c(
       candidates,
       list(
         list(
           file = "external_map.png",
-          title = "External/genotype map",
-          caption = "External structure map rendered with the same manuscript-style visual language."
+          title = "Genotype / structure map",
+          caption = "Genotype or structure map rendered with the same manuscript-style visual language."
         ),
         list(
           file = "side_by_side_maps.png",
-          title = "Phenotype versus external panel",
-          caption = "Side-by-side phenotype and external/genotype maps."
+          title = "Phenotype versus genotype panel",
+          caption = "Side-by-side phenotype and genotype / structure maps."
         ),
         list(
           file = "external_cluster_map.png",
-          title = "External cluster overlay",
-          caption = "External/genotype map with cluster assignments overlaid."
+          title = "Genotype cluster overlay",
+          caption = "Genotype / structure map with cluster assignments overlaid."
         ),
         list(
           file = "external_cluster_elbow.png",
-          title = "External scree diagnostic",
-          caption = "Cluster scree / elbow diagnostic for the external/genotype map."
+          title = "Genotype scree diagnostic",
+          caption = "Cluster scree / elbow diagnostic for the genotype / structure map."
         )
       )
     )
   }
 
-  if (!is.null(summary$external$reference)) {
+  if (!is.null(comparison_summary$reference)) {
     candidates <- c(
       candidates,
       list(
         list(
           file = "reference_distance_relationship.png",
           title = "Reference-distance relationship",
-          caption = "Phenotype versus external distance from the selected reference group."
+          caption = "Phenotype versus genotype / structure distance from the selected reference group."
         )
       )
     )
@@ -420,6 +421,8 @@ write_fit_report_outputs <- function(fit_report, output_dir, prefix, stress_valu
 }
 
 write_run_report <- function(summary, output_dir, config) {
+  comparison_summary <- summary$genotype %||% summary$external
+
   phenotype_lines <- c(
     sprintf("Isolates: %s", summary$phenotype$n_isolates %||% "NA"),
     sprintf("MIC variables: %s", summary$phenotype$n_drugs %||% "NA"),
@@ -469,63 +472,63 @@ write_run_report <- function(summary, output_dir, config) {
     )
   }
 
-  external_lines <- c("External workflow disabled")
-  if (!is.null(summary$external)) {
-    external_lines <- c(
-      sprintf("Mode: %s", summary$external$mode %||% "NA"),
-      sprintf("Isolates in comparison: %s", summary$external$n_isolates %||% "NA"),
-      sprintf("Stress: %s", summary$external$stress %fmt_or_na% 4)
+  genotype_lines <- c("Genotype / structure workflow disabled")
+  if (!is.null(comparison_summary)) {
+    genotype_lines <- c(
+      sprintf("Mode: %s", comparison_summary$mode %||% "NA"),
+      sprintf("Isolates in comparison: %s", comparison_summary$n_isolates %||% "NA"),
+      sprintf("Stress: %s", comparison_summary$stress %fmt_or_na% 4)
     )
 
-    if (!is.null(summary$external$clustering)) {
-      external_lines <- c(
-        external_lines,
-        sprintf("External clusters: %s", summary$external$clustering$n_clusters %||% "NA"),
+    if (!is.null(comparison_summary$clustering)) {
+      genotype_lines <- c(
+        genotype_lines,
+        sprintf("Genotype clusters: %s", comparison_summary$clustering$n_clusters %||% "NA"),
         sprintf(
-          "External selected inertia: %s",
-          summary$external$clustering$selected_inertia %fmt_or_na% 4
+          "Genotype selected inertia: %s",
+          comparison_summary$clustering$selected_inertia %fmt_or_na% 4
         )
       )
     }
 
-    if (!is.null(summary$external$reference)) {
-      external_lines <- c(
-        external_lines,
-        sprintf("Reference column: %s", summary$external$reference$reference_col %||% "NA"),
-        sprintf("Reference value: %s", summary$external$reference$reference_value %||% "NA"),
-        sprintf("Reference rows: %s", summary$external$reference$n_rows %||% "NA"),
-        sprintf("Reference mode: %s", summary$external$reference$cluster_mode %||% "NA")
+    if (!is.null(comparison_summary$reference)) {
+      genotype_lines <- c(
+        genotype_lines,
+        sprintf("Reference column: %s", comparison_summary$reference$reference_col %||% "NA"),
+        sprintf("Reference value: %s", comparison_summary$reference$reference_value %||% "NA"),
+        sprintf("Reference rows: %s", comparison_summary$reference$n_rows %||% "NA"),
+        sprintf("Reference mode: %s", comparison_summary$reference$cluster_mode %||% "NA")
       )
     }
 
-    if (!is.null(summary$external$calibration)) {
-      external_lines <- c(
-        external_lines,
+    if (!is.null(comparison_summary$calibration)) {
+      genotype_lines <- c(
+        genotype_lines,
         sprintf(
           "Calibration: %s",
-          summary$external$calibration$note %||% "model-based MIC calibration"
+          comparison_summary$calibration$note %||% "model-based MIC calibration"
         ),
         sprintf(
-          "External dilation: %s",
-          summary$external$calibration$dilation %fmt_or_na% 4
+          "Genotype dilation: %s",
+          comparison_summary$calibration$dilation %fmt_or_na% 4
         ),
         sprintf(
-          "External rotation (degrees): %s",
-          summary$external$calibration$rotation_degrees %fmt_or_na% 1
+          "Genotype rotation (degrees): %s",
+          comparison_summary$calibration$rotation_degrees %fmt_or_na% 1
         )
       )
     }
-    if (!is.null(summary$external$fit)) {
-      external_lines <- c(
-        external_lines,
-        sprintf("Goodness-of-fit R squared: %s", summary$external$fit$r_squared %fmt_or_na% 4),
+    if (!is.null(comparison_summary$fit)) {
+      genotype_lines <- c(
+        genotype_lines,
+        sprintf("Goodness-of-fit R squared: %s", comparison_summary$fit$r_squared %fmt_or_na% 4),
         sprintf(
           "Pairwise distance correlation: %s",
-          summary$external$fit$correlation_estimate %fmt_or_na% 4
+          comparison_summary$fit$correlation_estimate %fmt_or_na% 4
         ),
         sprintf(
           "Mean absolute residual: %s",
-          summary$external$fit$mean_abs_residual %fmt_or_na% 4
+          comparison_summary$fit$mean_abs_residual %fmt_or_na% 4
         )
       )
     }
@@ -533,13 +536,13 @@ write_run_report <- function(summary, output_dir, config) {
 
   output_items <- c(
     "`phenotype_map.png`",
-    if (!is.null(summary$external)) c("`external_map.png`", "`side_by_side_maps.png`") else NULL,
-    if (!is.null(summary$external$reference)) "`reference_distance_relationship.png`" else NULL,
+    if (!is.null(comparison_summary)) c("`external_map.png`", "`side_by_side_maps.png`") else NULL,
+    if (!is.null(comparison_summary$reference)) "`reference_distance_relationship.png`" else NULL,
     "`phenotype_fit_metrics.csv`",
     "`phenotype_residual_summary.csv`",
     "`phenotype_stress_summary.csv`",
     "`phenotype_fit_distances.csv`",
-    if (!is.null(summary$external)) c(
+    if (!is.null(comparison_summary)) c(
       "`external_fit_metrics.csv`",
       "`external_residual_summary.csv`",
       "`external_stress_summary.csv`",
@@ -561,8 +564,8 @@ write_run_report <- function(summary, output_dir, config) {
     "## Phenotype workflow",
     amrc_markdown_list(phenotype_lines),
     "",
-    "## External workflow",
-    amrc_markdown_list(external_lines),
+    "## Genotype / structure workflow",
+    amrc_markdown_list(genotype_lines),
     "",
     "## Output files",
     amrc_markdown_list(output_items),
@@ -573,13 +576,13 @@ write_run_report <- function(summary, output_dir, config) {
   markdown <- paste(report_lines, collapse = "\n")
   output_files <- c(
     "phenotype_map.png",
-    if (!is.null(summary$external)) c("external_map.png", "side_by_side_maps.png") else NULL,
-    if (!is.null(summary$external$reference)) "reference_distance_relationship.png" else NULL,
+    if (!is.null(comparison_summary)) c("external_map.png", "side_by_side_maps.png") else NULL,
+    if (!is.null(comparison_summary$reference)) "reference_distance_relationship.png" else NULL,
     "phenotype_fit_metrics.csv",
     "phenotype_residual_summary.csv",
     "phenotype_stress_summary.csv",
     "phenotype_fit_distances.csv",
-    if (!is.null(summary$external)) c(
+    if (!is.null(comparison_summary)) c(
       "external_fit_metrics.csv",
       "external_residual_summary.csv",
       "external_stress_summary.csv",
@@ -628,8 +631,8 @@ write_run_report <- function(summary, output_dir, config) {
     "</div>",
     "<h2>Phenotype workflow</h2>",
     amrc_html_list(phenotype_lines),
-    "<h2>External workflow</h2>",
-    amrc_html_list(external_lines),
+    "<h2>Genotype / structure workflow</h2>",
+    amrc_html_list(genotype_lines),
     amrc_html_figure_section(figures),
     "<h2>Output files</h2>",
     amrc_html_list(output_files),
@@ -698,19 +701,48 @@ parse_precomputed_distance <- function(path, id_col) {
   )
 }
 
+amrc_section <- function(config, primary, fallback = NULL) {
+  section <- config[[primary]]
+  if (!is.null(section)) {
+    return(section)
+  }
+  if (!is.null(fallback)) {
+    return(config[[fallback]] %||% list())
+  }
+  list()
+}
+
+phenotype_plot_cfg <- amrc_section(config, "phenotype_plot", fallback = "plot")
+genotype_plot_cfg <- amrc_section(config, "genotype_plot", fallback = "plot")
+phenotype_cluster_cfg <- amrc_section(config, "phenotype_clustering", fallback = "clustering")
+genotype_cluster_cfg <- amrc_section(config, "genotype_clustering", fallback = "clustering")
+genotype_cfg <- amrc_section(config, "genotype", fallback = "external")
+
 id_col <- config$phenotype$id_col
 metadata_cols <- config$phenotype$metadata_cols %||% character()
-fill_col <- amrc_scalar_or_null(config$plot$fill_col)
-facet_by <- amrc_scalar_or_null(config$plot$facet_by)
 group_col <- amrc_scalar_or_null(config$comparison$group_col)
-grid_spacing <- if (isTRUE(config$plot$grid_spacing_one)) 1 else NULL
-density_mode <- if (isTRUE(config$plot$density)) "contour" else "none"
-phenotype_rotation_degrees <- amrc_numeric_or_null(config$plot$phenotype_rotation_degrees)
-external_rotation_degrees <- amrc_numeric_or_null(config$plot$external_rotation_degrees)
-cluster_enabled <- isTRUE(config$clustering$enabled)
-cluster_n <- as.integer(config$clustering$n_clusters %||% 4L)
-cluster_max_k <- as.integer(config$clustering$max_k %||% max(cluster_n + 2L, 10L))
-cluster_distinct_col <- amrc_scalar_or_null(config$clustering$distinct_col) %||% id_col
+phenotype_fill_col <- amrc_scalar_or_null(phenotype_plot_cfg$fill_col)
+phenotype_facet_by <- amrc_scalar_or_null(phenotype_plot_cfg$facet_by)
+phenotype_grid_spacing <- if (isTRUE(phenotype_plot_cfg$grid_spacing_one)) 1 else NULL
+phenotype_density_mode <- if (isTRUE(phenotype_plot_cfg$density)) "contour" else "none"
+phenotype_rotation_degrees <- amrc_numeric_or_null(
+  phenotype_plot_cfg$rotation_degrees %||% phenotype_plot_cfg$phenotype_rotation_degrees
+)
+genotype_fill_col <- amrc_scalar_or_null(genotype_plot_cfg$fill_col)
+genotype_facet_by <- amrc_scalar_or_null(genotype_plot_cfg$facet_by)
+genotype_grid_spacing <- if (isTRUE(genotype_plot_cfg$grid_spacing_one)) 1 else NULL
+genotype_density_mode <- if (isTRUE(genotype_plot_cfg$density)) "contour" else "none"
+external_rotation_degrees <- amrc_numeric_or_null(
+  genotype_plot_cfg$rotation_degrees %||% genotype_plot_cfg$external_rotation_degrees
+)
+phenotype_cluster_enabled <- isTRUE(phenotype_cluster_cfg$enabled)
+phenotype_cluster_n <- as.integer(phenotype_cluster_cfg$n_clusters %||% 4L)
+phenotype_cluster_max_k <- as.integer(phenotype_cluster_cfg$max_k %||% max(phenotype_cluster_n + 2L, 10L))
+phenotype_cluster_distinct_col <- amrc_scalar_or_null(phenotype_cluster_cfg$distinct_col) %||% id_col
+genotype_cluster_enabled <- isTRUE(genotype_cluster_cfg$enabled)
+genotype_cluster_n <- as.integer(genotype_cluster_cfg$n_clusters %||% phenotype_cluster_n)
+genotype_cluster_max_k <- as.integer(genotype_cluster_cfg$max_k %||% max(genotype_cluster_n + 2L, 10L))
+genotype_cluster_distinct_col <- amrc_scalar_or_null(genotype_cluster_cfg$distinct_col) %||% id_col
 reference_enabled <- isTRUE(config$reference$enabled)
 reference_col <- amrc_scalar_or_null(config$reference$reference_col)
 reference_value <- amrc_scalar_or_null(config$reference$reference_value)
@@ -765,10 +797,10 @@ phenotype_plot <- amrc_fn("amrc_plot_map")(
   data = phenotype_plot_data,
   x = "D1",
   y = "D2",
-  fill_col = fill_col,
-  facet_by = facet_by,
-  grid_spacing = grid_spacing,
-  density = density_mode,
+  fill_col = phenotype_fill_col,
+  facet_by = phenotype_facet_by,
+  grid_spacing = phenotype_grid_spacing,
+  density = phenotype_density_mode,
   use_cartography_theme = TRUE
 )
 
@@ -781,18 +813,18 @@ utils::write.csv(
 
 phenotype_cluster <- NULL
 phenotype_cluster_data <- phenotype_plot_data
-if (isTRUE(cluster_enabled)) {
+if (isTRUE(phenotype_cluster_enabled)) {
   phenotype_cluster <- amrc_fn("amrc_cluster_map")(
     data = phenotype_plot_data,
     coord_cols = c("D1", "D2"),
-    n_clusters = cluster_n,
-    distinct_col = cluster_distinct_col,
-    max_k = cluster_max_k
+    n_clusters = phenotype_cluster_n,
+    distinct_col = phenotype_cluster_distinct_col,
+    max_k = phenotype_cluster_max_k
   )
   phenotype_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
     data = phenotype_plot_data,
     assignments = phenotype_cluster$assignments,
-    key_col = cluster_distinct_col,
+    key_col = phenotype_cluster_distinct_col,
     cluster_col = "phen_cluster"
   )
   phenotype_cluster_plot <- amrc_fn("amrc_plot_cluster_map")(
@@ -800,13 +832,13 @@ if (isTRUE(cluster_enabled)) {
     x = "D1",
     y = "D2",
     cluster_col = "phen_cluster",
-    facet_by = facet_by,
+    facet_by = phenotype_facet_by,
     show_legend = TRUE
   )
   write_plot(phenotype_cluster_plot, file.path(output_dir, "phenotype_cluster_map.png"))
   phenotype_elbow_plot <- amrc_fn("amrc_plot_cluster_elbow")(
     scree_data = phenotype_cluster$scree,
-    highlight_cluster = cluster_n,
+    highlight_cluster = phenotype_cluster_n,
     draw_path = TRUE
   )
   write_plot(
@@ -849,14 +881,14 @@ summary <- list(
       mean_spp = phenotype_fit_report$stress_summary$mean_spp[[1]] %||% NA_real_,
       max_spp = phenotype_fit_report$stress_summary$max_spp[[1]] %||% NA_real_
     ),
-    clustering = if (isTRUE(cluster_enabled)) {
+    clustering = if (isTRUE(phenotype_cluster_enabled)) {
       list(
-        n_clusters = cluster_n,
-        distinct_col = cluster_distinct_col,
-        max_k = cluster_max_k,
+        n_clusters = phenotype_cluster_n,
+        distinct_col = phenotype_cluster_distinct_col,
+        max_k = phenotype_cluster_max_k,
         selected_inertia = if (!is.null(phenotype_cluster)) {
           phenotype_cluster$scree$within_cluster_inertia[
-            phenotype_cluster$scree$n_clusters == cluster_n
+            phenotype_cluster$scree$n_clusters == phenotype_cluster_n
           ][1]
         } else {
           NULL
@@ -866,6 +898,7 @@ summary <- list(
       NULL
     }
   ),
+  genotype = NULL,
   external = NULL
 )
 
@@ -882,11 +915,11 @@ result_bundle <- list(
   phenotype_cluster_data = phenotype_cluster_data
 )
 
-if (isTRUE(config$external$enabled)) {
-  mode <- config$external$mode
-  external_path <- config$external$path
-  external_id_col <- config$external$id_col
-  external_feature_cols <- config$external$feature_cols %||% character()
+if (isTRUE(genotype_cfg$enabled)) {
+  mode <- genotype_cfg$mode
+  external_path <- genotype_cfg$path
+  external_id_col <- genotype_cfg$id_col
+  external_feature_cols <- genotype_cfg$feature_cols %||% character()
 
   if (identical(mode, "precomputed_distance")) {
     external_distance <- parse_precomputed_distance(
@@ -953,17 +986,26 @@ if (isTRUE(config$external$enabled)) {
     data = comparison_bundle$data,
     x = "E1",
     y = "E2",
-    fill_col = fill_col,
-    facet_by = facet_by,
-    grid_spacing = grid_spacing,
-    density = density_mode,
+    fill_col = genotype_fill_col,
+    facet_by = genotype_facet_by,
+    grid_spacing = genotype_grid_spacing,
+    density = genotype_density_mode,
     use_cartography_theme = TRUE
   )
-  side_plot <- amrc_fn("amrc_plot_side_by_side_maps")(
-    data = comparison_bundle$data,
-    fill_col = fill_col,
-    grid_spacing = grid_spacing
-  )
+  side_plot <- if (requireNamespace("patchwork", quietly = TRUE)) {
+    amrc_fn("amrc_compose_manuscript_side_by_side_panel")(
+      left_plot = phenotype_plot,
+      right_plot = external_plot,
+      collect_guides = identical(phenotype_fill_col, genotype_fill_col) &&
+        identical(phenotype_facet_by, genotype_facet_by)
+    )
+  } else {
+    amrc_fn("amrc_plot_side_by_side_maps")(
+      data = comparison_bundle$data,
+      fill_col = phenotype_fill_col %||% genotype_fill_col,
+      grid_spacing = phenotype_grid_spacing %||% genotype_grid_spacing
+    )
+  }
 
   write_plot(external_plot, file.path(output_dir, "external_map.png"))
   write_plot(side_plot, file.path(output_dir, "side_by_side_maps.png"), width = 10, height = 5)
@@ -975,17 +1017,17 @@ if (isTRUE(config$external$enabled)) {
 
   external_cluster <- NULL
   external_cluster_data <- comparison_bundle$data
-  if (isTRUE(cluster_enabled)) {
-    join_key <- cluster_distinct_col
+  if (isTRUE(genotype_cluster_enabled)) {
+    join_key <- genotype_cluster_distinct_col
     if (!(join_key %in% colnames(external_cluster_data))) {
       join_key <- id_col
     }
     external_cluster <- amrc_fn("amrc_cluster_map")(
       data = external_cluster_data,
       coord_cols = c("E1", "E2"),
-      n_clusters = cluster_n,
+      n_clusters = genotype_cluster_n,
       distinct_col = join_key,
-      max_k = cluster_max_k
+      max_k = genotype_cluster_max_k
     )
     external_cluster_data <- amrc_fn("amrc_add_cluster_assignments")(
       data = external_cluster_data,
@@ -998,13 +1040,13 @@ if (isTRUE(config$external$enabled)) {
       x = "E1",
       y = "E2",
       cluster_col = "external_cluster",
-      facet_by = facet_by,
+      facet_by = genotype_facet_by,
       show_legend = TRUE
     )
     write_plot(external_cluster_plot, file.path(output_dir, "external_cluster_map.png"))
     external_elbow_plot <- amrc_fn("amrc_plot_cluster_elbow")(
       scree_data = external_cluster$scree,
-      highlight_cluster = cluster_n,
+      highlight_cluster = genotype_cluster_n,
       draw_path = TRUE
     )
     write_plot(
@@ -1041,7 +1083,7 @@ if (isTRUE(config$external$enabled)) {
       external_cols = c("E1", "E2"),
       id_col = id_col,
       cluster_col = ref_cluster_col,
-      keep_cols = unique(stats::na.omit(c(fill_col, group_col, reference_filter_col)))
+      keep_cols = unique(stats::na.omit(c(phenotype_fill_col, genotype_fill_col, group_col, reference_filter_col)))
     )
     if (!is.null(reference_filter_col)) {
       if (!(reference_filter_col %in% colnames(reference_table))) {
@@ -1107,7 +1149,7 @@ if (isTRUE(config$external$enabled)) {
     )
   }
 
-  summary$external <- list(
+  genotype_summary <- list(
     mode = mode,
     n_isolates = nrow(comparison_bundle$data),
     stress = unname(external_map$stress %||% NA_real_),
@@ -1127,14 +1169,14 @@ if (isTRUE(config$external$enabled)) {
       mean_spp = external_fit_report$stress_summary$mean_spp[[1]] %||% NA_real_,
       max_spp = external_fit_report$stress_summary$max_spp[[1]] %||% NA_real_
     ),
-    clustering = if (isTRUE(cluster_enabled)) {
+    clustering = if (isTRUE(genotype_cluster_enabled)) {
       list(
-        n_clusters = cluster_n,
-        distinct_col = cluster_distinct_col,
-        max_k = cluster_max_k,
+        n_clusters = genotype_cluster_n,
+        distinct_col = genotype_cluster_distinct_col,
+        max_k = genotype_cluster_max_k,
         selected_inertia = if (!is.null(external_cluster)) {
           external_cluster$scree$within_cluster_inertia[
-            external_cluster$scree$n_clusters == cluster_n
+            external_cluster$scree$n_clusters == genotype_cluster_n
           ][1]
         } else {
           NULL
@@ -1159,6 +1201,9 @@ if (isTRUE(config$external$enabled)) {
       NULL
     }
   )
+
+  summary$genotype <- genotype_summary
+  summary$external <- genotype_summary
 
   result_bundle$summary <- summary
   result_bundle$external_distance <- external_distance

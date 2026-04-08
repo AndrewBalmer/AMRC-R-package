@@ -39,10 +39,10 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
         mic_report_text = await page.locator("body").inner_text()
 
         await page.goto(url, wait_until="networkidle")
-        await page.get_by_role("button", name="Numeric ext.").click()
+        await page.get_by_role("button", name="Numeric features").click()
         await page.wait_for_timeout(1500)
         await page.get_by_role("button", name="Run analysis").click()
-        numeric_text = await wait_for_completion(page, "External map")
+        numeric_text = await wait_for_completion(page, "Genotype / structure map")
         await page.screenshot(path=str(out_dir / "03_numeric_external_result.png"), full_page=True)
         await page.get_by_role("tab", name="Diagnostics").click()
         await page.wait_for_timeout(750)
@@ -61,8 +61,8 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
             "Download report (.html)": "Download report (.html)" in mic_report_text,
         },
         "numeric_external": {
-            "External map": "External map" in numeric_text,
-            "Side-by-side phenotype vs external maps": "Side-by-side phenotype vs external maps" in numeric_text,
+            "Genotype / structure map": "Genotype / structure map" in numeric_text,
+            "Side-by-side phenotype and genotype / structure maps": "Side-by-side phenotype and genotype / structure maps" in numeric_text,
             "Cluster scree diagnostics": "Cluster scree diagnostics" in numeric_diag_text,
             "Reference-distance relationship": "Reference-distance relationship" in numeric_text,
             "Goodness-of-fit summaries": "Goodness-of-fit summaries" in numeric_diag_text,

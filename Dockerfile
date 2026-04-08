@@ -34,6 +34,7 @@ COPY DESCRIPTION NAMESPACE /app/
 COPY R /app/R
 COPY man /app/man
 COPY inst /app/inst
+COPY .streamlit /app/.streamlit
 COPY streamlit_app /app/streamlit_app
 
 RUN Rscript -e 'install.packages(c("remotes", "pak"), repos = "https://cloud.r-project.org")'

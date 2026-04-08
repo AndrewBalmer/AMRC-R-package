@@ -17,11 +17,47 @@ BACKEND = REPO_ROOT / "streamlit_app" / "amrc_streamlit_backend.R"
 GENERIC_EXAMPLE_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "generic"
 SPNEUMONIAE_08_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "spneumoniae-08"
 PACKAGED_SUIS_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "suis-demo"
-LOCAL_SUIS_ROOT = Path("/Users/ab69/AMR_cartography_suis")
+APP_WIKI_PATH = REPO_ROOT / "streamlit_app" / "APP_WIKI.md"
+APP_CAPABILITY_MATRIX_PATH = REPO_ROOT / "streamlit_app" / "APP_CAPABILITY_MATRIX.md"
 
 
 def existing_path(path: Path) -> Path | None:
     return path if path.exists() else None
+
+
+def read_text_if_present(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def split_markdown_sections(text: str) -> dict[str, str]:
+    sections: dict[str, list[str]] = {}
+    current = "Lead"
+    buffer: list[str] = []
+
+    for line in text.splitlines():
+        if line.startswith("## "):
+            sections[current] = buffer
+            current = line[3:].strip()
+            buffer = []
+        else:
+            buffer.append(line)
+
+    sections[current] = buffer
+    return {
+        key: "\n".join(value).strip()
+        for key, value in sections.items()
+        if "\n".join(value).strip()
+    }
+
+
+APP_WIKI_SECTIONS = split_markdown_sections(read_text_if_present(APP_WIKI_PATH))
+APP_CAPABILITY_MATRIX = read_text_if_present(APP_CAPABILITY_MATRIX_PATH)
+
+
+def wiki_section(title: str, fallback: str = "") -> str:
+    return APP_WIKI_SECTIONS.get(title, fallback)
 
 
 def demo_specs() -> dict[str, dict]:
@@ -37,13 +73,17 @@ def demo_specs() -> dict[str, dict]:
             "transform": "log2",
             "less_than": "numeric",
             "greater_than": "numeric",
-            "fill_col": "lineage",
-            "group_col": "lineage",
-            "cluster_distinct_col": "isolate_id",
-            "n_clusters": 3,
-            "cluster_max_k": 6,
+            "phenotype_fill_col": "lineage",
+            "genotype_fill_col": "lineage",
+            "comparison_group_col": "lineage",
+            "phenotype_cluster_distinct_col": "isolate_id",
+            "genotype_cluster_distinct_col": "isolate_id",
+            "phenotype_n_clusters": 3,
+            "genotype_n_clusters": 3,
+            "phenotype_cluster_max_k": 6,
+            "genotype_cluster_max_k": 6,
             "phenotype_rotation_degrees": 0.0,
-            "external_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
             "external_path": None,
             "external_mode": None,
             "reference_enabled": False,
@@ -51,7 +91,7 @@ def demo_specs() -> dict[str, dict]:
         "generic_numeric_external": {
             "label": "Generic MIC + numeric features",
             "scope": "Bundled package demo",
-            "note": "Small generic fixture with aligned numeric external features.",
+            "note": "Small generic fixture with aligned numeric genotype / structure features.",
             "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
             "phenotype_id_col": "isolate_id",
             "mic_cols": ["drug_a", "drug_b", "drug_c"],
@@ -59,13 +99,17 @@ def demo_specs() -> dict[str, dict]:
             "transform": "log2",
             "less_than": "numeric",
             "greater_than": "numeric",
-            "fill_col": "lineage",
-            "group_col": "lineage",
-            "cluster_distinct_col": "isolate_id",
-            "n_clusters": 3,
-            "cluster_max_k": 6,
+            "phenotype_fill_col": "lineage",
+            "genotype_fill_col": "lineage",
+            "comparison_group_col": "lineage",
+            "phenotype_cluster_distinct_col": "isolate_id",
+            "genotype_cluster_distinct_col": "isolate_id",
+            "phenotype_n_clusters": 3,
+            "genotype_n_clusters": 3,
+            "phenotype_cluster_max_k": 6,
+            "genotype_cluster_max_k": 6,
             "phenotype_rotation_degrees": 0.0,
-            "external_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
             "external_path": GENERIC_EXAMPLE_ROOT / "external_numeric.csv",
             "external_mode": "numeric_features",
             "external_id_col": "isolate_id",
@@ -76,7 +120,7 @@ def demo_specs() -> dict[str, dict]:
         "generic_character_external": {
             "label": "Generic MIC + character features",
             "scope": "Bundled package demo",
-            "note": "Small generic fixture with aligned character-state external data.",
+            "note": "Small generic fixture with aligned character-state genotype / structure data.",
             "phenotype_path": GENERIC_EXAMPLE_ROOT / "mic_raw.csv",
             "phenotype_id_col": "isolate_id",
             "mic_cols": ["drug_a", "drug_b", "drug_c"],
@@ -84,13 +128,17 @@ def demo_specs() -> dict[str, dict]:
             "transform": "log2",
             "less_than": "numeric",
             "greater_than": "numeric",
-            "fill_col": "lineage",
-            "group_col": "lineage",
-            "cluster_distinct_col": "isolate_id",
-            "n_clusters": 3,
-            "cluster_max_k": 6,
+            "phenotype_fill_col": "lineage",
+            "genotype_fill_col": "lineage",
+            "comparison_group_col": "lineage",
+            "phenotype_cluster_distinct_col": "isolate_id",
+            "genotype_cluster_distinct_col": "isolate_id",
+            "phenotype_n_clusters": 3,
+            "genotype_n_clusters": 3,
+            "phenotype_cluster_max_k": 6,
+            "genotype_cluster_max_k": 6,
             "phenotype_rotation_degrees": 0.0,
-            "external_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
             "external_path": GENERIC_EXAMPLE_ROOT / "external_character.csv",
             "external_mode": "character_features",
             "external_id_col": "isolate_id",
@@ -105,7 +153,7 @@ def demo_specs() -> dict[str, dict]:
         specs["spneumoniae_case_study"] = {
             "label": "S. pneumoniae case study",
             "scope": "Bundled large case study",
-            "note": "3628-isolate packaged pneumococcal MIC case study with optional genotype-map coordinates for external comparison.",
+            "note": "3628-isolate packaged pneumococcal MIC case study with optional genotype-map coordinates for phenotype-vs-genotype comparison.",
             "phenotype_path": spn_phenotype,
             "phenotype_id_col": "LABID",
             "mic_cols": [
@@ -120,13 +168,17 @@ def demo_specs() -> dict[str, dict]:
             "transform": "log2",
             "less_than": "numeric",
             "greater_than": "numeric",
-            "fill_col": "PT",
-            "group_col": "PT",
-            "cluster_distinct_col": "LABID",
-            "n_clusters": 6,
-            "cluster_max_k": 10,
+            "phenotype_fill_col": "PT",
+            "genotype_fill_col": "PT",
+            "comparison_group_col": "PT",
+            "phenotype_cluster_distinct_col": "LABID",
+            "genotype_cluster_distinct_col": "LABID",
+            "phenotype_n_clusters": 6,
+            "genotype_n_clusters": 6,
+            "phenotype_cluster_max_k": 10,
+            "genotype_cluster_max_k": 10,
             "phenotype_rotation_degrees": 326.0,
-            "external_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
             "external_path": spn_external,
             "external_mode": "numeric_features" if spn_external is not None else None,
             "external_id_col": "LABID",
@@ -136,29 +188,16 @@ def demo_specs() -> dict[str, dict]:
         }
 
     packaged_suis_required = {
-        "phenotype_path": PACKAGED_SUIS_ROOT / "phenotype_map_input_non_divergent_log2.csv",
-        "phenotype_metadata_path": PACKAGED_SUIS_ROOT / "mic_metadata_non_divergent.csv",
+        "phenotype_path": PACKAGED_SUIS_ROOT / "suis_raw_mic_panel.csv",
         "external_path": PACKAGED_SUIS_ROOT / "pbp_distance_matrix_non_divergent.csv",
-    }
-    local_suis_required = {
-        "phenotype_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "phenotype_map_input_non_divergent_log2.csv",
-        "phenotype_metadata_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "mic_metadata_non_divergent.csv",
-        "external_path": LOCAL_SUIS_ROOT / "results" / "04_process_genotypes_and_pbps" / "pbp_distance_matrix_non_divergent.csv",
     }
 
     if all(path.exists() for path in packaged_suis_required.values()):
         suis_required = packaged_suis_required
         suis_scope = "Bundled large case study"
         suis_note = (
-            "633-isolate packaged S. suis phenotype panel with a bundled "
-            "precomputed PBP distance matrix for website/demo exploration."
-        )
-    elif all(path.exists() for path in local_suis_required.values()):
-        suis_required = local_suis_required
-        suis_scope = "Local large case study"
-        suis_note = (
-            "633-isolate phenotype panel with local S. suis genotype distance "
-            "matrix from the sibling AMR_cartography_suis checkout."
+            "633-isolate packaged S. suis phenotype panel using raw MIC values, "
+            "with a bundled precomputed PBP distance matrix for genotype-map exploration."
         )
     else:
         suis_required = None
@@ -169,20 +208,23 @@ def demo_specs() -> dict[str, dict]:
             "scope": suis_scope,
             "note": suis_note,
             "phenotype_path": suis_required["phenotype_path"],
-            "phenotype_metadata_path": suis_required["phenotype_metadata_path"],
             "phenotype_id_col": "LABID",
             "mic_cols": ["Amoxicillin", "Cefquinome", "Ceftiofur", "Penicillin"],
-            "metadata_cols": ["BAPS2_1092", "Genome.Set", "Pathogen", "Source", "Year"],
-            "transform": "none",
+            "metadata_cols": ["BAPS2_1092", "NewBaps", "Genome.Set", "Pathogen", "Serotype", "Source", "Year"],
+            "transform": "log2",
             "less_than": "numeric",
             "greater_than": "numeric",
-            "fill_col": "BAPS2_1092",
-            "group_col": "BAPS2_1092",
-            "cluster_distinct_col": "LABID",
-            "n_clusters": 5,
-            "cluster_max_k": 10,
+            "phenotype_fill_col": "BAPS2_1092",
+            "genotype_fill_col": "BAPS2_1092",
+            "comparison_group_col": "BAPS2_1092",
+            "phenotype_cluster_distinct_col": "LABID",
+            "genotype_cluster_distinct_col": "LABID",
+            "phenotype_n_clusters": 5,
+            "genotype_n_clusters": 5,
+            "phenotype_cluster_max_k": 10,
+            "genotype_cluster_max_k": 10,
             "phenotype_rotation_degrees": 230.0,
-            "external_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
             "external_path": suis_required["external_path"],
             "external_mode": "precomputed_distance",
             "external_id_col": "LABID",
@@ -286,7 +328,7 @@ def demo_catalog_frame() -> pd.DataFrame:
                 "Key": key,
                 "Dataset": spec["label"],
                 "Scope": spec.get("scope", "Demo"),
-                "External": "yes" if spec.get("external_path") is not None else "no",
+                "Genotype map": "yes" if spec.get("external_path") is not None else "no",
                 "Note": spec.get("note", ""),
             }
         )
@@ -308,17 +350,35 @@ def apply_demo_selection(demo_key: str) -> None:
     st.session_state["transform"] = spec.get("transform", "log2")
     st.session_state["less_than"] = spec.get("less_than", "numeric")
     st.session_state["greater_than"] = spec.get("greater_than", "numeric")
-    st.session_state["fill_col"] = spec.get("fill_col", none_option()) if spec.get("fill_col") in metadata_cols else none_option()
-    st.session_state["facet_by"] = none_option()
-    st.session_state["group_col"] = spec.get("group_col", none_option()) if spec.get("group_col") in metadata_cols else none_option()
-    st.session_state["grid_spacing_one"] = True
-    st.session_state["density"] = False
-    st.session_state["use_clustering"] = True
-    st.session_state["n_clusters"] = spec.get("n_clusters", 3)
-    st.session_state["cluster_max_k"] = spec.get("cluster_max_k", 6)
-    st.session_state["cluster_distinct_col"] = spec.get("cluster_distinct_col", spec["phenotype_id_col"])
+    st.session_state["drop_incomplete"] = True
+    st.session_state["phenotype_fill_col"] = (
+        spec.get("phenotype_fill_col", none_option())
+        if spec.get("phenotype_fill_col") in metadata_cols else none_option()
+    )
+    st.session_state["genotype_fill_col"] = (
+        spec.get("genotype_fill_col", none_option())
+        if spec.get("genotype_fill_col") in metadata_cols else none_option()
+    )
+    st.session_state["phenotype_facet_by"] = none_option()
+    st.session_state["genotype_facet_by"] = none_option()
+    st.session_state["comparison_group_col"] = (
+        spec.get("comparison_group_col", none_option())
+        if spec.get("comparison_group_col") in metadata_cols else none_option()
+    )
+    st.session_state["phenotype_grid_spacing_one"] = True
+    st.session_state["genotype_grid_spacing_one"] = False
+    st.session_state["phenotype_density"] = False
+    st.session_state["genotype_density"] = False
+    st.session_state["phenotype_use_clustering"] = True
+    st.session_state["genotype_use_clustering"] = True
+    st.session_state["phenotype_n_clusters"] = spec.get("phenotype_n_clusters", 3)
+    st.session_state["genotype_n_clusters"] = spec.get("genotype_n_clusters", 3)
+    st.session_state["phenotype_cluster_max_k"] = spec.get("phenotype_cluster_max_k", 6)
+    st.session_state["genotype_cluster_max_k"] = spec.get("genotype_cluster_max_k", 6)
+    st.session_state["phenotype_cluster_distinct_col"] = spec.get("phenotype_cluster_distinct_col", spec["phenotype_id_col"])
+    st.session_state["genotype_cluster_distinct_col"] = spec.get("genotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["phenotype_rotation_degrees"] = spec.get("phenotype_rotation_degrees", 0.0)
-    st.session_state["external_rotation_degrees"] = spec.get("external_rotation_degrees", 0.0)
+    st.session_state["genotype_rotation_degrees"] = spec.get("genotype_rotation_degrees", 0.0)
     st.session_state["reference_cluster_mode"] = "auto"
     st.session_state["reference_filter_col"] = none_option()
     st.session_state["reference_filter_values"] = []
@@ -332,17 +392,17 @@ def apply_demo_selection(demo_key: str) -> None:
     st.session_state["report_pdf"] = False
 
     if spec.get("external_path") is None:
-        st.session_state["use_external"] = False
+        st.session_state["use_genotype_map"] = False
         st.session_state["use_reference_summary"] = False
     else:
         external_df = load_demo_external_dataframe(spec)
         external_columns = external_df.columns.tolist()
-        st.session_state["use_external"] = True
-        st.session_state["external_mode"] = spec["external_mode"]
-        st.session_state["external_id_col"] = spec.get("external_id_col", spec["phenotype_id_col"])
-        st.session_state["external_feature_cols"] = [
+        st.session_state["use_genotype_map"] = True
+        st.session_state["genotype_mode"] = spec["external_mode"]
+        st.session_state["genotype_id_col"] = spec.get("external_id_col", spec["phenotype_id_col"])
+        st.session_state["genotype_feature_cols"] = [
             col for col in spec.get("external_feature_cols", external_columns)
-            if col in external_columns and col != st.session_state["external_id_col"]
+            if col in external_columns and col != st.session_state["genotype_id_col"]
         ]
         st.session_state["use_reference_summary"] = bool(spec.get("reference_enabled", True))
         reference_default = spec.get("reference_col", metadata_cols[0] if metadata_cols else spec["phenotype_id_col"])
@@ -409,31 +469,63 @@ def build_config(
             "transform": st.session_state["transform"],
             "less_than": st.session_state["less_than"],
             "greater_than": st.session_state["greater_than"],
-            "drop_incomplete": True,
+            "drop_incomplete": bool(st.session_state.get("drop_incomplete", True)),
         },
         "plot": {
-            "fill_col": maybe_none(st.session_state.get("fill_col")),
-            "facet_by": maybe_none(st.session_state.get("facet_by")),
-            "grid_spacing_one": st.session_state["grid_spacing_one"],
-            "density": st.session_state["density"],
+            "fill_col": maybe_none(st.session_state.get("phenotype_fill_col")),
+            "facet_by": maybe_none(st.session_state.get("phenotype_facet_by")),
+            "grid_spacing_one": st.session_state["phenotype_grid_spacing_one"],
+            "density": st.session_state["phenotype_density"],
             "phenotype_rotation_degrees": maybe_number(st.session_state.get("phenotype_rotation_degrees")),
-            "external_rotation_degrees": maybe_number(st.session_state.get("external_rotation_degrees")),
+            "external_rotation_degrees": maybe_number(st.session_state.get("genotype_rotation_degrees")),
+        },
+        "phenotype_plot": {
+            "fill_col": maybe_none(st.session_state.get("phenotype_fill_col")),
+            "facet_by": maybe_none(st.session_state.get("phenotype_facet_by")),
+            "grid_spacing_one": bool(st.session_state["phenotype_grid_spacing_one"]),
+            "density": bool(st.session_state["phenotype_density"]),
+            "rotation_degrees": maybe_number(st.session_state.get("phenotype_rotation_degrees")),
+        },
+        "genotype_plot": {
+            "fill_col": maybe_none(st.session_state.get("genotype_fill_col")),
+            "facet_by": maybe_none(st.session_state.get("genotype_facet_by")),
+            "grid_spacing_one": bool(st.session_state["genotype_grid_spacing_one"]),
+            "density": bool(st.session_state["genotype_density"]),
+            "rotation_degrees": maybe_number(st.session_state.get("genotype_rotation_degrees")),
         },
         "comparison": {
-            "group_col": maybe_none(st.session_state.get("group_col")),
+            "group_col": maybe_none(st.session_state.get("comparison_group_col")),
         },
         "report": {
             "zip_bundle": True,
             "pdf_export": bool(st.session_state.get("report_pdf")),
         },
         "clustering": {
-            "enabled": bool(st.session_state.get("use_clustering")),
-            "n_clusters": int(st.session_state.get("n_clusters", 4)),
+            "enabled": bool(st.session_state.get("phenotype_use_clustering")),
+            "n_clusters": int(st.session_state.get("phenotype_n_clusters", 4)),
             "max_k": max(
-                int(st.session_state.get("n_clusters", 4)),
-                int(st.session_state.get("cluster_max_k", 10)),
+                int(st.session_state.get("phenotype_n_clusters", 4)),
+                int(st.session_state.get("phenotype_cluster_max_k", 10)),
             ),
-            "distinct_col": maybe_none(st.session_state.get("cluster_distinct_col")),
+            "distinct_col": maybe_none(st.session_state.get("phenotype_cluster_distinct_col")),
+        },
+        "phenotype_clustering": {
+            "enabled": bool(st.session_state.get("phenotype_use_clustering")),
+            "n_clusters": int(st.session_state.get("phenotype_n_clusters", 4)),
+            "max_k": max(
+                int(st.session_state.get("phenotype_n_clusters", 4)),
+                int(st.session_state.get("phenotype_cluster_max_k", 10)),
+            ),
+            "distinct_col": maybe_none(st.session_state.get("phenotype_cluster_distinct_col")),
+        },
+        "genotype_clustering": {
+            "enabled": bool(st.session_state.get("genotype_use_clustering")),
+            "n_clusters": int(st.session_state.get("genotype_n_clusters", 4)),
+            "max_k": max(
+                int(st.session_state.get("genotype_n_clusters", 4)),
+                int(st.session_state.get("genotype_cluster_max_k", 10)),
+            ),
+            "distinct_col": maybe_none(st.session_state.get("genotype_cluster_distinct_col")),
         },
         "reference": {
             "enabled": bool(st.session_state.get("use_reference_summary")),
@@ -450,12 +542,15 @@ def build_config(
             "annotation_x": maybe_number(st.session_state.get("reference_annotation_x")),
             "annotation_y": maybe_number(st.session_state.get("reference_annotation_y")),
         },
+        "genotype": {
+            "enabled": bool(st.session_state["use_genotype_map"]),
+        },
         "external": {
-            "enabled": bool(st.session_state["use_external"]),
+            "enabled": bool(st.session_state["use_genotype_map"]),
         },
     }
 
-    if st.session_state["use_external"]:
+    if st.session_state["use_genotype_map"]:
         external_path = work_dir / "external.csv"
         copy_input_source(
             uploaded_file=external_upload,
@@ -463,17 +558,19 @@ def build_config(
             target=external_path,
             fallback_df=external_df,
         )
-        external_mode = st.session_state["external_mode"]
-        external_id_col = st.session_state["external_id_col"]
-        external_feature_cols = st.session_state.get("external_feature_cols", [])
+        external_mode = st.session_state["genotype_mode"]
+        external_id_col = st.session_state["genotype_id_col"]
+        external_feature_cols = st.session_state.get("genotype_feature_cols", [])
 
-        config["external"] = {
+        genotype_config = {
             "enabled": True,
             "path": str(external_path),
             "mode": external_mode,
             "id_col": external_id_col,
             "feature_cols": external_feature_cols,
         }
+        config["genotype"] = genotype_config
+        config["external"] = genotype_config
 
     return config
 
@@ -673,218 +770,339 @@ st.markdown(
         padding: 0.75rem 1rem;
         margin-bottom: 1rem;
     }
+    .amrc-overview-card,
+    .amrc-guide-panel,
+    .amrc-citation-block {
+        border: 1px solid #d9d9d9;
+        background: #fcfcfc;
+        border-radius: 8px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+    }
+    .amrc-overview-card h3,
+    .amrc-guide-panel h3,
+    .amrc-citation-block h3 {
+        margin-top: 0;
+    }
+    .amrc-guide-panel {
+        position: sticky;
+        top: 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 st.title("amrcartography")
 st.caption(
-    "Experimental Streamlit front end for the generic phenotype/external workflow, "
-    "using manuscript-aligned plotting defaults from the R package."
+    "Phenotype-first cartography app for MIC data, with an optional genotype / structure map workflow "
+    "built from the same manuscript-aligned R package."
 )
+
 st.markdown(
     (
         '<div class="amrc-style-note">'
-        "Maps, cluster overlays, and reference plots are rendered through the package plotting "
-        "helpers so the app keeps the manuscript cartography theme, palette, and point styling "
-        "rather than using a separate visual system. MIC-scale spacing comes from the package "
-        "calibration model: use calibration plus a 1-unit grid if you want one doubling dilution "
-        "per major grid step, rather than trying to dilate the map by hand."
+        "This app starts from phenotype MIC cartography. If you want one-unit grid spacing to mean one doubling dilution, "
+        "follow the package calibration model. Rotation is exposed as a view control, but dilation should come from calibration "
+        "rather than manual stretching."
         "</div>"
     ),
     unsafe_allow_html=True,
 )
 
+overview_left, overview_right = st.columns((1.45, 1), gap="large")
+with overview_left:
+    st.markdown(
+        """
+        <div class="amrc-overview-card">
+        <h3>What this app is for</h3>
+        <p><code>amrcartography</code> is a phenotype-first interface for building and interpreting resistance maps from MIC data.
+        You can stop after the phenotype map, or add an optional genotype / structure map for comparison.</p>
+        <p>The core workflow is:</p>
+        <ol>
+          <li>clean and standardise raw MIC values</li>
+          <li>fit a phenotype map and calibrate it to MIC-style units</li>
+          <li>optionally fit a genotype / structure map</li>
+          <li>inspect goodness-of-fit, clustering, reference summaries, and exported reports</li>
+        </ol>
+        <p>The package preserves the thesis/manuscript visual language rather than switching to generic dashboard defaults.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+with overview_right:
+    st.markdown(
+        """
+        <div class="amrc-citation-block">
+        <h3>Citations and provenance</h3>
+        <p><strong>Software baseline:</strong> <code>amrcartography</code> v0.2.0.</p>
+        <p><strong>Previous AMR cartography manuscript:</strong><br>
+        Balmer AJ, Murray GGR, Lo S, Restif O, Weinert LA. <em>Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance</em>. Manuscript draft, 2025.</p>
+        <p><strong>Thesis:</strong><br>
+        Balmer AJ. <em>Multivariate methods for the study of beta-lactam resistance in streptococci</em>. PhD thesis, University of Cambridge, 2023.</p>
+        <p>The phenotype workflow is the default path. Genotype / structure mapping is optional and uses separate plotting and rotation controls.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.caption("Packaged exploration datasets available in this checkout")
+    st.dataframe(
+        demo_catalog_frame()[["Dataset", "Scope", "Genotype map"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+main_col, guide_col = st.columns((1.55, 0.95), gap="large")
+
+with guide_col:
+    st.markdown("### App guide")
+    with st.expander("Overview", expanded=True):
+        st.markdown(wiki_section("Overview", "Use the phenotype MIC workflow first, then add the optional genotype / structure map if needed."))
+    with st.expander("Phenotype workflow", expanded=True):
+        st.markdown(wiki_section("Phenotype workflow", "Choose the isolate ID, raw MIC columns, metadata columns, cleaning options, and transform before fitting the phenotype map."))
+    with st.expander("Genotype / structure map", expanded=False):
+        st.markdown(wiki_section("Genotype map", "The second map is optional. Use it for genotype, feature, or distance structures aligned to the same isolates."))
+    with st.expander("Summary and fit", expanded=False):
+        st.markdown(wiki_section("Summary and fit", "Use stress, calibration, pairwise distance correlation, and residual summaries to judge map fit."))
+    with st.expander("Diagnostics", expanded=False):
+        st.markdown(wiki_section("Diagnostics", "Cluster scree plots and residual summaries help you check stability and interpretation."))
+    with st.expander("Reports and exports", expanded=False):
+        st.markdown(wiki_section("Reports and exports", "Reports bundle the main figures, tables, metrics, and summary JSON so each analysis is portable."))
+    with st.expander("Capability matrix", expanded=False):
+        st.markdown(APP_CAPABILITY_MATRIX or "Capability matrix file missing.")
+
 with st.sidebar:
-    st.header("Quick demo")
-    st.caption("Use the bundled package fixtures for fast QA and demo runs.")
+    st.header("Phenotype-first workflow")
+    st.caption("Start with phenotype MIC data. Enable the genotype / structure map only if you want a second map for comparison.")
+
+    st.subheader("Quick demos")
     demo_button_cols = st.columns(3)
     if demo_button_cols[0].button("MIC only", use_container_width=True):
         apply_demo_selection("generic_mic_only")
-    if demo_button_cols[1].button("Numeric ext.", use_container_width=True):
+    if demo_button_cols[1].button("Numeric features", use_container_width=True):
         apply_demo_selection("generic_numeric_external")
-    if demo_button_cols[2].button("Character ext.", use_container_width=True):
+    if demo_button_cols[2].button("Character features", use_container_width=True):
         apply_demo_selection("generic_character_external")
-    if active_demo_key() is not None:
-        st.caption(f"Active exploration dataset: {active_demo_label()}")
-        if st.button("Clear demo selection", use_container_width=True):
-            clear_demo_selection()
 
-    st.header("Exploration datasets")
-    st.caption("Larger case studies and reproducible exploration inputs available in this checkout.")
+    st.subheader("Large case studies")
     case_button_cols = st.columns(2)
     if "spneumoniae_case_study" in DEMO_SPECS and case_button_cols[0].button("S. pneumoniae", use_container_width=True):
         apply_demo_selection("spneumoniae_case_study")
     if "suis_case_study" in DEMO_SPECS and case_button_cols[1].button("S. suis", use_container_width=True):
         apply_demo_selection("suis_case_study")
-    with st.expander("Available datasets", expanded=False):
-        st.dataframe(
-            demo_catalog_frame()[["Dataset", "Scope", "External"]],
-            use_container_width=True,
-            hide_index=True,
-        )
-        active_key = active_demo_key()
-        if active_key is not None:
-            st.caption(DEMO_SPECS[active_key].get("note", ""))
+    if active_demo_key() is not None:
+        st.caption(f"Active dataset: {active_demo_label()}")
+        st.caption(DEMO_SPECS[active_demo_key()].get("note", ""))
+        if st.button("Clear selected dataset", use_container_width=True):
+            clear_demo_selection()
 
-    st.header("Phenotype Input")
+    st.subheader("Phenotype MIC input")
     phenotype_upload = st.file_uploader("Phenotype MIC CSV", type=["csv"])
+
 active_spec = DEMO_SPECS.get(active_demo_key()) if active_demo_key() is not None else None
 
 phenotype_df = read_uploaded_csv(phenotype_upload)
 if phenotype_df is None and active_spec is not None:
     phenotype_df = load_demo_phenotype_dataframe(active_spec)
 
+external_upload = None
+external_df = None
+
 if phenotype_df is not None:
     columns = phenotype_df.columns.tolist()
+    if st.session_state.get("phenotype_id_col") not in columns:
+        st.session_state["phenotype_id_col"] = columns[0]
+    if "mic_cols" in st.session_state:
+        st.session_state["mic_cols"] = [
+            col for col in st.session_state.get("mic_cols", [])
+            if col in columns and col != st.session_state["phenotype_id_col"]
+        ]
+    if "metadata_cols" in st.session_state:
+        st.session_state["metadata_cols"] = [
+            col for col in st.session_state.get("metadata_cols", [])
+            if col in columns and col != st.session_state["phenotype_id_col"]
+        ]
+    metadata_options = [none_option()] + st.session_state.get("metadata_cols", [])
+    cluster_distinct_options = [st.session_state.get("phenotype_id_col")] + st.session_state.get("metadata_cols", [])
+
+    for key in (
+        "phenotype_fill_col",
+        "genotype_fill_col",
+        "phenotype_facet_by",
+        "genotype_facet_by",
+        "comparison_group_col",
+        "reference_filter_col",
+    ):
+        if st.session_state.get(key) not in metadata_options:
+            st.session_state[key] = none_option()
+
+    for key in ("phenotype_cluster_distinct_col", "genotype_cluster_distinct_col"):
+        if st.session_state.get(key) not in cluster_distinct_options:
+            st.session_state[key] = st.session_state["phenotype_id_col"]
 
     with st.sidebar:
         st.selectbox("Phenotype ID column", options=columns, key="phenotype_id_col")
 
         default_mic = columns[1:min(len(columns), 4)]
+        if "mic_cols" not in st.session_state:
+            st.session_state["mic_cols"] = default_mic
         st.multiselect(
             "MIC columns",
             options=[col for col in columns if col != st.session_state["phenotype_id_col"]],
             default=default_mic,
             key="mic_cols",
         )
-
         st.multiselect(
             "Metadata columns",
-            options=[
-                col for col in columns
-                if col != st.session_state["phenotype_id_col"]
-            ],
+            options=[col for col in columns if col != st.session_state["phenotype_id_col"]],
             default=[],
             key="metadata_cols",
         )
 
-        st.selectbox(
-            "Transform",
-            options=["log2", "none"],
-            index=0,
-            key="transform",
-        )
-        st.selectbox(
-            "Less-than handling",
-            options=["numeric", "half"],
-            index=0,
-            key="less_than",
-        )
-        st.selectbox(
-            "Greater-than handling",
-            options=["numeric", "double"],
-            index=0,
-            key="greater_than",
-        )
+        st.subheader("MIC cleaning and transform")
+        st.selectbox("Transform", options=["log2", "none"], index=0, key="transform")
+        st.selectbox("Less-than handling", options=["numeric", "half"], index=0, key="less_than")
+        st.selectbox("Greater-than handling", options=["numeric", "double"], index=0, key="greater_than")
+        st.checkbox("Drop isolates with incomplete MIC panels", value=True, key="drop_incomplete")
 
-        st.header("Plotting")
         metadata_options = [none_option()] + st.session_state["metadata_cols"]
-        st.selectbox("Colour by", options=metadata_options, key="fill_col")
-        st.selectbox("Facet by", options=metadata_options, key="facet_by")
-        st.selectbox("Group column", options=metadata_options, key="group_col")
-        st.checkbox(
-            "Use 1-unit grid spacing",
-            value=False,
-            key="grid_spacing_one",
-            help="Use this after calibration if you want one doubling dilution per grid interval.",
-        )
-        st.checkbox("Add density contours", value=False, key="density")
-        preset_cols = st.columns(4)
-        if preset_cols[0].button("0°", key="phen-rot-0", use_container_width=True):
-            apply_rotation_preset("phenotype_rotation_degrees", 0)
-        if preset_cols[1].button("+15°", key="phen-rot-15", use_container_width=True):
-            apply_rotation_preset("phenotype_rotation_degrees", 15)
-        if preset_cols[2].button("-15°", key="phen-rot-neg15", use_container_width=True):
-            apply_rotation_preset("phenotype_rotation_degrees", -15)
-        if preset_cols[3].button("326°", key="phen-rot-spn", use_container_width=True):
-            apply_rotation_preset("phenotype_rotation_degrees", 326)
-        st.number_input(
-            "Phenotype rotation (degrees)",
-            min_value=-360.0,
-            max_value=360.0,
-            value=0.0,
-            step=1.0,
-            key="phenotype_rotation_degrees",
-            help="Optional post-calibration rotation. The map dilation still comes from the calibration model.",
-        )
-
-        st.header("Clustering")
         cluster_distinct_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
-        st.checkbox("Overlay clusters", value=False, key="use_clustering")
-        st.number_input("Number of clusters", min_value=2, max_value=20, value=4, step=1, key="n_clusters")
-        st.number_input("Max scree k", min_value=2, max_value=30, value=10, step=1, key="cluster_max_k")
-        st.selectbox(
-            "Cluster distinct units by",
-            options=cluster_distinct_options,
-            key="cluster_distinct_col",
-        )
 
-        st.header("External Structure")
-        st.checkbox("Include external/genotype structure", value=False, key="use_external")
+        with st.expander("Phenotype map options", expanded=True):
+            st.selectbox("Colour phenotype map by", options=metadata_options, key="phenotype_fill_col")
+            st.selectbox("Facet phenotype map by", options=metadata_options, key="phenotype_facet_by")
+            st.selectbox("Comparison grouping column", options=metadata_options, key="comparison_group_col")
+            st.checkbox(
+                "Show 1-unit MIC gridlines on phenotype map",
+                value=False,
+                key="phenotype_grid_spacing_one",
+                help="Use this after calibration if you want one doubling dilution per grid interval.",
+            )
+            st.checkbox("Add phenotype density contours", value=False, key="phenotype_density")
+            preset_cols = st.columns(4)
+            if preset_cols[0].button("0°", key="phen-rot-0", use_container_width=True):
+                apply_rotation_preset("phenotype_rotation_degrees", 0)
+            if preset_cols[1].button("+15°", key="phen-rot-15", use_container_width=True):
+                apply_rotation_preset("phenotype_rotation_degrees", 15)
+            if preset_cols[2].button("-15°", key="phen-rot-neg15", use_container_width=True):
+                apply_rotation_preset("phenotype_rotation_degrees", -15)
+            if preset_cols[3].button("326°", key="phen-rot-spn", use_container_width=True):
+                apply_rotation_preset("phenotype_rotation_degrees", 326)
+            st.number_input(
+                "Phenotype rotation (degrees)",
+                min_value=-360.0,
+                max_value=360.0,
+                value=0.0,
+                step=1.0,
+                key="phenotype_rotation_degrees",
+                help="Optional post-calibration rotation for the phenotype map. The 1-MIC scaling still comes from calibration, not manual dilation.",
+            )
 
-    if st.session_state["use_external"]:
+        with st.expander("Phenotype clustering", expanded=False):
+            st.checkbox("Overlay phenotype clusters", value=False, key="phenotype_use_clustering")
+            st.number_input("Phenotype number of clusters", min_value=2, max_value=20, value=4, step=1, key="phenotype_n_clusters")
+            st.number_input("Phenotype max scree k", min_value=2, max_value=30, value=10, step=1, key="phenotype_cluster_max_k")
+            st.selectbox(
+                "Phenotype cluster distinct units by",
+                options=cluster_distinct_options,
+                key="phenotype_cluster_distinct_col",
+            )
+
+        st.subheader("Optional genotype / structure map")
+        st.checkbox("Add genotype / structure map", value=False, key="use_genotype_map")
+
+    if st.session_state["use_genotype_map"]:
         with st.sidebar:
-            external_upload = st.file_uploader("External CSV", type=["csv"])
+            external_upload = st.file_uploader("Genotype / structure CSV", type=["csv"])
         external_df = read_uploaded_csv(external_upload)
         if external_df is None and active_spec is not None:
             external_df = load_demo_external_dataframe(active_spec)
 
         if external_df is not None:
             external_columns = external_df.columns.tolist()
+            if st.session_state.get("genotype_id_col") not in external_columns:
+                st.session_state["genotype_id_col"] = external_columns[0]
+            valid_genotype_features = [
+                col for col in st.session_state.get("genotype_feature_cols", [])
+                if col in external_columns and col != st.session_state["genotype_id_col"]
+            ]
+            if st.session_state.get("genotype_mode") != "precomputed_distance" and not valid_genotype_features:
+                valid_genotype_features = [
+                    col for col in external_columns
+                    if col != st.session_state["genotype_id_col"]
+                ][: min(6, max(1, len(external_columns) - 1))]
+            st.session_state["genotype_feature_cols"] = valid_genotype_features
             with st.sidebar:
-                st.selectbox(
-                    "External mode",
-                    options=[
-                        "precomputed_distance",
-                        "numeric_features",
-                        "character_features",
-                        "sequence_alleles",
-                    ],
-                    key="external_mode",
-                )
-                st.selectbox(
-                    "External ID column",
-                    options=external_columns,
-                    key="external_id_col",
-                )
-
-                if st.session_state["external_mode"] != "precomputed_distance":
-                    st.multiselect(
-                        "External feature columns",
+                with st.expander("Genotype / structure input", expanded=True):
+                    st.selectbox(
+                        "Genotype / structure mode",
                         options=[
-                            col for col in external_columns
-                            if col != st.session_state["external_id_col"]
+                            "precomputed_distance",
+                            "numeric_features",
+                            "character_features",
+                            "sequence_alleles",
                         ],
-                        default=[
-                            col for col in external_columns
-                            if col != st.session_state["external_id_col"]
-                        ][: min(6, max(1, len(external_columns) - 1))],
-                        key="external_feature_cols",
+                        key="genotype_mode",
+                    )
+                    st.selectbox(
+                        "Genotype / structure ID column",
+                        options=external_columns,
+                        key="genotype_id_col",
+                    )
+                    if st.session_state["genotype_mode"] != "precomputed_distance":
+                        st.multiselect(
+                            "Genotype / structure feature columns",
+                            options=[col for col in external_columns if col != st.session_state["genotype_id_col"]],
+                            default=[
+                                col for col in external_columns
+                                if col != st.session_state["genotype_id_col"]
+                            ][: min(6, max(1, len(external_columns) - 1))],
+                            key="genotype_feature_cols",
+                        )
+
+                with st.expander("Genotype / structure map options", expanded=False):
+                    st.selectbox("Colour genotype map by", options=metadata_options, key="genotype_fill_col")
+                    st.selectbox("Facet genotype map by", options=metadata_options, key="genotype_facet_by")
+                    st.checkbox(
+                        "Show 1-unit gridlines on genotype map",
+                        value=False,
+                        key="genotype_grid_spacing_one",
+                        help="This is separate from the phenotype grid and should only be used after calibration.",
+                    )
+                    st.checkbox("Add genotype density contours", value=False, key="genotype_density")
+                    genotype_rot_cols = st.columns(4)
+                    if genotype_rot_cols[0].button("0°", key="geno-rot-0", use_container_width=True):
+                        apply_rotation_preset("genotype_rotation_degrees", 0)
+                    if genotype_rot_cols[1].button("+15°", key="geno-rot-15", use_container_width=True):
+                        apply_rotation_preset("genotype_rotation_degrees", 15)
+                    if genotype_rot_cols[2].button("-15°", key="geno-rot-neg15", use_container_width=True):
+                        apply_rotation_preset("genotype_rotation_degrees", -15)
+                    if genotype_rot_cols[3].button("326°", key="geno-rot-spn", use_container_width=True):
+                        apply_rotation_preset("genotype_rotation_degrees", 326)
+                    st.number_input(
+                        "Genotype rotation (degrees)",
+                        min_value=-360.0,
+                        max_value=360.0,
+                        value=0.0,
+                        step=1.0,
+                        key="genotype_rotation_degrees",
+                        help="Optional post-calibration rotation for the genotype / structure map.",
                     )
 
-                external_rot_cols = st.columns(4)
-                if external_rot_cols[0].button("0°", key="ext-rot-0", use_container_width=True):
-                    apply_rotation_preset("external_rotation_degrees", 0)
-                if external_rot_cols[1].button("+15°", key="ext-rot-15", use_container_width=True):
-                    apply_rotation_preset("external_rotation_degrees", 15)
-                if external_rot_cols[2].button("-15°", key="ext-rot-neg15", use_container_width=True):
-                    apply_rotation_preset("external_rotation_degrees", -15)
-                if external_rot_cols[3].button("326°", key="ext-rot-spn", use_container_width=True):
-                    apply_rotation_preset("external_rotation_degrees", 326)
-                st.number_input(
-                    "External rotation (degrees)",
-                    min_value=-360.0,
-                    max_value=360.0,
-                    value=0.0,
-                    step=1.0,
-                    key="external_rotation_degrees",
-                    help="Optional post-calibration rotation for the external/genotype map.",
-                )
+                with st.expander("Genotype clustering", expanded=False):
+                    st.checkbox("Overlay genotype clusters", value=False, key="genotype_use_clustering")
+                    st.number_input("Genotype number of clusters", min_value=2, max_value=20, value=4, step=1, key="genotype_n_clusters")
+                    st.number_input("Genotype max scree k", min_value=2, max_value=30, value=10, step=1, key="genotype_cluster_max_k")
+                    st.selectbox(
+                        "Genotype cluster distinct units by",
+                        options=cluster_distinct_options,
+                        key="genotype_cluster_distinct_col",
+                    )
 
-                st.header("Reference Summary")
+                st.subheader("Reference summary")
                 reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
-                st.checkbox("Compute reference-distance summary", value=False, key="use_reference_summary")
+                if st.session_state.get("reference_col") not in reference_options:
+                    st.session_state["reference_col"] = reference_options[0]
+                st.checkbox("Compute phenotype-vs-genotype reference summary", value=False, key="use_reference_summary")
                 st.selectbox("Reference column", options=reference_options, key="reference_col")
                 st.selectbox(
                     "Reference summary mode",
@@ -892,11 +1110,10 @@ if phenotype_df is not None:
                     format_func=lambda x: {
                         "auto": "Auto",
                         "overall": "Overall only",
-                        "clustered": "By cluster",
+                        "clustered": "By genotype cluster",
                     }[x],
                     key="reference_cluster_mode",
                 )
-
                 reference_values = (
                     phenotype_df[st.session_state["reference_col"]]
                     .dropna()
@@ -904,17 +1121,11 @@ if phenotype_df is not None:
                     .unique()
                     .tolist()
                 )
-                st.selectbox(
-                    "Reference value",
-                    options=sorted(reference_values),
-                    key="reference_value",
-                )
+                if reference_values and st.session_state.get("reference_value") not in reference_values:
+                    st.session_state["reference_value"] = sorted(reference_values)[0]
+                st.selectbox("Reference value", options=sorted(reference_values), key="reference_value")
                 reference_filter_options = [none_option()] + reference_options
-                st.selectbox(
-                    "Filter reference rows by",
-                    options=reference_filter_options,
-                    key="reference_filter_col",
-                )
+                st.selectbox("Filter reference rows by", options=reference_filter_options, key="reference_filter_col")
                 selected_filter_col = maybe_none(st.session_state.get("reference_filter_col"))
                 if selected_filter_col is not None and selected_filter_col in phenotype_df.columns:
                     filter_values = (
@@ -932,107 +1143,72 @@ if phenotype_df is not None:
                     )
                 else:
                     st.session_state["reference_filter_values"] = []
-                st.number_input(
-                    "Reference plot x max (0 = auto)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.5,
-                    key="reference_x_max",
-                )
-                st.number_input(
-                    "Reference plot x break step (0 = auto)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.5,
-                    key="reference_x_break_step",
-                )
-                st.number_input(
-                    "Reference plot y max (0 = auto)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.5,
-                    key="reference_y_max",
-                )
-                st.number_input(
-                    "Reference plot y break step (0 = auto)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.5,
-                    key="reference_y_break_step",
-                )
-                st.text_input(
-                    "Reference annotation text",
-                    value="",
-                    key="reference_annotation_text",
-                )
+                st.number_input("Reference plot x max (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_x_max")
+                st.number_input("Reference plot x break step (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_x_break_step")
+                st.number_input("Reference plot y max (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_y_max")
+                st.number_input("Reference plot y break step (0 = auto)", min_value=0.0, value=0.0, step=0.5, key="reference_y_break_step")
+                st.text_input("Reference annotation text", value="", key="reference_annotation_text")
                 annotation_cols = st.columns(2)
-                annotation_cols[0].number_input(
-                    "Annotation x",
-                    value=0.0,
-                    step=0.5,
-                    key="reference_annotation_x",
-                )
-                annotation_cols[1].number_input(
-                    "Annotation y",
-                    value=0.0,
-                    step=0.5,
-                    key="reference_annotation_y",
-                )
-        else:
-            external_upload = None
-    else:
-        external_upload = None
-        external_df = None
+                annotation_cols[0].number_input("Annotation x", value=0.0, step=0.5, key="reference_annotation_x")
+                annotation_cols[1].number_input("Annotation y", value=0.0, step=0.5, key="reference_annotation_y")
 
-    left, right = st.columns((1.1, 1))
-
-    with left:
-        st.subheader("Input Preview")
-        if active_demo_key() is not None and phenotype_upload is None:
-            st.caption(f"Previewing exploration dataset: {active_demo_label()}")
-        st.dataframe(phenotype_df.head(10), use_container_width=True)
-        if external_df is not None:
-            st.subheader("External Preview")
-            st.dataframe(external_df.head(10), use_container_width=True)
-
-    with right:
-        st.subheader("Run")
+with main_col:
+    if phenotype_df is None:
+        st.subheader("Start with a phenotype MIC table")
         st.markdown(
-            "- Requires `Rscript` plus the package dependencies available in the local environment.\n"
-            "- This v1 app covers phenotype-only and phenotype-plus-external/genotype map workflows, not the full mixed-model layer.\n"
-            "- Map scaling to 1-MIC-style units comes from the package calibration model; the app exposes rotation controls but not a free-form dilation slider.\n"
-            "- The generic demo buttons are for fast QA; the larger case-study buttons are slower because they recompute maps, diagnostics, clustering, and reports on real datasets."
+            "Upload a phenotype MIC CSV or choose one of the packaged demos in the sidebar. "
+            "The app will clean raw MIC values, optionally log-transform them, then fit the phenotype map first."
         )
-        st.checkbox(
-            "Export PDF report",
-            value=bool(st.session_state.get("report_pdf", False)),
-            key="report_pdf",
-        )
+    else:
+        preview_cols = st.columns((1.05, 1), gap="large")
+        with preview_cols[0]:
+            st.subheader("Phenotype input preview")
+            if active_demo_key() is not None and phenotype_upload is None:
+                st.caption(f"Previewing dataset: {active_demo_label()}")
+            st.dataframe(phenotype_df.head(10), use_container_width=True)
+            if external_df is not None:
+                st.subheader("Genotype / structure preview")
+                st.dataframe(external_df.head(10), use_container_width=True)
 
-        can_run = bool(st.session_state.get("mic_cols"))
-        if st.session_state["use_external"]:
-            can_run = can_run and (
-                external_upload is not None or (active_spec is not None and active_spec.get("external_path") is not None)
+        with preview_cols[1]:
+            st.subheader("Run analysis")
+            st.markdown(
+                "- The phenotype map is the primary analysis path.\n"
+                "- Raw MIC cleaning and optional `log2` transformation happen through the package before map fitting.\n"
+                "- One-unit gridlines should be interpreted as one doubling dilution only after calibration.\n"
+                "- The genotype / structure map is optional and has separate plotting, rotation, grid, and clustering controls.\n"
+                "- This app surfaces the main mapping, clustering, fit, and report outputs, but not the full mixed-model layer."
+            )
+            st.checkbox(
+                "Export PDF report",
+                value=bool(st.session_state.get("report_pdf", False)),
+                key="report_pdf",
             )
 
-        if st.button("Run analysis", disabled=not can_run, type="primary"):
-            with st.spinner("Running R backend..."):
-                try:
-                    work_dir = Path(tempfile.mkdtemp(prefix="amrc-streamlit-"))
-                    config = build_config(
-                        phenotype_upload=phenotype_upload,
-                        phenotype_df=phenotype_df,
-                        external_upload=external_upload,
-                        external_df=external_df,
-                        work_dir=work_dir,
-                        phenotype_local_path=None,
-                        external_local_path=None,
-                    )
-                    st.session_state["amrc_app_result"] = run_backend(config)
-                except Exception as exc:  # noqa: BLE001
-                    st.session_state["amrc_app_error"] = str(exc)
-                else:
-                    st.session_state["amrc_app_error"] = None
+            can_run = bool(st.session_state.get("mic_cols"))
+            if st.session_state["use_genotype_map"]:
+                can_run = can_run and (
+                    external_upload is not None or (active_spec is not None and active_spec.get("external_path") is not None)
+                )
+
+            if st.button("Run analysis", disabled=not can_run, type="primary"):
+                with st.spinner("Running R backend..."):
+                    try:
+                        work_dir = Path(tempfile.mkdtemp(prefix="amrc-streamlit-"))
+                        config = build_config(
+                            phenotype_upload=phenotype_upload,
+                            phenotype_df=phenotype_df,
+                            external_upload=external_upload,
+                            external_df=external_df,
+                            work_dir=work_dir,
+                            phenotype_local_path=active_spec.get("phenotype_path") if active_spec is not None else None,
+                            external_local_path=active_spec.get("external_path") if active_spec is not None else None,
+                        )
+                        st.session_state["amrc_app_result"] = run_backend(config)
+                    except Exception as exc:  # noqa: BLE001
+                        st.session_state["amrc_app_error"] = str(exc)
+                    else:
+                        st.session_state["amrc_app_error"] = None
 
 result = st.session_state.get("amrc_app_result")
 error = st.session_state.get("amrc_app_error")
@@ -1044,14 +1220,14 @@ if result:
     st.subheader("Summary")
     metric_cols = st.columns(4)
     phenotype_summary = result["summary"].get("phenotype", {})
-    external_summary = result["summary"].get("external") or {}
+    genotype_summary = result["summary"].get("genotype") or result["summary"].get("external") or {}
     metric_cols[0].metric("Phenotype isolates", phenotype_summary.get("n_isolates", "NA"))
     metric_cols[1].metric("MIC variables", phenotype_summary.get("n_drugs", "NA"))
     metric_cols[2].metric("Phenotype stress", f"{phenotype_summary.get('stress', float('nan')):.3f}" if phenotype_summary.get("stress") is not None else "NA")
-    if external_summary:
-        metric_cols[3].metric("External stress", f"{external_summary.get('stress', float('nan')):.3f}" if external_summary.get("stress") is not None else "NA")
+    if genotype_summary:
+        metric_cols[3].metric("Genotype stress", f"{genotype_summary.get('stress', float('nan')):.3f}" if genotype_summary.get("stress") is not None else "NA")
     else:
-        metric_cols[3].metric("External workflow", "off")
+        metric_cols[3].metric("Genotype map", "off")
 
     phenotype_calibration = phenotype_summary.get("calibration") or {}
     if phenotype_calibration:
@@ -1061,12 +1237,12 @@ if result:
             f"rotation={phenotype_calibration.get('rotation_degrees', 0)} degrees. "
             "Follow this calibration if you want one-unit grid spacing to mean one doubling dilution."
         )
-    external_calibration = external_summary.get("calibration") or {}
-    if external_calibration:
+    genotype_calibration = genotype_summary.get("calibration") or {}
+    if genotype_calibration:
         st.caption(
-            "External map calibration: "
-            f"dilation={external_calibration.get('dilation', 'NA')}, "
-            f"rotation={external_calibration.get('rotation_degrees', 0)} degrees."
+            "Genotype / structure map calibration: "
+            f"dilation={genotype_calibration.get('dilation', 'NA')}, "
+            f"rotation={genotype_calibration.get('rotation_degrees', 0)} degrees."
         )
 
     extra_downloads = []
@@ -1090,16 +1266,16 @@ if result:
         if "phenotype_map.png" in result["files"]:
             image_cols[0].image(result["files"]["phenotype_map.png"], caption="Phenotype map")
         if "external_map.png" in result["files"]:
-            image_cols[1].image(result["files"]["external_map.png"], caption="External map")
+            image_cols[1].image(result["files"]["external_map.png"], caption="Genotype / structure map")
 
         if "side_by_side_maps.png" in result["files"]:
-            st.image(result["files"]["side_by_side_maps.png"], caption="Side-by-side phenotype vs external maps")
+            st.image(result["files"]["side_by_side_maps.png"], caption="Side-by-side phenotype and genotype / structure maps")
 
         cluster_images = []
         if "phenotype_cluster_map.png" in result["files"]:
             cluster_images.append(("Phenotype clusters", result["files"]["phenotype_cluster_map.png"]))
         if "external_cluster_map.png" in result["files"]:
-            cluster_images.append(("External clusters", result["files"]["external_cluster_map.png"]))
+            cluster_images.append(("Genotype clusters", result["files"]["external_cluster_map.png"]))
         if cluster_images:
             st.subheader("Cluster overlays")
             cluster_cols = st.columns(len(cluster_images))
@@ -1110,7 +1286,7 @@ if result:
             st.subheader("Reference-distance relationship")
             st.image(
                 result["files"]["reference_distance_relationship.png"],
-                caption="Phenotype vs external distance from the selected reference",
+                caption="Phenotype vs genotype / structure distance from the selected reference",
             )
 
     with result_tabs[1]:
@@ -1121,7 +1297,7 @@ if result:
             )
         if "external_fit_metrics.csv" in result["tables"]:
             fit_sections.append(
-                ("External fit", "external_fit_metrics.csv", "external_residual_summary.csv", "external_stress_summary.csv")
+                ("Genotype fit", "external_fit_metrics.csv", "external_residual_summary.csv", "external_stress_summary.csv")
             )
         if fit_sections:
             st.subheader("Goodness-of-fit summaries")
@@ -1154,7 +1330,7 @@ if result:
         if "phenotype_cluster_elbow.png" in result["files"]:
             scree_images.append(("Phenotype cluster scree", result["files"]["phenotype_cluster_elbow.png"]))
         if "external_cluster_elbow.png" in result["files"]:
-            scree_images.append(("External cluster scree", result["files"]["external_cluster_elbow.png"]))
+            scree_images.append(("Genotype cluster scree", result["files"]["external_cluster_elbow.png"]))
         if scree_images:
             st.subheader("Cluster scree diagnostics")
             scree_cols = st.columns(len(scree_images))
@@ -1164,7 +1340,7 @@ if result:
             if "phenotype_cluster_scree.csv" in result["tables"]:
                 scree_tables.append(("Phenotype scree table", "phenotype_cluster_scree.csv"))
             if "external_cluster_scree.csv" in result["tables"]:
-                scree_tables.append(("External scree table", "external_cluster_scree.csv"))
+                scree_tables.append(("Genotype scree table", "external_cluster_scree.csv"))
             if scree_tables:
                 scree_table_cols = st.columns(len(scree_tables))
                 for col, (caption, name) in zip(scree_table_cols, scree_tables):

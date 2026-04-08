@@ -26,8 +26,8 @@ correctness of results.
 ## Bundled demo workflow
 
 - `MIC only` loads the bundled generic MIC example without uploading a file
-- `Numeric ext.` loads the bundled generic MIC + numeric external example
-- `Character ext.` loads the bundled generic MIC + character external example
+- `Numeric features` loads the bundled generic MIC + numeric genotype/structure example
+- `Character features` loads the bundled generic MIC + character genotype/structure example
 - `Clear demo selection` resets the app back to upload mode
 - demo mode still allows a successful run
 
@@ -51,7 +51,7 @@ correctness of results.
   - downloadable `.rds` bundle
   - downloadable report files
 
-## External workflow
+## Genotype / structure workflow
 
 - enable external structure
 - upload a valid external CSV
@@ -63,7 +63,7 @@ correctness of results.
   - sequence alleles
   - precomputed distance
 - clicking `Run analysis` produces:
-  - external map
+  - genotype / structure map
   - side-by-side map
   - comparison table
   - external goodness-of-fit summaries and downloads

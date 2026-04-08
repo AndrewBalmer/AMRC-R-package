@@ -102,6 +102,12 @@ test_that("validation metrics manifest matches packaged S. suis demo bundle coun
   )
 
   paths <- amrc_suis_example_paths()
+  phenotype_raw <- utils::read.csv(
+    paths$phenotype_raw,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
 
   phenotype <- utils::read.csv(
     paths$phenotype,
@@ -122,18 +128,22 @@ test_that("validation metrics manifest matches packaged S. suis demo bundle coun
     fileEncoding = "UTF-8-BOM"
   )
 
+  expect_equal(nrow(phenotype_raw), manifest$suis_demo$phenotype_raw_rows)
   expect_equal(nrow(phenotype), manifest$suis_demo$phenotype_rows)
   expect_equal(nrow(metadata), manifest$suis_demo$metadata_rows)
   expect_equal(nrow(distance), manifest$suis_demo$distance_rows)
   expect_equal(ncol(distance) - 1L, manifest$suis_demo$distance_cols)
 
+  expect_true(all(manifest$suis_demo$phenotype_raw_required_columns %in% colnames(phenotype_raw)))
   expect_true(all(manifest$suis_demo$phenotype_required_columns %in% colnames(phenotype)))
   expect_true(all(manifest$suis_demo$metadata_required_columns %in% colnames(metadata)))
   expect_true("LABID" %in% colnames(distance))
 
+  expect_identical(anyDuplicated(phenotype_raw$LABID), 0L)
   expect_identical(anyDuplicated(phenotype$LABID), 0L)
   expect_identical(anyDuplicated(metadata$LABID), 0L)
   expect_identical(anyDuplicated(distance$LABID), 0L)
+  expect_true(all(phenotype_raw$LABID %in% distance$LABID))
   expect_true(setequal(distance$LABID, colnames(distance)[colnames(distance) != "LABID"]))
   expect_true(all(phenotype$LABID %in% distance$LABID))
   expect_true(all(phenotype$LABID %in% metadata$LABID))

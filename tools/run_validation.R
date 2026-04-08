@@ -437,10 +437,16 @@ validate_mapping_08_bundle <- function() {
 validate_suis_demo_bundle <- function() {
   paths <- amrc_fn("amrc_suis_example_paths")()
 
+  phenotype_raw <- read_csv_keep_names(paths$phenotype_raw)
   phenotype <- read_csv_keep_names(paths$phenotype)
   metadata <- read_csv_keep_names(paths$metadata)
   distance <- read_csv_keep_names(paths$pbp_distance)
 
+  assert_identical_scalar(
+    nrow(phenotype_raw),
+    metrics$suis_demo$phenotype_raw_rows,
+    "Bundled S. suis raw phenotype row count changed"
+  )
   assert_identical_scalar(
     nrow(phenotype),
     metrics$suis_demo$phenotype_rows,
@@ -463,6 +469,11 @@ validate_suis_demo_bundle <- function() {
   )
 
   assert_has_columns(
+    phenotype_raw,
+    metrics$suis_demo$phenotype_raw_required_columns,
+    "Bundled S. suis raw phenotype input"
+  )
+  assert_has_columns(
     phenotype,
     metrics$suis_demo$phenotype_required_columns,
     "Bundled S. suis phenotype input"
@@ -474,6 +485,7 @@ validate_suis_demo_bundle <- function() {
   )
   assert_true("LABID" %in% colnames(distance), "Bundled S. suis distance matrix is missing 'LABID'")
 
+  assert_unique_ids(phenotype_raw, "LABID", "Bundled S. suis raw phenotype input")
   assert_unique_ids(phenotype, "LABID", "Bundled S. suis phenotype input")
   assert_unique_ids(metadata, "LABID", "Bundled S. suis metadata")
   assert_unique_ids(distance, "LABID", "Bundled S. suis distance matrix rows")
@@ -484,6 +496,10 @@ validate_suis_demo_bundle <- function() {
   assert_true(
     setequal(distance_row_ids, distance_col_ids),
     "Bundled S. suis distance matrix row and column identifiers no longer match"
+  )
+  assert_true(
+    all(as.character(phenotype_raw$LABID) %in% distance_row_ids),
+    "Bundled S. suis raw phenotype IDs are no longer all present in the distance matrix"
   )
   assert_true(
     all(as.character(phenotype$LABID) %in% distance_row_ids),

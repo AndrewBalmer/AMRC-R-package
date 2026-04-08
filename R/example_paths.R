@@ -134,8 +134,11 @@ amrc_spneumoniae_example_paths <- function(
 #' Locate Bundled S. suis Demo Data Paths
 #'
 #' Returns the installed-file paths for the compact `S. suis` example bundle
-#' used by the Streamlit app and reproducibility checks. This helper is
-#' case-study infrastructure, not part of the primary generic MIC API.
+#' used by the Streamlit app and reproducibility checks. The bundle includes a
+#' raw MIC phenotype panel for the phenotype-first app workflow, alongside the
+#' earlier processed log2 panel retained for regression compatibility. This
+#' helper is case-study infrastructure, not part of the primary generic MIC
+#' API.
 #'
 #' @param mustWork Logical; fail if the bundled files are unavailable.
 #'
@@ -149,6 +152,7 @@ amrc_suis_example_paths <- function(mustWork = TRUE) {
 
   paths <- list(
     root = root,
+    phenotype_raw = file.path(root, "suis_raw_mic_panel.csv"),
     phenotype = file.path(root, "phenotype_map_input_non_divergent_log2.csv"),
     metadata = file.path(root, "mic_metadata_non_divergent.csv"),
     pbp_distance = file.path(root, "pbp_distance_matrix_non_divergent.csv")

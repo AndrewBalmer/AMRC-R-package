@@ -7,6 +7,7 @@
 ^renv$
 ^renv\.lock$
 ^\.github$
+^\.streamlit$
 ^\.dockerignore$
 ^Dockerfile$
 ^render\.yaml$
