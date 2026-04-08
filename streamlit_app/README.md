@@ -10,6 +10,7 @@ analysis scripts, package helpers, and app outputs.
 Current scope:
 
 - load a bundled generic example dataset with one click for QA/demo runs
+- load bundled larger case-study demos for `S. pneumoniae` and `S. suis`
 - upload a phenotype MIC CSV
 - choose ID, MIC, and metadata columns
 - clean and standardise MIC values
@@ -140,3 +141,19 @@ an R setup that does not hit the existing `OMP: Error #179` problem.
 
 - advanced association tabs
 - broader UI polish once the workflow surface stabilises
+
+## Deployment
+
+The app can be hosted behind a public URL; it does not need to stay as a
+terminal-launched local tool.
+
+For this repo, the most robust route is a Docker-based deployment because the
+app is a hybrid Python + R service. The repo now includes:
+
+- [Dockerfile](/Users/ab69/AMRC-R-package/Dockerfile)
+- [render.yaml](/Users/ab69/AMRC-R-package/render.yaml)
+- [streamlit_app/DEPLOYMENT.md](/Users/ab69/AMRC-R-package/streamlit_app/DEPLOYMENT.md)
+
+The simplest path is Render using the Docker runtime. Streamlit Community Cloud
+is possible in principle, but it is a less natural fit for this app because the
+backend requires a full R runtime in addition to Python.

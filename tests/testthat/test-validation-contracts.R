@@ -93,6 +93,52 @@ test_that("validation metrics manifest matches packaged mapping_08 bundle counts
   expect_length(bundle$deleted_labids, manifest$spneumoniae_08$deleted_labids_bundle_count)
 })
 
+test_that("validation metrics manifest matches packaged S. suis demo bundle counts", {
+  skip_if_not_installed("jsonlite")
+
+  manifest <- jsonlite::read_json(
+    validation_manifest_path(),
+    simplifyVector = TRUE
+  )
+
+  paths <- amrc_suis_example_paths()
+
+  phenotype <- utils::read.csv(
+    paths$phenotype,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+  metadata <- utils::read.csv(
+    paths$metadata,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+  distance <- utils::read.csv(
+    paths$pbp_distance,
+    check.names = FALSE,
+    stringsAsFactors = FALSE,
+    fileEncoding = "UTF-8-BOM"
+  )
+
+  expect_equal(nrow(phenotype), manifest$suis_demo$phenotype_rows)
+  expect_equal(nrow(metadata), manifest$suis_demo$metadata_rows)
+  expect_equal(nrow(distance), manifest$suis_demo$distance_rows)
+  expect_equal(ncol(distance) - 1L, manifest$suis_demo$distance_cols)
+
+  expect_true(all(manifest$suis_demo$phenotype_required_columns %in% colnames(phenotype)))
+  expect_true(all(manifest$suis_demo$metadata_required_columns %in% colnames(metadata)))
+  expect_true("LABID" %in% colnames(distance))
+
+  expect_identical(anyDuplicated(phenotype$LABID), 0L)
+  expect_identical(anyDuplicated(metadata$LABID), 0L)
+  expect_identical(anyDuplicated(distance$LABID), 0L)
+  expect_true(setequal(distance$LABID, colnames(distance)[colnames(distance) != "LABID"]))
+  expect_true(all(phenotype$LABID %in% distance$LABID))
+  expect_true(all(phenotype$LABID %in% metadata$LABID))
+})
+
 test_that("validation metrics manifest matches packaged public MIC examples", {
   skip_if_not_installed("jsonlite")
 

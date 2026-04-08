@@ -130,3 +130,41 @@ amrc_spneumoniae_example_paths <- function(
 
   paths
 }
+
+#' Locate Bundled S. suis Demo Data Paths
+#'
+#' Returns the installed-file paths for the compact `S. suis` example bundle
+#' used by the Streamlit app and reproducibility checks. This helper is
+#' case-study infrastructure, not part of the primary generic MIC API.
+#'
+#' @param mustWork Logical; fail if the bundled files are unavailable.
+#'
+#' @return A named list of file paths.
+#' @export
+amrc_suis_example_paths <- function(mustWork = TRUE) {
+  root <- system.file("extdata", "examples", "suis-demo", package = "amrcartography")
+  if (identical(root, "")) {
+    root <- file.path("inst", "extdata", "examples", "suis-demo")
+  }
+
+  paths <- list(
+    root = root,
+    phenotype = file.path(root, "phenotype_map_input_non_divergent_log2.csv"),
+    metadata = file.path(root, "mic_metadata_non_divergent.csv"),
+    pbp_distance = file.path(root, "pbp_distance_matrix_non_divergent.csv")
+  )
+
+  if (isTRUE(mustWork)) {
+    missing_paths <- unlist(paths, use.names = TRUE)
+    missing_paths <- missing_paths[!file.exists(missing_paths)]
+    if (length(missing_paths) > 0) {
+      stop(
+        "The requested packaged S. suis example is not available at:\n",
+        paste(missing_paths, collapse = "\n"),
+        call. = FALSE
+      )
+    }
+  }
+
+  paths
+}

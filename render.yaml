@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: amrcartography-streamlit
+    env: docker
+    plan: starter
+    autoDeploy: true

@@ -1,0 +1,13 @@
+.git
+.github
+.Rcheck
+.Rproj.user
+.venv
+amrcartography.Rcheck
+*.tar.gz
+data
+docs/legacy
+node_modules
+__pycache__
+*.pyc
+streamlit_app/.streamlit/secrets.toml

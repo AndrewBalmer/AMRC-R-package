@@ -36,6 +36,11 @@ jobs:
           r-version: ${{ matrix.config.r }}
           use-public-rspm: true
 
+      - name: Install Ubuntu system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghostscript qpdf zip
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::knitr, any::rmarkdown, any::ggExtra, any::lme4
@@ -63,6 +68,11 @@ jobs:
         with:
           r-version: release
           use-public-rspm: true
+
+      - name: Install Ubuntu system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghostscript qpdf zip
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:

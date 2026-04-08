@@ -61,6 +61,14 @@
     "mlst_metadata_required_columns": ["LABID", "YEAR", "SEROTYPE", "MLST"],
     "post2015_metadata_required_columns": ["Sample", "age", "age group", "Biosample Accession", "ST"]
   },
+  "suis_demo": {
+    "phenotype_rows": 633,
+    "metadata_rows": 633,
+    "distance_rows": 1002,
+    "distance_cols": 1002,
+    "phenotype_required_columns": ["LABID", "Amoxicillin", "Cefquinome", "Ceftiofur", "Penicillin"],
+    "metadata_required_columns": ["LABID", "BAPS2_1092", "Genome.Set", "Pathogen", "Source", "Year"]
+  },
   "source_generated": {
     "phenotype_rows": 3628,
     "metadata_rows": 3628,

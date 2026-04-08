@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND = REPO_ROOT / "streamlit_app" / "amrc_streamlit_backend.R"
 GENERIC_EXAMPLE_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "generic"
 SPNEUMONIAE_08_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "spneumoniae-08"
+PACKAGED_SUIS_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "suis-demo"
 LOCAL_SUIS_ROOT = Path("/Users/ab69/AMR_cartography_suis")
 
 
@@ -134,16 +135,39 @@ def demo_specs() -> dict[str, dict]:
             "reference_col": "PT",
         }
 
-    suis_required = {
+    packaged_suis_required = {
+        "phenotype_path": PACKAGED_SUIS_ROOT / "phenotype_map_input_non_divergent_log2.csv",
+        "phenotype_metadata_path": PACKAGED_SUIS_ROOT / "mic_metadata_non_divergent.csv",
+        "external_path": PACKAGED_SUIS_ROOT / "pbp_distance_matrix_non_divergent.csv",
+    }
+    local_suis_required = {
         "phenotype_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "phenotype_map_input_non_divergent_log2.csv",
         "phenotype_metadata_path": LOCAL_SUIS_ROOT / "results" / "02_prepare_phenotypes" / "mic_metadata_non_divergent.csv",
         "external_path": LOCAL_SUIS_ROOT / "results" / "04_process_genotypes_and_pbps" / "pbp_distance_matrix_non_divergent.csv",
     }
-    if all(path.exists() for path in suis_required.values()):
+
+    if all(path.exists() for path in packaged_suis_required.values()):
+        suis_required = packaged_suis_required
+        suis_scope = "Bundled large case study"
+        suis_note = (
+            "633-isolate packaged S. suis phenotype panel with a bundled "
+            "precomputed PBP distance matrix for website/demo exploration."
+        )
+    elif all(path.exists() for path in local_suis_required.values()):
+        suis_required = local_suis_required
+        suis_scope = "Local large case study"
+        suis_note = (
+            "633-isolate phenotype panel with local S. suis genotype distance "
+            "matrix from the sibling AMR_cartography_suis checkout."
+        )
+    else:
+        suis_required = None
+
+    if suis_required is not None:
         specs["suis_case_study"] = {
             "label": "S. suis case study",
-            "scope": "Local large case study",
-            "note": "633-isolate phenotype panel with local S. suis genotype distance matrix from the sibling AMR_cartography_suis checkout.",
+            "scope": suis_scope,
+            "note": suis_note,
             "phenotype_path": suis_required["phenotype_path"],
             "phenotype_metadata_path": suis_required["phenotype_metadata_path"],
             "phenotype_id_col": "LABID",
@@ -461,12 +485,14 @@ def run_backend(config: dict) -> dict:
     config_path = work_dir.parent / "config.json"
     config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
+    package_load_mode = os.environ.get("AMRC_PACKAGE_LOAD_MODE", "source")
+
     completed = subprocess.run(
         ["Rscript", str(BACKEND), str(config_path)],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
-        env={**os.environ, "AMRC_PACKAGE_LOAD_MODE": "source"},
+        env={**os.environ, "AMRC_PACKAGE_LOAD_MODE": package_load_mode},
     )
 
     if completed.returncode != 0:

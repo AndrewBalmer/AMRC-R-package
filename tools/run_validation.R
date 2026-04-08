@@ -434,6 +434,67 @@ validate_mapping_08_bundle <- function() {
   )
 }
 
+validate_suis_demo_bundle <- function() {
+  paths <- amrc_fn("amrc_suis_example_paths")()
+
+  phenotype <- read_csv_keep_names(paths$phenotype)
+  metadata <- read_csv_keep_names(paths$metadata)
+  distance <- read_csv_keep_names(paths$pbp_distance)
+
+  assert_identical_scalar(
+    nrow(phenotype),
+    metrics$suis_demo$phenotype_rows,
+    "Bundled S. suis phenotype row count changed"
+  )
+  assert_identical_scalar(
+    nrow(metadata),
+    metrics$suis_demo$metadata_rows,
+    "Bundled S. suis metadata row count changed"
+  )
+  assert_identical_scalar(
+    nrow(distance),
+    metrics$suis_demo$distance_rows,
+    "Bundled S. suis distance row count changed"
+  )
+  assert_identical_scalar(
+    ncol(distance) - 1L,
+    metrics$suis_demo$distance_cols,
+    "Bundled S. suis distance column count changed"
+  )
+
+  assert_has_columns(
+    phenotype,
+    metrics$suis_demo$phenotype_required_columns,
+    "Bundled S. suis phenotype input"
+  )
+  assert_has_columns(
+    metadata,
+    metrics$suis_demo$metadata_required_columns,
+    "Bundled S. suis metadata"
+  )
+  assert_true("LABID" %in% colnames(distance), "Bundled S. suis distance matrix is missing 'LABID'")
+
+  assert_unique_ids(phenotype, "LABID", "Bundled S. suis phenotype input")
+  assert_unique_ids(metadata, "LABID", "Bundled S. suis metadata")
+  assert_unique_ids(distance, "LABID", "Bundled S. suis distance matrix rows")
+
+  distance_row_ids <- as.character(distance$LABID)
+  distance_col_ids <- colnames(distance)[colnames(distance) != "LABID"]
+
+  assert_true(
+    setequal(distance_row_ids, distance_col_ids),
+    "Bundled S. suis distance matrix row and column identifiers no longer match"
+  )
+  assert_true(
+    all(as.character(phenotype$LABID) %in% distance_row_ids),
+    "Bundled S. suis phenotype IDs are no longer all present in the distance matrix"
+  )
+  assert_true(
+    all(as.character(phenotype$LABID) %in% as.character(metadata$LABID)),
+    "Bundled S. suis phenotype IDs are no longer all present in the metadata table"
+  )
+}
+
 validate_public_mic_examples <- function() {
   paths <- amrc_fn("amrc_example_data_paths")()
   manifest <- amrc_fn("amrc_public_mic_example_specs")()
@@ -740,6 +801,7 @@ run_smoke_stage <- function() {
   run_check("Bundled generic examples remain valid", validate_generic_examples())
   run_check("Bundled public MIC examples remain valid", validate_public_mic_examples())
   run_check("Packaged mapping_08 bundle remains internally consistent", validate_mapping_08_bundle())
+  run_check("Packaged S. suis bundle remains internally consistent", validate_suis_demo_bundle())
   run_check("Tracked generated source artifacts remain present", validate_source_generated_artifacts())
   run_check("Streamlit backend contract smoke check passes", validate_streamlit_backend())
 }
