@@ -13,6 +13,7 @@
 - phenotype random-start search
 - phenotype weighted-search option
 - grouped centroid, pairwise-distance, and within-group dispersion summaries
+- phenotype robustness summaries for missing values, added noise, and threshold effects
 - fit metrics, residual summaries, and stress-per-point summaries
 - phenotype-vs-genotype reference summaries
 - manuscript-style plotting defaults and panel composition
@@ -20,7 +21,7 @@
 ## In the package but not yet exposed in the app
 
 - transformation-comparison helpers
-- robustness studies for missing MICs, noise, thresholds, and disc diffusion
+- disc-diffusion robustness studies
 - single-feature contrast summaries
 - cluster-difference feature workflows
 - mixed models, LIMIX workflows, heritability, epistasis, and BLUP

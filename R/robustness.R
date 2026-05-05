@@ -561,7 +561,7 @@ amrc_noise_added_study <- function(
     noise_long <- merge(noise_long, true_values, by = c(id_col, "drug"), all.x = TRUE, sort = FALSE)
     noise_long <- noise_long[noise_long$true_value != threshold_value, , drop = FALSE]
     noise_long$noise_added_value <- noise_long$true_value + noise_long$error_added
-    noise_long$sample_id <- i
+    noise_long$sample_id <- rep.int(i, nrow(noise_long))
     noise_tables[[i]] <- noise_long
 
     values_long <- amrc_long_table_values(sample_table, lab_ids, value_name = "MIC_value", id_col = id_col)

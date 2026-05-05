@@ -642,6 +642,26 @@ validate_streamlit_backend <- function() {
       distinct_col = "isolate_id",
       threshold = 1
     ),
+    robustness = list(
+      enabled = TRUE,
+      cross_validation_n = 3L,
+      seed = 1234L,
+      missing_value = list(
+        enabled = TRUE,
+        n_samples = 3L,
+        missing_pct = 10
+      ),
+      noise_added = list(
+        enabled = TRUE,
+        n_samples = 3L,
+        perturb_pct = 10
+      ),
+      threshold_effect = list(
+        enabled = TRUE,
+        threshold_value = 1,
+        weighted_repeats = 3L
+      )
+    ),
     reference = list(
       enabled = TRUE,
       reference_col = "lineage",
@@ -736,6 +756,10 @@ validate_streamlit_backend <- function() {
     "Streamlit backend grouped summary column changed"
   )
   assert_true(
+    length(summary$phenotype$robustness$enabled_studies) >= 2L,
+    "Streamlit backend robustness studies were not recorded"
+  )
+  assert_true(
     !is.null(summary$external$reference$n_rows),
     "Streamlit backend summary is missing external reference row count"
   )
@@ -779,6 +803,14 @@ validate_streamlit_backend <- function() {
   phenotype_group_centroids <- read_csv_keep_names(file.path(output_dir, "phenotype_group_centroids.csv"))
   phenotype_group_pairwise <- read_csv_keep_names(file.path(output_dir, "phenotype_group_pairwise_distances.csv"))
   phenotype_group_distance_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_group_distance_summary.csv"))
+  phenotype_missing_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_missing_value_summary.csv"))
+  phenotype_missing_stress <- read_csv_keep_names(file.path(output_dir, "phenotype_missing_value_stress.csv"))
+  phenotype_missing_procrustes <- read_csv_keep_names(file.path(output_dir, "phenotype_missing_value_procrustes.csv"))
+  phenotype_missing_dimension_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_missing_value_dimension_summary.csv"))
+  phenotype_noise_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_noise_added_summary.csv"))
+  phenotype_noise_stress <- read_csv_keep_names(file.path(output_dir, "phenotype_noise_added_stress.csv"))
+  phenotype_threshold_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_threshold_effect_summary.csv"))
+  phenotype_threshold_scenarios <- read_csv_keep_names(file.path(output_dir, "phenotype_threshold_effect_scenarios.csv"))
   comparison_data <- read_csv_keep_names(file.path(output_dir, "comparison_data.csv"))
   external_fit_metrics <- read_csv_keep_names(file.path(output_dir, "external_fit_metrics.csv"))
   external_residual_summary <- read_csv_keep_names(file.path(output_dir, "external_residual_summary.csv"))
@@ -849,6 +881,46 @@ validate_streamlit_backend <- function() {
     phenotype_group_distance_summary,
     c("group_1", "group_2", "relation", "phenotype_distance_mean"),
     "Streamlit phenotype grouped distance summary"
+  )
+  assert_has_columns(
+    phenotype_missing_summary,
+    c("study", "n_samples", "mean_stress", "mean_congcoef"),
+    "Streamlit missing-value robustness summary"
+  )
+  assert_has_columns(
+    phenotype_missing_stress,
+    c("sample_id", "stress"),
+    "Streamlit missing-value robustness stress table"
+  )
+  assert_has_columns(
+    phenotype_missing_procrustes,
+    c("sample_id", "congcoef", "aliencoef"),
+    "Streamlit missing-value robustness Procrustes summary"
+  )
+  assert_has_columns(
+    phenotype_missing_dimension_summary,
+    c("dimension", "mean_dist_phen", "sd_dist_phen"),
+    "Streamlit missing-value robustness dimension summary"
+  )
+  assert_has_columns(
+    phenotype_noise_summary,
+    c("study", "n_samples", "mean_stress", "mean_congcoef"),
+    "Streamlit noise-added robustness summary"
+  )
+  assert_has_columns(
+    phenotype_noise_stress,
+    c("sample_id", "stress"),
+    "Streamlit noise-added robustness stress table"
+  )
+  assert_has_columns(
+    phenotype_threshold_summary,
+    c("study", "threshold_value", "weighted_repeats", "mean_fit_stress"),
+    "Streamlit threshold-effect robustness summary"
+  )
+  assert_has_columns(
+    phenotype_threshold_scenarios,
+    c("scenario", "fit_stress", "congcoef", "aliencoef"),
+    "Streamlit threshold-effect robustness scenario table"
   )
   assert_has_columns(
     comparison_data,

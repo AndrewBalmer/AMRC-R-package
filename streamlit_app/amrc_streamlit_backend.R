@@ -231,6 +231,16 @@ amrc_collect_report_figures <- function(output_dir, summary) {
       file = "phenotype_group_dispersion_histogram.png",
       title = "Grouped phenotype dispersion",
       caption = "Histogram of within-group phenotype dispersion for the selected metadata grouping."
+    ),
+    list(
+      file = "phenotype_missing_value_stress_histogram.png",
+      title = "Missing-value robustness",
+      caption = "Stress distribution across missing-value perturbation runs."
+    ),
+    list(
+      file = "phenotype_noise_added_stress_histogram.png",
+      title = "Noise-added robustness",
+      caption = "Stress distribution across noise-added perturbation runs."
     )
   )
 
@@ -627,6 +637,159 @@ write_grouped_summary_outputs <- function(
   )
 }
 
+write_perturbation_robustness_outputs <- function(
+  study_result,
+  output_dir,
+  prefix,
+  study_name,
+  reference_stress = NULL,
+  stress_fill = "#377EB8"
+) {
+  stress_table <- study_result$stress_values
+  if ("value" %in% colnames(stress_table)) {
+    colnames(stress_table)[colnames(stress_table) == "value"] <- "stress"
+  }
+  stress_table$sample_id <- seq_len(nrow(stress_table))
+  stress_table <- stress_table[, c("sample_id", setdiff(colnames(stress_table), "sample_id")), drop = FALSE]
+
+  procrustes_summary <- study_result$procrustes$summary
+  spp_summary <- stats::aggregate(
+    spp ~ sample_id,
+    data = study_result$stress_per_point,
+    FUN = function(x) mean(x, na.rm = TRUE)
+  )
+  colnames(spp_summary) <- c("sample_id", "mean_spp")
+  spp_summary$max_spp <- vapply(
+    split(study_result$stress_per_point$spp, study_result$stress_per_point$sample_id),
+    function(x) max(x, na.rm = TRUE),
+    numeric(1)
+  )
+
+  dimension_summary <- study_result$cross_validation$dimension_summary
+  dim2_row <- dimension_summary[dimension_summary$dimension == 2, , drop = FALSE]
+
+  summary_table <- data.frame(
+    study = study_name,
+    n_samples = nrow(stress_table),
+    mean_stress = mean(stress_table$stress, na.rm = TRUE),
+    sd_stress = stats::sd(stress_table$stress, na.rm = TRUE),
+    mean_congcoef = mean(procrustes_summary$congcoef, na.rm = TRUE),
+    sd_congcoef = stats::sd(procrustes_summary$congcoef, na.rm = TRUE),
+    mean_aliencoef = mean(procrustes_summary$aliencoef, na.rm = TRUE),
+    sd_aliencoef = stats::sd(procrustes_summary$aliencoef, na.rm = TRUE),
+    mean_spp = mean(study_result$stress_per_point$spp, na.rm = TRUE),
+    mean_dim2_dist = if (nrow(dim2_row) > 0L) dim2_row$mean_dist_phen[[1]] else NA_real_,
+    sd_dim2_dist = if (nrow(dim2_row) > 0L) dim2_row$sd_dist_phen[[1]] else NA_real_
+  )
+
+  histogram <- amrc_fn("amrc_plot_histogram_with_reference")(
+    values = stress_table$stress,
+    xlab = paste0(gsub("_", " ", study_name), " stress"),
+    fill = stress_fill,
+    reference_line = reference_stress
+  )
+
+  summary_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_summary.csv"))
+  stress_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_stress.csv"))
+  procrustes_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_procrustes.csv"))
+  dimension_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_dimension_summary.csv"))
+  spp_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_spp.csv"))
+  histogram_path <- file.path(output_dir, paste0(prefix, "_", study_name, "_stress_histogram.png"))
+
+  utils::write.csv(summary_table, file = summary_path, row.names = FALSE)
+  utils::write.csv(stress_table, file = stress_path, row.names = FALSE)
+  utils::write.csv(procrustes_summary, file = procrustes_path, row.names = FALSE)
+  utils::write.csv(dimension_summary, file = dimension_path, row.names = FALSE)
+  utils::write.csv(spp_summary, file = spp_path, row.names = FALSE)
+  write_plot(histogram, histogram_path, width = 7, height = 5)
+
+  list(
+    summary_table = summary_table,
+    stress_table = stress_table,
+    procrustes_summary = procrustes_summary,
+    dimension_summary = dimension_summary,
+    spp_summary = spp_summary,
+    paths = list(
+      summary = summary_path,
+      stress = stress_path,
+      procrustes = procrustes_path,
+      dimension_summary = dimension_path,
+      spp = spp_path,
+      histogram = histogram_path
+    )
+  )
+}
+
+write_threshold_robustness_outputs <- function(
+  study_result,
+  output_dir,
+  prefix = "phenotype",
+  threshold_value = NULL,
+  weighted_repeats = NULL
+) {
+  rows <- list(
+    data.frame(
+      scenario = "exclude_all_thresholds",
+      fit_stress = study_result$exclude_all_thresholds$fit$stress %||% NA_real_,
+      congcoef = study_result$exclude_all_comparison$summary$congcoef[[1]] %||% NA_real_,
+      aliencoef = study_result$exclude_all_comparison$summary$aliencoef[[1]] %||% NA_real_,
+      n_isolates = length(study_result$exclude_all_thresholds$lab_ids %||% character())
+    ),
+    data.frame(
+      scenario = "exclude_two_thresholds",
+      fit_stress = study_result$exclude_two_thresholds$fit$stress %||% NA_real_,
+      congcoef = study_result$exclude_two_comparison$summary$congcoef[[1]] %||% NA_real_,
+      aliencoef = study_result$exclude_two_comparison$summary$aliencoef[[1]] %||% NA_real_,
+      n_isolates = length(study_result$exclude_two_thresholds$lab_ids %||% character())
+    ),
+    data.frame(
+      scenario = "ordinal_vs_metric",
+      fit_stress = study_result$ordinal_fit$stress %||% NA_real_,
+      congcoef = study_result$metric_ordinal_comparison$summary$congcoef[[1]] %||% NA_real_,
+      aliencoef = study_result$metric_ordinal_comparison$summary$aliencoef[[1]] %||% NA_real_,
+      n_isolates = length(study_result$ordinal_fit$lab_ids %||% character())
+    ),
+    data.frame(
+      scenario = "weighted_metric_vs_metric",
+      fit_stress = study_result$weighted_metric_fit$stress %||% NA_real_,
+      congcoef = study_result$metric_weight_comparison$summary$congcoef[[1]] %||% NA_real_,
+      aliencoef = study_result$metric_weight_comparison$summary$aliencoef[[1]] %||% NA_real_,
+      n_isolates = length(study_result$weighted_metric_fit$lab_ids %||% character())
+    ),
+    data.frame(
+      scenario = "weighted_ordinal_vs_ordinal",
+      fit_stress = study_result$weighted_ordinal_fit$stress %||% NA_real_,
+      congcoef = study_result$ordinal_weight_comparison$summary$congcoef[[1]] %||% NA_real_,
+      aliencoef = study_result$ordinal_weight_comparison$summary$aliencoef[[1]] %||% NA_real_,
+      n_isolates = length(study_result$weighted_ordinal_fit$lab_ids %||% character())
+    )
+  )
+
+  scenario_table <- do.call(rbind, rows)
+  summary_table <- data.frame(
+    study = "threshold_effect",
+    threshold_value = threshold_value %||% NA_real_,
+    weighted_repeats = weighted_repeats %||% NA_integer_,
+    mean_fit_stress = mean(scenario_table$fit_stress, na.rm = TRUE),
+    mean_congcoef = mean(scenario_table$congcoef, na.rm = TRUE),
+    mean_aliencoef = mean(scenario_table$aliencoef, na.rm = TRUE)
+  )
+
+  summary_path <- file.path(output_dir, paste0(prefix, "_threshold_effect_summary.csv"))
+  scenario_path <- file.path(output_dir, paste0(prefix, "_threshold_effect_scenarios.csv"))
+  utils::write.csv(summary_table, file = summary_path, row.names = FALSE)
+  utils::write.csv(scenario_table, file = scenario_path, row.names = FALSE)
+
+  list(
+    summary_table = summary_table,
+    scenario_table = scenario_table,
+    paths = list(
+      summary = summary_path,
+      scenarios = scenario_path
+    )
+  )
+}
+
 write_run_report <- function(summary, output_dir, config) {
   comparison_summary <- summary$genotype %||% summary$external
 
@@ -702,6 +865,16 @@ write_run_report <- function(summary, output_dir, config) {
       phenotype_lines,
       sprintf("Grouped summary column: %s", summary$phenotype$grouped_summary$group_col %||% "NA"),
       sprintf("Grouped summary groups: %s", summary$phenotype$grouped_summary$n_groups %||% "NA")
+    )
+  }
+
+  if (!is.null(summary$phenotype$robustness)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf(
+        "Robustness studies: %s",
+        paste(summary$phenotype$robustness$enabled_studies %||% "none", collapse = ", ")
+      )
     )
   }
 
@@ -790,6 +963,24 @@ write_run_report <- function(summary, output_dir, config) {
       "`phenotype_group_pairwise_distances.csv`",
       "`phenotype_group_distance_summary.csv`"
     ) else NULL,
+    if (!is.null(summary$phenotype$robustness$missing_value)) c(
+      "`phenotype_missing_value_summary.csv`",
+      "`phenotype_missing_value_stress.csv`",
+      "`phenotype_missing_value_procrustes.csv`",
+      "`phenotype_missing_value_dimension_summary.csv`",
+      "`phenotype_missing_value_spp.csv`"
+    ) else NULL,
+    if (!is.null(summary$phenotype$robustness$noise_added)) c(
+      "`phenotype_noise_added_summary.csv`",
+      "`phenotype_noise_added_stress.csv`",
+      "`phenotype_noise_added_procrustes.csv`",
+      "`phenotype_noise_added_dimension_summary.csv`",
+      "`phenotype_noise_added_spp.csv`"
+    ) else NULL,
+    if (!is.null(summary$phenotype$robustness$threshold_effect)) c(
+      "`phenotype_threshold_effect_summary.csv`",
+      "`phenotype_threshold_effect_scenarios.csv`"
+    ) else NULL,
     if (!is.null(comparison_summary)) c(
       "`external_fit_metrics.csv`",
       "`external_residual_summary.csv`",
@@ -844,6 +1035,24 @@ write_run_report <- function(summary, output_dir, config) {
       "phenotype_group_centroids.csv",
       "phenotype_group_pairwise_distances.csv",
       "phenotype_group_distance_summary.csv"
+    ) else NULL,
+    if (!is.null(summary$phenotype$robustness$missing_value)) c(
+      "phenotype_missing_value_summary.csv",
+      "phenotype_missing_value_stress.csv",
+      "phenotype_missing_value_procrustes.csv",
+      "phenotype_missing_value_dimension_summary.csv",
+      "phenotype_missing_value_spp.csv"
+    ) else NULL,
+    if (!is.null(summary$phenotype$robustness$noise_added)) c(
+      "phenotype_noise_added_summary.csv",
+      "phenotype_noise_added_stress.csv",
+      "phenotype_noise_added_procrustes.csv",
+      "phenotype_noise_added_dimension_summary.csv",
+      "phenotype_noise_added_spp.csv"
+    ) else NULL,
+    if (!is.null(summary$phenotype$robustness$threshold_effect)) c(
+      "phenotype_threshold_effect_summary.csv",
+      "phenotype_threshold_effect_scenarios.csv"
     ) else NULL,
     if (!is.null(comparison_summary)) c(
       "external_fit_metrics.csv",
@@ -1022,6 +1231,7 @@ reference_annotation_y <- amrc_numeric_or_null(config$reference$annotation_y)
 phenotype_search_cfg <- amrc_section(config, "phenotype_search")
 phenotype_diagnostics_cfg <- amrc_section(config, "phenotype_diagnostics")
 grouped_summary_cfg <- amrc_section(config, "grouped_summary")
+robustness_cfg <- amrc_section(config, "robustness")
 phenotype_random_starts <- max(1L, as.integer(phenotype_search_cfg$n_random_starts %||% 1L))
 phenotype_use_weighted_search <- isTRUE(phenotype_search_cfg$weighted)
 phenotype_weight_type <- amrc_scalar_or_null(phenotype_search_cfg$weight_type) %||% "knn"
@@ -1031,6 +1241,21 @@ grouped_summary_enabled <- isTRUE(grouped_summary_cfg$enabled)
 grouped_summary_col <- amrc_scalar_or_null(grouped_summary_cfg$group_col)
 grouped_summary_distinct_col <- amrc_scalar_or_null(grouped_summary_cfg$distinct_col)
 grouped_summary_threshold <- amrc_numeric_or_null(grouped_summary_cfg$threshold)
+robustness_enabled <- isTRUE(robustness_cfg$enabled)
+robustness_missing_cfg <- amrc_section(robustness_cfg, "missing_value")
+robustness_noise_cfg <- amrc_section(robustness_cfg, "noise_added")
+robustness_threshold_cfg <- amrc_section(robustness_cfg, "threshold_effect")
+robustness_missing_enabled <- robustness_enabled && isTRUE(robustness_missing_cfg$enabled)
+robustness_noise_enabled <- robustness_enabled && isTRUE(robustness_noise_cfg$enabled)
+robustness_threshold_enabled <- robustness_enabled && isTRUE(robustness_threshold_cfg$enabled)
+robustness_missing_samples <- max(1L, as.integer(robustness_missing_cfg$n_samples %||% 10L))
+robustness_missing_pct <- max(1, as.numeric(robustness_missing_cfg$missing_pct %||% 10))
+robustness_noise_samples <- max(1L, as.integer(robustness_noise_cfg$n_samples %||% 10L))
+robustness_noise_pct <- max(1, as.numeric(robustness_noise_cfg$perturb_pct %||% 10))
+robustness_threshold_value <- as.numeric(robustness_threshold_cfg$threshold_value %||% 1)
+robustness_threshold_repeats <- max(1L, as.integer(robustness_threshold_cfg$weighted_repeats %||% 10L))
+robustness_cross_validation_n <- max(1L, as.integer(robustness_cfg$cross_validation_n %||% 10L))
+robustness_seed <- as.integer(robustness_cfg$seed %||% 1234L)
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -1589,6 +1814,108 @@ if (isTRUE(grouped_summary_enabled) && !is.null(grouped_summary_col)) {
 
   result_bundle$summary <- summary
   result_bundle$grouped_summary_outputs <- grouped_summary_outputs
+}
+
+robustness_outputs <- list()
+if (isTRUE(robustness_enabled)) {
+  enabled_studies <- character()
+  summary$phenotype$robustness <- list()
+
+  if (isTRUE(robustness_missing_enabled)) {
+    missing_study <- amrc_fn("amrc_missing_value_study")(
+      tablemic = mic_data$mic,
+      tablemic_meta = mic_data$metadata,
+      reference_mds = phenotype_map,
+      n_samples = robustness_missing_samples,
+      missing_pct = robustness_missing_pct,
+      cross_validation_n = robustness_cross_validation_n,
+      id_col = id_col,
+      seed = robustness_seed
+    )
+    missing_outputs <- write_perturbation_robustness_outputs(
+      study_result = missing_study,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      study_name = "missing_value",
+      reference_stress = phenotype_map$stress,
+      stress_fill = "#377EB8"
+    )
+    robustness_outputs$missing_value <- missing_outputs
+    summary$phenotype$robustness$missing_value <- list(
+      n_samples = robustness_missing_samples,
+      missing_pct = robustness_missing_pct,
+      mean_stress = missing_outputs$summary_table$mean_stress[[1]],
+      mean_congcoef = missing_outputs$summary_table$mean_congcoef[[1]]
+    )
+    enabled_studies <- c(enabled_studies, "missing_value")
+  }
+
+  if (isTRUE(robustness_noise_enabled)) {
+    noise_study <- amrc_fn("amrc_noise_added_study")(
+      tablemic = mic_data$mic,
+      tablemic_meta = mic_data$metadata,
+      reference_mds = phenotype_map,
+      n_samples = robustness_noise_samples,
+      perturb_pct = robustness_noise_pct,
+      threshold_value = robustness_threshold_value,
+      cross_validation_n = robustness_cross_validation_n,
+      id_col = id_col,
+      seed = robustness_seed
+    )
+    noise_outputs <- write_perturbation_robustness_outputs(
+      study_result = noise_study,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      study_name = "noise_added",
+      reference_stress = phenotype_map$stress,
+      stress_fill = "#E41A1C"
+    )
+    robustness_outputs$noise_added <- noise_outputs
+    summary$phenotype$robustness$noise_added <- list(
+      n_samples = robustness_noise_samples,
+      perturb_pct = robustness_noise_pct,
+      threshold_value = robustness_threshold_value,
+      mean_stress = noise_outputs$summary_table$mean_stress[[1]],
+      mean_congcoef = noise_outputs$summary_table$mean_congcoef[[1]]
+    )
+    enabled_studies <- c(enabled_studies, "noise_added")
+  }
+
+  if (isTRUE(robustness_threshold_enabled)) {
+    threshold_study <- amrc_fn("amrc_threshold_effect_study")(
+      tablemic = mic_data$mic,
+      tablemic_meta = mic_data$metadata,
+      reference_mds = phenotype_map,
+      threshold_value = robustness_threshold_value,
+      weighted_repeats = robustness_threshold_repeats,
+      id_col = id_col,
+      seed = robustness_seed
+    )
+    threshold_outputs <- write_threshold_robustness_outputs(
+      study_result = threshold_study,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      threshold_value = robustness_threshold_value,
+      weighted_repeats = robustness_threshold_repeats
+    )
+    robustness_outputs$threshold_effect <- threshold_outputs
+    summary$phenotype$robustness$threshold_effect <- list(
+      threshold_value = robustness_threshold_value,
+      weighted_repeats = robustness_threshold_repeats,
+      mean_fit_stress = threshold_outputs$summary_table$mean_fit_stress[[1]],
+      mean_congcoef = threshold_outputs$summary_table$mean_congcoef[[1]]
+    )
+    enabled_studies <- c(enabled_studies, "threshold_effect")
+  }
+
+  if (length(enabled_studies) > 0L) {
+    summary$phenotype$robustness$enabled_studies <- enabled_studies
+    result_bundle$robustness_outputs <- robustness_outputs
+    result_bundle$summary <- summary
+  } else {
+    summary$phenotype$robustness <- NULL
+    result_bundle$summary <- summary
+  }
 }
 
 jsonlite::write_json(

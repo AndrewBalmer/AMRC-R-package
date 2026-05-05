@@ -270,6 +270,18 @@ WIDGET_DEFAULTS = {
     "grouped_summary_col": "(none)",
     "grouped_summary_distinct_col": "(none)",
     "grouped_summary_threshold": 0.0,
+    "phenotype_run_robustness": False,
+    "robustness_missing_enabled": True,
+    "robustness_missing_samples": 10,
+    "robustness_missing_pct": 10,
+    "robustness_noise_enabled": True,
+    "robustness_noise_samples": 10,
+    "robustness_noise_pct": 10,
+    "robustness_threshold_enabled": False,
+    "robustness_threshold_value": 1.0,
+    "robustness_threshold_repeats": 10,
+    "robustness_cross_validation_n": 10,
+    "robustness_seed": 1234,
     "use_genotype_map": False,
     "genotype_mode": "precomputed_distance",
     "genotype_feature_cols": [],
@@ -440,6 +452,18 @@ def apply_demo_selection(demo_key: str) -> None:
     )
     st.session_state["grouped_summary_distinct_col"] = none_option()
     st.session_state["grouped_summary_threshold"] = 0.0
+    st.session_state["phenotype_run_robustness"] = False
+    st.session_state["robustness_missing_enabled"] = True
+    st.session_state["robustness_missing_samples"] = 10
+    st.session_state["robustness_missing_pct"] = 10
+    st.session_state["robustness_noise_enabled"] = True
+    st.session_state["robustness_noise_samples"] = 10
+    st.session_state["robustness_noise_pct"] = 10
+    st.session_state["robustness_threshold_enabled"] = False
+    st.session_state["robustness_threshold_value"] = 1.0
+    st.session_state["robustness_threshold_repeats"] = 10
+    st.session_state["robustness_cross_validation_n"] = 10
+    st.session_state["robustness_seed"] = 1234
     st.session_state["phenotype_cluster_distinct_col"] = spec.get("phenotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["genotype_cluster_distinct_col"] = spec.get("genotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["phenotype_rotation_degrees"] = spec.get("phenotype_rotation_degrees", 0.0)
@@ -598,6 +622,26 @@ def build_config(
             "distinct_col": maybe_none(st.session_state.get("grouped_summary_distinct_col")),
             "threshold": maybe_positive_number(st.session_state.get("grouped_summary_threshold")),
         },
+        "robustness": {
+            "enabled": bool(st.session_state.get("phenotype_run_robustness", False)),
+            "cross_validation_n": max(1, int(st.session_state.get("robustness_cross_validation_n", 10))),
+            "seed": int(st.session_state.get("robustness_seed", 1234)),
+            "missing_value": {
+                "enabled": bool(st.session_state.get("robustness_missing_enabled", True)),
+                "n_samples": max(1, int(st.session_state.get("robustness_missing_samples", 10))),
+                "missing_pct": max(1.0, float(st.session_state.get("robustness_missing_pct", 10))),
+            },
+            "noise_added": {
+                "enabled": bool(st.session_state.get("robustness_noise_enabled", True)),
+                "n_samples": max(1, int(st.session_state.get("robustness_noise_samples", 10))),
+                "perturb_pct": max(1.0, float(st.session_state.get("robustness_noise_pct", 10))),
+            },
+            "threshold_effect": {
+                "enabled": bool(st.session_state.get("robustness_threshold_enabled", False)),
+                "threshold_value": float(st.session_state.get("robustness_threshold_value", 1.0)),
+                "weighted_repeats": max(1, int(st.session_state.get("robustness_threshold_repeats", 10))),
+            },
+        },
         "genotype_clustering": {
             "enabled": bool(st.session_state.get("genotype_use_clustering")),
             "n_clusters": int(st.session_state.get("genotype_n_clusters", 4)),
@@ -697,6 +741,8 @@ def run_backend(config: dict) -> dict:
         "phenotype_cluster_elbow.png",
         "phenotype_dimension_sweep.png",
         "phenotype_group_dispersion_histogram.png",
+        "phenotype_missing_value_stress_histogram.png",
+        "phenotype_noise_added_stress_histogram.png",
         "external_cluster_map.png",
         "external_cluster_elbow.png",
         "reference_distance_relationship.png",
@@ -728,6 +774,18 @@ def run_backend(config: dict) -> dict:
         "phenotype_group_pairwise_distances.csv",
         "phenotype_group_distance_summary.csv",
         "phenotype_group_dispersion.csv",
+        "phenotype_missing_value_summary.csv",
+        "phenotype_missing_value_stress.csv",
+        "phenotype_missing_value_procrustes.csv",
+        "phenotype_missing_value_dimension_summary.csv",
+        "phenotype_missing_value_spp.csv",
+        "phenotype_noise_added_summary.csv",
+        "phenotype_noise_added_stress.csv",
+        "phenotype_noise_added_procrustes.csv",
+        "phenotype_noise_added_dimension_summary.csv",
+        "phenotype_noise_added_spp.csv",
+        "phenotype_threshold_effect_summary.csv",
+        "phenotype_threshold_effect_scenarios.csv",
         "comparison_data.csv",
         "external_cluster_data.csv",
         "external_cluster_scree.csv",
@@ -1156,6 +1214,80 @@ if phenotype_df is not None:
                 help="Optional threshold for the proportion of phenotype distances below a chosen value.",
             )
 
+        with st.expander("Robustness studies", expanded=False):
+            st.checkbox(
+                "Run phenotype robustness studies",
+                key="phenotype_run_robustness",
+                help="Runs compact phenotype robustness summaries. These are slower and therefore off by default.",
+            )
+            st.caption(
+                "Missing-value and noise-added studies are generic. "
+                "Threshold-effect studies are most meaningful when your transformed MIC table still includes threshold-style values."
+            )
+            st.number_input(
+                "Cross-validation samples per study",
+                min_value=1,
+                max_value=50,
+                step=1,
+                key="robustness_cross_validation_n",
+            )
+            st.number_input(
+                "Robustness random seed",
+                min_value=1,
+                max_value=1000000,
+                step=1,
+                key="robustness_seed",
+            )
+            st.markdown("**Missing-value study**")
+            st.checkbox("Enable missing-value study", key="robustness_missing_enabled")
+            miss_cols = st.columns(2)
+            miss_cols[0].number_input(
+                "Missing-value samples",
+                min_value=1,
+                max_value=100,
+                step=1,
+                key="robustness_missing_samples",
+            )
+            miss_cols[1].number_input(
+                "Missing-value percent",
+                min_value=1.0,
+                max_value=90.0,
+                step=1.0,
+                key="robustness_missing_pct",
+            )
+            st.markdown("**Noise-added study**")
+            st.checkbox("Enable noise-added study", key="robustness_noise_enabled")
+            noise_cols = st.columns(2)
+            noise_cols[0].number_input(
+                "Noise-added samples",
+                min_value=1,
+                max_value=100,
+                step=1,
+                key="robustness_noise_samples",
+            )
+            noise_cols[1].number_input(
+                "Noise-added percent",
+                min_value=1.0,
+                max_value=90.0,
+                step=1.0,
+                key="robustness_noise_pct",
+            )
+            st.markdown("**Threshold-effect study**")
+            st.checkbox("Enable threshold-effect study", key="robustness_threshold_enabled")
+            threshold_cols = st.columns(2)
+            threshold_cols[0].number_input(
+                "Threshold value",
+                step=0.5,
+                key="robustness_threshold_value",
+            )
+            threshold_cols[1].number_input(
+                "Threshold weighted repeats",
+                min_value=1,
+                max_value=100,
+                step=1,
+                key="robustness_threshold_repeats",
+            )
+
         st.subheader("Optional genotype / structure map")
         st.checkbox("Add genotype / structure map", key="use_genotype_map")
 
@@ -1325,7 +1457,7 @@ with main_col:
                 "- If your MIC columns are already log2-transformed, switch `Transform` to `none`.\n"
                 "- One-unit gridlines should be interpreted as one doubling dilution only after calibration.\n"
                 "- The genotype / structure map is optional and has separate plotting, rotation, grid, and clustering controls.\n"
-                "- Dimensionality sweeps, grouped summaries, and advanced phenotype map fitting can be enabled without changing the default workflow.\n"
+                "- Dimensionality sweeps, grouped summaries, robustness studies, and advanced phenotype map fitting can be enabled without changing the default workflow.\n"
                 "- This app still surfaces only a subset of the full package; the mixed-model layer remains package-only for now."
             )
             st.checkbox(
@@ -1402,6 +1534,14 @@ if result:
             f"{grouped_summary_meta.get('group_col', 'NA')} "
             f"({grouped_summary_meta.get('n_groups', 'NA')} groups)."
         )
+    robustness_meta = phenotype_summary.get("robustness") or {}
+    if robustness_meta:
+        enabled_studies = robustness_meta.get("enabled_studies") or []
+        if enabled_studies:
+            st.caption(
+                "Phenotype robustness studies: "
+                + ", ".join(enabled_studies).replace("_", " ")
+            )
     genotype_calibration = genotype_summary.get("calibration") or {}
     if genotype_calibration:
         st.caption(
@@ -1429,6 +1569,7 @@ if result:
         "Diagnostics",
         "Dimensionality",
         "Grouped summaries",
+        "Robustness",
         "Tables",
         "Reports",
         "Raw summary",
@@ -1584,6 +1725,63 @@ if result:
                 )
 
     with result_tabs[4]:
+        robustness_sections = [
+            (
+                "Missing-value robustness",
+                "phenotype_missing_value_stress_histogram.png",
+                [
+                    ("Summary", "phenotype_missing_value_summary.csv"),
+                    ("Stress table", "phenotype_missing_value_stress.csv"),
+                    ("Procrustes summary", "phenotype_missing_value_procrustes.csv"),
+                    ("Dimension summary", "phenotype_missing_value_dimension_summary.csv"),
+                    ("Stress-per-point summary", "phenotype_missing_value_spp.csv"),
+                ],
+            ),
+            (
+                "Noise-added robustness",
+                "phenotype_noise_added_stress_histogram.png",
+                [
+                    ("Summary", "phenotype_noise_added_summary.csv"),
+                    ("Stress table", "phenotype_noise_added_stress.csv"),
+                    ("Procrustes summary", "phenotype_noise_added_procrustes.csv"),
+                    ("Dimension summary", "phenotype_noise_added_dimension_summary.csv"),
+                    ("Stress-per-point summary", "phenotype_noise_added_spp.csv"),
+                ],
+            ),
+            (
+                "Threshold-effect robustness",
+                None,
+                [
+                    ("Summary", "phenotype_threshold_effect_summary.csv"),
+                    ("Scenario table", "phenotype_threshold_effect_scenarios.csv"),
+                ],
+            ),
+        ]
+        shown_any_robustness = False
+        for title, image_name, table_specs in robustness_sections:
+            present_tables = [spec for spec in table_specs if spec[1] in result["tables"]]
+            if image_name is None and not present_tables:
+                continue
+            if image_name is not None and image_name not in result["files"] and not present_tables:
+                continue
+            shown_any_robustness = True
+            st.subheader(title)
+            if image_name is not None and image_name in result["files"]:
+                st.image(result["files"][image_name], caption=title)
+            for caption, name in present_tables:
+                st.markdown(f"**{caption}**")
+                st.dataframe(result["tables"][name], width="stretch")
+                st.download_button(
+                    label=f"Download {name}",
+                    data=result["files"][name],
+                    file_name=name,
+                    mime="text/csv",
+                    key=f"download-{name}",
+                )
+        if not shown_any_robustness:
+            st.info("No robustness studies were enabled for this run.")
+
+    with result_tabs[5]:
         if result["tables"]:
             st.subheader("Output tables")
             for name, table in result["tables"].items():
@@ -1597,7 +1795,7 @@ if result:
                     key=f"table-{name}",
                 )
 
-    with result_tabs[5]:
+    with result_tabs[6]:
         if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
             st.subheader("Report export")
             report_tabs = st.tabs(["Preview", "Downloads"])
@@ -1643,6 +1841,6 @@ if result:
                     key=f"bundle-{filename}",
                 )
 
-    with result_tabs[6]:
+    with result_tabs[7]:
         with st.expander("Show raw summary JSON", expanded=False):
             st.json(result["summary"], expanded=True)
