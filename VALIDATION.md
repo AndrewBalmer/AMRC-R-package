@@ -152,7 +152,7 @@ conditions, including:
 
 Some validation checks are source-checkout specific, especially:
 
-- tracked generated artefact presence in `inst/extdata/generated/spneumoniae`
+- local generated artefact presence in `inst/extdata/generated/spneumoniae` when those files exist
 - top-level docs, tools, and Streamlit backend files
 
 That is intentional. This repo has both package-facing validation and
