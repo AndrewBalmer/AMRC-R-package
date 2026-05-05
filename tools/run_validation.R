@@ -674,10 +674,24 @@ validate_streamlit_backend <- function() {
     ),
     external = list(
       enabled = TRUE,
-      mode = "numeric_features",
-      path = example_paths$external_numeric,
+      mode = "character_features",
+      path = example_paths$external_character,
       id_col = "isolate_id",
-      feature_cols = c("axis1", "axis2")
+      feature_cols = c("allele_a", "allele_b", "allele_c")
+    ),
+    feature_contrasts = list(
+      enabled = TRUE,
+      group_col = "isolate_id",
+      feature_cols = c("allele_a", "allele_b", "allele_c")
+    ),
+    cluster_feature_workflow = list(
+      enabled = TRUE,
+      outer_cluster_col = "external_cluster",
+      focal_cluster = "1",
+      feature_cols = c("allele_a", "allele_b", "allele_c"),
+      phenotype_n_clusters = 2L,
+      min_frequency_shift = 0.2,
+      max_features = 3L
     )
   )
 
@@ -763,6 +777,14 @@ validate_streamlit_backend <- function() {
     !is.null(summary$external$reference$n_rows),
     "Streamlit backend summary is missing external reference row count"
   )
+  assert_true(
+    !is.null(summary$external$feature_contrasts$n_pairs),
+    "Streamlit backend feature contrast summary is missing"
+  )
+  assert_true(
+    !is.null(summary$external$cluster_feature_workflow$n_features),
+    "Streamlit backend cluster feature workflow summary is missing"
+  )
   assert_identical_scalar(
     summary$external$calibration$mode,
     "model_based_1mic",
@@ -811,6 +833,10 @@ validate_streamlit_backend <- function() {
   phenotype_noise_stress <- read_csv_keep_names(file.path(output_dir, "phenotype_noise_added_stress.csv"))
   phenotype_threshold_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_threshold_effect_summary.csv"))
   phenotype_threshold_scenarios <- read_csv_keep_names(file.path(output_dir, "phenotype_threshold_effect_scenarios.csv"))
+  genotype_feature_pairs <- read_csv_keep_names(file.path(output_dir, "genotype_feature_contrast_pairs.csv"))
+  genotype_feature_summary <- read_csv_keep_names(file.path(output_dir, "genotype_feature_contrast_summary.csv"))
+  genotype_cluster_workflow_features <- read_csv_keep_names(file.path(output_dir, "genotype_cluster_workflow_features.csv"))
+  genotype_cluster_workflow_data <- read_csv_keep_names(file.path(output_dir, "genotype_cluster_workflow_data.csv"))
   comparison_data <- read_csv_keep_names(file.path(output_dir, "comparison_data.csv"))
   external_fit_metrics <- read_csv_keep_names(file.path(output_dir, "external_fit_metrics.csv"))
   external_residual_summary <- read_csv_keep_names(file.path(output_dir, "external_residual_summary.csv"))
@@ -921,6 +947,26 @@ validate_streamlit_backend <- function() {
     phenotype_threshold_scenarios,
     c("scenario", "fit_stress", "congcoef", "aliencoef"),
     "Streamlit threshold-effect robustness scenario table"
+  )
+  assert_has_columns(
+    genotype_feature_pairs,
+    c("group_1", "group_2", "changed_feature", "state_1", "state_2"),
+    "Streamlit genotype feature-contrast pair table"
+  )
+  assert_has_columns(
+    genotype_feature_summary,
+    c("group_1", "group_2", "changed_feature", "phenotype_distance"),
+    "Streamlit genotype feature-contrast summary"
+  )
+  assert_has_columns(
+    genotype_cluster_workflow_features,
+    c("cluster_1", "cluster_2", "feature", "max_state_frequency_shift"),
+    "Streamlit genotype cluster workflow feature table"
+  )
+  assert_has_columns(
+    genotype_cluster_workflow_data,
+    c("isolate_id", "D1", "D2", "phen_cluster"),
+    "Streamlit genotype cluster workflow data"
   )
   assert_has_columns(
     comparison_data,

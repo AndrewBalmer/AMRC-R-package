@@ -241,6 +241,16 @@ amrc_collect_report_figures <- function(output_dir, summary) {
       file = "phenotype_noise_added_stress_histogram.png",
       title = "Noise-added robustness",
       caption = "Stress distribution across noise-added perturbation runs."
+    ),
+    list(
+      file = "phenotype_disc_diffusion_stress_histogram.png",
+      title = "Disc-diffusion robustness",
+      caption = "Stress distribution across disc-diffusion substitution runs."
+    ),
+    list(
+      file = "genotype_cluster_workflow_feature_plot.png",
+      title = "Cluster-difference features",
+      caption = "Ranked differentiating features for the selected genotype / structure workflow subset."
     )
   )
 
@@ -790,6 +800,151 @@ write_threshold_robustness_outputs <- function(
   )
 }
 
+amrc_check_feature_group_consistency <- function(data, group_col, feature_cols) {
+  inconsistent_rows <- list()
+  row_index <- 1L
+  for (feature in feature_cols) {
+    values_by_group <- split(as.character(data[[feature]]), as.character(data[[group_col]]))
+    for (group in names(values_by_group)) {
+      values <- unique(stats::na.omit(values_by_group[[group]]))
+      values <- values[nzchar(trimws(values))]
+      if (length(values) > 1L) {
+        inconsistent_rows[[row_index]] <- data.frame(
+          group = group,
+          feature = feature,
+          n_states = length(values),
+          states = paste(utils::head(values, 10L), collapse = " | "),
+          stringsAsFactors = FALSE,
+          check.names = FALSE
+        )
+        row_index <- row_index + 1L
+      }
+    }
+  }
+
+  if (length(inconsistent_rows) == 0L) {
+    return(data.frame(
+      group = character(0),
+      feature = character(0),
+      n_states = integer(0),
+      states = character(0),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+
+  do.call(rbind, inconsistent_rows)
+}
+
+write_feature_contrast_outputs <- function(
+  data,
+  output_dir,
+  prefix = "genotype",
+  group_col,
+  feature_cols,
+  phenotype_cols = c("D1", "D2"),
+  external_cols = NULL
+) {
+  inconsistency <- amrc_check_feature_group_consistency(
+    data = data,
+    group_col = group_col,
+    feature_cols = feature_cols
+  )
+  if (nrow(inconsistency) > 0L) {
+    stop(
+      "Selected feature contrast grouping is not feature-consistent. ",
+      "Choose a grouping column where each group has one stable feature profile.",
+      call. = FALSE
+    )
+  }
+
+  pair_table <- amrc_fn("amrc_identify_single_feature_pairs")(
+    data = data[!duplicated(data[[group_col]]), c(group_col, feature_cols), drop = FALSE],
+    group_col = group_col,
+    feature_cols = feature_cols
+  )
+  contrast_summary <- amrc_fn("amrc_summarise_single_feature_contrasts")(
+    data = data,
+    group_col = group_col,
+    feature_cols = feature_cols,
+    phenotype_cols = phenotype_cols,
+    external_cols = external_cols,
+    pair_table = pair_table
+  )
+
+  pair_path <- file.path(output_dir, paste0(prefix, "_feature_contrast_pairs.csv"))
+  summary_path <- file.path(output_dir, paste0(prefix, "_feature_contrast_summary.csv"))
+  utils::write.csv(pair_table, file = pair_path, row.names = FALSE)
+  utils::write.csv(contrast_summary, file = summary_path, row.names = FALSE)
+
+  list(
+    pair_table = pair_table,
+    contrast_summary = contrast_summary,
+    paths = list(
+      pairs = pair_path,
+      summary = summary_path
+    )
+  )
+}
+
+write_cluster_feature_workflow_outputs <- function(
+  data,
+  output_dir,
+  prefix = "genotype",
+  outer_cluster_col,
+  focal_cluster,
+  feature_cols,
+  id_col,
+  phenotype_cols = c("D1", "D2"),
+  type_col = NULL,
+  phenotype_n_clusters = 2L,
+  min_frequency_shift = 0.8,
+  max_features = 10L
+) {
+  workflow <- amrc_fn("amrc_run_cluster_feature_workflow")(
+    data = data,
+    outer_cluster_col = outer_cluster_col,
+    focal_cluster = focal_cluster,
+    phenotype_cols = phenotype_cols,
+    feature_cols = feature_cols,
+    id_col = id_col,
+    type_col = type_col,
+    phenotype_n_clusters = phenotype_n_clusters,
+    min_frequency_shift = min_frequency_shift,
+    max_features = max_features
+  )
+
+  feature_plot <- amrc_fn("amrc_plot_cluster_feature_shifts")(
+    workflow$differentiating_features,
+    top_n = max_features
+  )
+
+  subset_path <- file.path(output_dir, paste0(prefix, "_cluster_workflow_subset.csv"))
+  cluster_data_path <- file.path(output_dir, paste0(prefix, "_cluster_workflow_data.csv"))
+  feature_path <- file.path(output_dir, paste0(prefix, "_cluster_workflow_features.csv"))
+  informative_path <- file.path(output_dir, paste0(prefix, "_cluster_workflow_informative_isolates.csv"))
+  plot_path <- file.path(output_dir, paste0(prefix, "_cluster_workflow_feature_plot.png"))
+
+  utils::write.csv(workflow$subset_data, file = subset_path, row.names = FALSE)
+  utils::write.csv(workflow$data_with_clusters, file = cluster_data_path, row.names = FALSE)
+  utils::write.csv(workflow$differentiating_features, file = feature_path, row.names = FALSE)
+  if (!is.null(workflow$informative_isolates)) {
+    utils::write.csv(workflow$informative_isolates$data, file = informative_path, row.names = FALSE)
+  }
+  write_plot(feature_plot, plot_path, width = 8, height = 6)
+
+  list(
+    workflow = workflow,
+    paths = list(
+      subset = subset_path,
+      data = cluster_data_path,
+      features = feature_path,
+      informative_isolates = informative_path,
+      plot = plot_path
+    )
+  )
+}
+
 write_run_report <- function(summary, output_dir, config) {
   comparison_summary <- summary$genotype %||% summary$external
 
@@ -907,6 +1062,23 @@ write_run_report <- function(summary, output_dir, config) {
       )
     }
 
+    if (!is.null(comparison_summary$feature_contrasts)) {
+      genotype_lines <- c(
+        genotype_lines,
+        sprintf("Feature contrast grouping: %s", comparison_summary$feature_contrasts$group_col %||% "NA"),
+        sprintf("One-feature contrast pairs: %s", comparison_summary$feature_contrasts$n_pairs %||% "NA")
+      )
+    }
+
+    if (!is.null(comparison_summary$cluster_feature_workflow)) {
+      genotype_lines <- c(
+        genotype_lines,
+        sprintf("Cluster workflow outer group: %s", comparison_summary$cluster_feature_workflow$outer_cluster_col %||% "NA"),
+        sprintf("Cluster workflow focal cluster: %s", comparison_summary$cluster_feature_workflow$focal_cluster %||% "NA"),
+        sprintf("Differentiating features retained: %s", comparison_summary$cluster_feature_workflow$n_features %||% "NA")
+      )
+    }
+
     if (!is.null(comparison_summary$calibration)) {
       genotype_lines <- c(
         genotype_lines,
@@ -977,9 +1149,26 @@ write_run_report <- function(summary, output_dir, config) {
       "`phenotype_noise_added_dimension_summary.csv`",
       "`phenotype_noise_added_spp.csv`"
     ) else NULL,
+    if (!is.null(summary$phenotype$robustness$disc_diffusion)) c(
+      "`phenotype_disc_diffusion_summary.csv`",
+      "`phenotype_disc_diffusion_stress.csv`",
+      "`phenotype_disc_diffusion_procrustes.csv`",
+      "`phenotype_disc_diffusion_dimension_summary.csv`",
+      "`phenotype_disc_diffusion_spp.csv`"
+    ) else NULL,
     if (!is.null(summary$phenotype$robustness$threshold_effect)) c(
       "`phenotype_threshold_effect_summary.csv`",
       "`phenotype_threshold_effect_scenarios.csv`"
+    ) else NULL,
+    if (!is.null(comparison_summary$feature_contrasts)) c(
+      "`genotype_feature_contrast_pairs.csv`",
+      "`genotype_feature_contrast_summary.csv`"
+    ) else NULL,
+    if (!is.null(comparison_summary$cluster_feature_workflow)) c(
+      "`genotype_cluster_workflow_subset.csv`",
+      "`genotype_cluster_workflow_data.csv`",
+      "`genotype_cluster_workflow_features.csv`",
+      "`genotype_cluster_workflow_informative_isolates.csv`"
     ) else NULL,
     if (!is.null(comparison_summary)) c(
       "`external_fit_metrics.csv`",
@@ -1050,9 +1239,26 @@ write_run_report <- function(summary, output_dir, config) {
       "phenotype_noise_added_dimension_summary.csv",
       "phenotype_noise_added_spp.csv"
     ) else NULL,
+    if (!is.null(summary$phenotype$robustness$disc_diffusion)) c(
+      "phenotype_disc_diffusion_summary.csv",
+      "phenotype_disc_diffusion_stress.csv",
+      "phenotype_disc_diffusion_procrustes.csv",
+      "phenotype_disc_diffusion_dimension_summary.csv",
+      "phenotype_disc_diffusion_spp.csv"
+    ) else NULL,
     if (!is.null(summary$phenotype$robustness$threshold_effect)) c(
       "phenotype_threshold_effect_summary.csv",
       "phenotype_threshold_effect_scenarios.csv"
+    ) else NULL,
+    if (!is.null(comparison_summary$feature_contrasts)) c(
+      "genotype_feature_contrast_pairs.csv",
+      "genotype_feature_contrast_summary.csv"
+    ) else NULL,
+    if (!is.null(comparison_summary$cluster_feature_workflow)) c(
+      "genotype_cluster_workflow_subset.csv",
+      "genotype_cluster_workflow_data.csv",
+      "genotype_cluster_workflow_features.csv",
+      "genotype_cluster_workflow_informative_isolates.csv"
     ) else NULL,
     if (!is.null(comparison_summary)) c(
       "external_fit_metrics.csv",
@@ -1232,6 +1438,8 @@ phenotype_search_cfg <- amrc_section(config, "phenotype_search")
 phenotype_diagnostics_cfg <- amrc_section(config, "phenotype_diagnostics")
 grouped_summary_cfg <- amrc_section(config, "grouped_summary")
 robustness_cfg <- amrc_section(config, "robustness")
+feature_contrast_cfg <- amrc_section(config, "feature_contrasts")
+cluster_feature_cfg <- amrc_section(config, "cluster_feature_workflow")
 phenotype_random_starts <- max(1L, as.integer(phenotype_search_cfg$n_random_starts %||% 1L))
 phenotype_use_weighted_search <- isTRUE(phenotype_search_cfg$weighted)
 phenotype_weight_type <- amrc_scalar_or_null(phenotype_search_cfg$weight_type) %||% "knn"
@@ -1245,17 +1453,32 @@ robustness_enabled <- isTRUE(robustness_cfg$enabled)
 robustness_missing_cfg <- amrc_section(robustness_cfg, "missing_value")
 robustness_noise_cfg <- amrc_section(robustness_cfg, "noise_added")
 robustness_threshold_cfg <- amrc_section(robustness_cfg, "threshold_effect")
+robustness_disc_cfg <- amrc_section(robustness_cfg, "disc_diffusion")
 robustness_missing_enabled <- robustness_enabled && isTRUE(robustness_missing_cfg$enabled)
 robustness_noise_enabled <- robustness_enabled && isTRUE(robustness_noise_cfg$enabled)
 robustness_threshold_enabled <- robustness_enabled && isTRUE(robustness_threshold_cfg$enabled)
+robustness_disc_enabled <- robustness_enabled && isTRUE(robustness_disc_cfg$enabled)
 robustness_missing_samples <- max(1L, as.integer(robustness_missing_cfg$n_samples %||% 10L))
 robustness_missing_pct <- max(1, as.numeric(robustness_missing_cfg$missing_pct %||% 10))
 robustness_noise_samples <- max(1L, as.integer(robustness_noise_cfg$n_samples %||% 10L))
 robustness_noise_pct <- max(1, as.numeric(robustness_noise_cfg$perturb_pct %||% 10))
 robustness_threshold_value <- as.numeric(robustness_threshold_cfg$threshold_value %||% 1)
 robustness_threshold_repeats <- max(1L, as.integer(robustness_threshold_cfg$weighted_repeats %||% 10L))
+robustness_disc_samples <- max(1L, as.integer(robustness_disc_cfg$n_samples %||% 10L))
+robustness_disc_pct <- max(1, as.numeric(robustness_disc_cfg$disc_pct %||% 10))
 robustness_cross_validation_n <- max(1L, as.integer(robustness_cfg$cross_validation_n %||% 10L))
 robustness_seed <- as.integer(robustness_cfg$seed %||% 1234L)
+feature_contrasts_enabled <- isTRUE(feature_contrast_cfg$enabled)
+feature_contrast_group_col <- amrc_scalar_or_null(feature_contrast_cfg$group_col)
+feature_contrast_cols <- as.character(feature_contrast_cfg$feature_cols %||% character())
+cluster_feature_enabled <- isTRUE(cluster_feature_cfg$enabled)
+cluster_feature_outer_cluster_col <- amrc_scalar_or_null(cluster_feature_cfg$outer_cluster_col)
+cluster_feature_focal_cluster <- amrc_scalar_or_null(cluster_feature_cfg$focal_cluster)
+cluster_feature_cols <- as.character(cluster_feature_cfg$feature_cols %||% character())
+cluster_feature_type_col <- amrc_scalar_or_null(cluster_feature_cfg$type_col)
+cluster_feature_n_clusters <- max(2L, as.integer(cluster_feature_cfg$phenotype_n_clusters %||% 2L))
+cluster_feature_min_shift <- as.numeric(cluster_feature_cfg$min_frequency_shift %||% 0.8)
+cluster_feature_max_features <- max(1L, as.integer(cluster_feature_cfg$max_features %||% 10L))
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -1491,6 +1714,7 @@ if (isTRUE(genotype_cfg$enabled)) {
   external_path <- genotype_cfg$path
   external_id_col <- genotype_cfg$id_col
   external_feature_cols <- genotype_cfg$feature_cols %||% character()
+  external_feature_data <- NULL
 
   if (identical(mode, "precomputed_distance")) {
     external_distance <- parse_precomputed_distance(
@@ -1499,6 +1723,7 @@ if (isTRUE(genotype_cfg$enabled)) {
     )
   } else if (identical(mode, "numeric_features")) {
     external_raw <- read_csv_keep_names(external_path)
+    external_feature_data <- external_raw[, unique(c(external_id_col, external_feature_cols)), drop = FALSE]
     external_standardised <- amrc_fn("amrc_standardise_external_data")(
       data = external_raw,
       id_col = external_id_col,
@@ -1509,6 +1734,7 @@ if (isTRUE(genotype_cfg$enabled)) {
     external_distance <- amrc_fn("amrc_compute_external_feature_distance")(external_standardised)
   } else if (identical(mode, "character_features")) {
     external_raw <- read_csv_keep_names(external_path)
+    external_feature_data <- external_raw[, unique(c(external_id_col, external_feature_cols)), drop = FALSE]
     external_standardised <- amrc_fn("amrc_standardise_external_data")(
       data = external_raw,
       id_col = external_id_col,
@@ -1519,6 +1745,7 @@ if (isTRUE(genotype_cfg$enabled)) {
     external_distance <- amrc_fn("amrc_compute_external_feature_distance")(external_standardised)
   } else if (identical(mode, "sequence_alleles")) {
     external_raw <- read_csv_keep_names(external_path)
+    external_feature_data <- external_raw[, unique(c(external_id_col, external_feature_cols)), drop = FALSE]
     external_distance <- amrc_fn("amrc_compute_sequence_distance")(
       data = external_raw,
       id_col = external_id_col,
@@ -1635,6 +1862,64 @@ if (isTRUE(genotype_cfg$enabled)) {
       external_cluster$scree,
       file = file.path(output_dir, "external_cluster_scree.csv"),
       row.names = FALSE
+    )
+  }
+
+  feature_workflow_data <- NULL
+  if (!is.null(external_feature_data)) {
+    if (external_id_col != id_col) {
+      colnames(external_feature_data)[colnames(external_feature_data) == external_id_col] <- id_col
+    }
+    external_feature_data <- external_feature_data[!duplicated(external_feature_data[[id_col]]), , drop = FALSE]
+    feature_workflow_data <- merge(
+      external_cluster_data,
+      external_feature_data,
+      by = id_col,
+      all.x = TRUE,
+      sort = FALSE
+    )
+  }
+
+  feature_contrast_outputs <- NULL
+  if (isTRUE(feature_contrasts_enabled)) {
+    if (is.null(feature_workflow_data)) {
+      stop(
+        "Feature contrasts require a genotype / structure feature table, not a precomputed distance matrix.",
+        call. = FALSE
+      )
+    }
+    feature_contrast_outputs <- write_feature_contrast_outputs(
+      data = feature_workflow_data,
+      output_dir = output_dir,
+      prefix = "genotype",
+      group_col = feature_contrast_group_col,
+      feature_cols = feature_contrast_cols,
+      phenotype_cols = c("D1", "D2"),
+      external_cols = c("E1", "E2")
+    )
+  }
+
+  cluster_feature_outputs <- NULL
+  if (isTRUE(cluster_feature_enabled)) {
+    if (is.null(feature_workflow_data)) {
+      stop(
+        "Cluster-difference workflows require a genotype / structure feature table, not a precomputed distance matrix.",
+        call. = FALSE
+      )
+    }
+    cluster_feature_outputs <- write_cluster_feature_workflow_outputs(
+      data = feature_workflow_data,
+      output_dir = output_dir,
+      prefix = "genotype",
+      outer_cluster_col = cluster_feature_outer_cluster_col,
+      focal_cluster = cluster_feature_focal_cluster,
+      feature_cols = cluster_feature_cols,
+      id_col = id_col,
+      phenotype_cols = c("D1", "D2"),
+      type_col = cluster_feature_type_col,
+      phenotype_n_clusters = cluster_feature_n_clusters,
+      min_frequency_shift = cluster_feature_min_shift,
+      max_features = cluster_feature_max_features
     )
   }
 
@@ -1770,6 +2055,29 @@ if (isTRUE(genotype_cfg$enabled)) {
       )
     } else {
       NULL
+    },
+    feature_contrasts = if (!is.null(feature_contrast_outputs)) {
+      list(
+        group_col = feature_contrast_group_col,
+        n_pairs = nrow(feature_contrast_outputs$pair_table),
+        n_summaries = nrow(feature_contrast_outputs$contrast_summary)
+      )
+    } else {
+      NULL
+    },
+    cluster_feature_workflow = if (!is.null(cluster_feature_outputs)) {
+      list(
+        outer_cluster_col = cluster_feature_outer_cluster_col,
+        focal_cluster = cluster_feature_focal_cluster,
+        n_features = nrow(cluster_feature_outputs$workflow$differentiating_features),
+        n_informative_isolates = if (!is.null(cluster_feature_outputs$workflow$informative_isolates)) {
+          nrow(cluster_feature_outputs$workflow$informative_isolates$data)
+        } else {
+          0L
+        }
+      )
+    } else {
+      NULL
     }
   )
 
@@ -1785,6 +2093,9 @@ if (isTRUE(genotype_cfg$enabled)) {
   result_bundle$comparison_bundle <- comparison_bundle
   result_bundle$external_cluster <- external_cluster
   result_bundle$external_cluster_data <- external_cluster_data
+  result_bundle$feature_workflow_data <- feature_workflow_data
+  result_bundle$feature_contrast_outputs <- feature_contrast_outputs
+  result_bundle$cluster_feature_outputs <- cluster_feature_outputs
   result_bundle$reference_outputs <- reference_outputs
 }
 
@@ -1906,6 +2217,35 @@ if (isTRUE(robustness_enabled)) {
       mean_congcoef = threshold_outputs$summary_table$mean_congcoef[[1]]
     )
     enabled_studies <- c(enabled_studies, "threshold_effect")
+  }
+
+  if (isTRUE(robustness_disc_enabled)) {
+    disc_study <- amrc_fn("amrc_disc_diffusion_study")(
+      tablemic = mic_data$mic,
+      tablemic_meta = mic_data$metadata,
+      reference_mds = phenotype_map,
+      n_samples = robustness_disc_samples,
+      disc_pct = robustness_disc_pct,
+      cross_validation_n = robustness_cross_validation_n,
+      id_col = id_col,
+      seed = robustness_seed
+    )
+    disc_outputs <- write_perturbation_robustness_outputs(
+      study_result = disc_study,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      study_name = "disc_diffusion",
+      reference_stress = phenotype_map$stress,
+      stress_fill = "#4DAF4A"
+    )
+    robustness_outputs$disc_diffusion <- disc_outputs
+    summary$phenotype$robustness$disc_diffusion <- list(
+      n_samples = robustness_disc_samples,
+      disc_pct = robustness_disc_pct,
+      mean_stress = disc_outputs$summary_table$mean_stress[[1]],
+      mean_congcoef = disc_outputs$summary_table$mean_congcoef[[1]]
+    )
+    enabled_studies <- c(enabled_studies, "disc_diffusion")
   }
 
   if (length(enabled_studies) > 0L) {

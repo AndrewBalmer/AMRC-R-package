@@ -19,6 +19,14 @@ SPNEUMONIAE_08_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "spneumoniae
 PACKAGED_SUIS_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "suis-demo"
 APP_WIKI_PATH = REPO_ROOT / "streamlit_app" / "APP_WIKI.md"
 APP_CAPABILITY_MATRIX_PATH = REPO_ROOT / "streamlit_app" / "APP_CAPABILITY_MATRIX.md"
+DISC_DIFFUSION_BREAKPOINT_DRUGS = [
+    "Penicillin",
+    "Amoxicillin",
+    "Meropenem",
+    "Cefotaxime",
+    "Ceftriaxone",
+    "Cefuroxime",
+]
 
 
 def existing_path(path: Path) -> Path | None:
@@ -280,8 +288,22 @@ WIDGET_DEFAULTS = {
     "robustness_threshold_enabled": False,
     "robustness_threshold_value": 1.0,
     "robustness_threshold_repeats": 10,
+    "robustness_disc_enabled": False,
+    "robustness_disc_samples": 10,
+    "robustness_disc_pct": 10,
     "robustness_cross_validation_n": 10,
     "robustness_seed": 1234,
+    "genotype_run_feature_contrasts": False,
+    "genotype_contrast_group_col": "(none)",
+    "genotype_contrast_feature_cols": [],
+    "genotype_run_cluster_feature_workflow": False,
+    "genotype_cluster_workflow_outer_col": "(none)",
+    "genotype_cluster_workflow_focal_cluster": "",
+    "genotype_cluster_workflow_feature_cols": [],
+    "genotype_cluster_workflow_type_col": "(none)",
+    "genotype_cluster_workflow_n_clusters": 2,
+    "genotype_cluster_workflow_min_shift": 0.8,
+    "genotype_cluster_workflow_max_features": 10,
     "use_genotype_map": False,
     "genotype_mode": "precomputed_distance",
     "genotype_feature_cols": [],
@@ -462,8 +484,22 @@ def apply_demo_selection(demo_key: str) -> None:
     st.session_state["robustness_threshold_enabled"] = False
     st.session_state["robustness_threshold_value"] = 1.0
     st.session_state["robustness_threshold_repeats"] = 10
+    st.session_state["robustness_disc_enabled"] = False
+    st.session_state["robustness_disc_samples"] = 10
+    st.session_state["robustness_disc_pct"] = 10
     st.session_state["robustness_cross_validation_n"] = 10
     st.session_state["robustness_seed"] = 1234
+    st.session_state["genotype_run_feature_contrasts"] = False
+    st.session_state["genotype_contrast_group_col"] = spec["phenotype_id_col"]
+    st.session_state["genotype_contrast_feature_cols"] = []
+    st.session_state["genotype_run_cluster_feature_workflow"] = False
+    st.session_state["genotype_cluster_workflow_outer_col"] = none_option()
+    st.session_state["genotype_cluster_workflow_focal_cluster"] = ""
+    st.session_state["genotype_cluster_workflow_feature_cols"] = []
+    st.session_state["genotype_cluster_workflow_type_col"] = none_option()
+    st.session_state["genotype_cluster_workflow_n_clusters"] = 2
+    st.session_state["genotype_cluster_workflow_min_shift"] = 0.8
+    st.session_state["genotype_cluster_workflow_max_features"] = 10
     st.session_state["phenotype_cluster_distinct_col"] = spec.get("phenotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["genotype_cluster_distinct_col"] = spec.get("genotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["phenotype_rotation_degrees"] = spec.get("phenotype_rotation_degrees", 0.0)
@@ -641,6 +677,26 @@ def build_config(
                 "threshold_value": float(st.session_state.get("robustness_threshold_value", 1.0)),
                 "weighted_repeats": max(1, int(st.session_state.get("robustness_threshold_repeats", 10))),
             },
+            "disc_diffusion": {
+                "enabled": bool(st.session_state.get("robustness_disc_enabled", False)),
+                "n_samples": max(1, int(st.session_state.get("robustness_disc_samples", 10))),
+                "disc_pct": max(1.0, float(st.session_state.get("robustness_disc_pct", 10))),
+            },
+        },
+        "feature_contrasts": {
+            "enabled": bool(st.session_state.get("genotype_run_feature_contrasts", False)),
+            "group_col": maybe_none(st.session_state.get("genotype_contrast_group_col")),
+            "feature_cols": st.session_state.get("genotype_contrast_feature_cols", []),
+        },
+        "cluster_feature_workflow": {
+            "enabled": bool(st.session_state.get("genotype_run_cluster_feature_workflow", False)),
+            "outer_cluster_col": maybe_none(st.session_state.get("genotype_cluster_workflow_outer_col")),
+            "focal_cluster": maybe_none(st.session_state.get("genotype_cluster_workflow_focal_cluster")),
+            "feature_cols": st.session_state.get("genotype_cluster_workflow_feature_cols", []),
+            "type_col": maybe_none(st.session_state.get("genotype_cluster_workflow_type_col")),
+            "phenotype_n_clusters": max(2, int(st.session_state.get("genotype_cluster_workflow_n_clusters", 2))),
+            "min_frequency_shift": float(st.session_state.get("genotype_cluster_workflow_min_shift", 0.8)),
+            "max_features": max(1, int(st.session_state.get("genotype_cluster_workflow_max_features", 10))),
         },
         "genotype_clustering": {
             "enabled": bool(st.session_state.get("genotype_use_clustering")),
@@ -743,6 +799,8 @@ def run_backend(config: dict) -> dict:
         "phenotype_group_dispersion_histogram.png",
         "phenotype_missing_value_stress_histogram.png",
         "phenotype_noise_added_stress_histogram.png",
+        "phenotype_disc_diffusion_stress_histogram.png",
+        "genotype_cluster_workflow_feature_plot.png",
         "external_cluster_map.png",
         "external_cluster_elbow.png",
         "reference_distance_relationship.png",
@@ -784,8 +842,19 @@ def run_backend(config: dict) -> dict:
         "phenotype_noise_added_procrustes.csv",
         "phenotype_noise_added_dimension_summary.csv",
         "phenotype_noise_added_spp.csv",
+        "phenotype_disc_diffusion_summary.csv",
+        "phenotype_disc_diffusion_stress.csv",
+        "phenotype_disc_diffusion_procrustes.csv",
+        "phenotype_disc_diffusion_dimension_summary.csv",
+        "phenotype_disc_diffusion_spp.csv",
         "phenotype_threshold_effect_summary.csv",
         "phenotype_threshold_effect_scenarios.csv",
+        "genotype_feature_contrast_pairs.csv",
+        "genotype_feature_contrast_summary.csv",
+        "genotype_cluster_workflow_subset.csv",
+        "genotype_cluster_workflow_data.csv",
+        "genotype_cluster_workflow_features.csv",
+        "genotype_cluster_workflow_informative_isolates.csv",
         "comparison_data.csv",
         "external_cluster_data.csv",
         "external_cluster_scree.csv",
@@ -1287,6 +1356,31 @@ if phenotype_df is not None:
                 step=1,
                 key="robustness_threshold_repeats",
             )
+            supported_disc_diff = bool(st.session_state.get("mic_cols")) and set(st.session_state["mic_cols"]).issubset(set(DISC_DIFFUSION_BREAKPOINT_DRUGS))
+            st.markdown("**Disc-diffusion substitution study**")
+            if supported_disc_diff:
+                st.checkbox("Enable disc-diffusion study", key="robustness_disc_enabled")
+                disc_cols = st.columns(2)
+                disc_cols[0].number_input(
+                    "Disc-diffusion samples",
+                    min_value=1,
+                    max_value=100,
+                    step=1,
+                    key="robustness_disc_samples",
+                )
+                disc_cols[1].number_input(
+                    "Disc-diffusion percent",
+                    min_value=1.0,
+                    max_value=90.0,
+                    step=1.0,
+                    key="robustness_disc_pct",
+                )
+            else:
+                st.caption(
+                    "Disc-diffusion robustness is only enabled when the MIC columns match the package default breakpoint set: "
+                    + ", ".join(DISC_DIFFUSION_BREAKPOINT_DRUGS)
+                )
+                st.session_state["robustness_disc_enabled"] = False
 
         st.subheader("Optional genotype / structure map")
         st.checkbox("Add genotype / structure map", key="use_genotype_map")
@@ -1312,6 +1406,24 @@ if phenotype_df is not None:
                     if col != st.session_state["genotype_id_col"]
                 ][: min(6, max(1, len(external_columns) - 1))]
             st.session_state["genotype_feature_cols"] = valid_genotype_features
+            feature_workflow_options = [
+                col for col in external_columns
+                if col != st.session_state["genotype_id_col"]
+            ]
+            valid_contrast_features = [
+                col for col in st.session_state.get("genotype_contrast_feature_cols", [])
+                if col in feature_workflow_options
+            ]
+            if not valid_contrast_features and st.session_state.get("genotype_mode") != "precomputed_distance":
+                valid_contrast_features = feature_workflow_options[: min(6, len(feature_workflow_options))]
+            st.session_state["genotype_contrast_feature_cols"] = valid_contrast_features
+            valid_cluster_features = [
+                col for col in st.session_state.get("genotype_cluster_workflow_feature_cols", [])
+                if col in feature_workflow_options
+            ]
+            if not valid_cluster_features and st.session_state.get("genotype_mode") != "precomputed_distance":
+                valid_cluster_features = feature_workflow_options[: min(6, len(feature_workflow_options))]
+            st.session_state["genotype_cluster_workflow_feature_cols"] = valid_cluster_features
             with st.sidebar:
                 with st.expander("Genotype / structure input", expanded=True):
                     st.selectbox(
@@ -1377,6 +1489,105 @@ if phenotype_df is not None:
                         options=cluster_distinct_options,
                         key="genotype_cluster_distinct_col",
                     )
+
+                if st.session_state["genotype_mode"] != "precomputed_distance":
+                    extra_group_cols = [
+                        col for col in external_columns
+                        if col not in st.session_state["genotype_feature_cols"] and col != st.session_state["genotype_id_col"]
+                    ]
+                    contrast_group_options = [st.session_state["phenotype_id_col"]] + metadata_options + [col for col in extra_group_cols if col not in metadata_options and col != st.session_state["phenotype_id_col"]]
+                    if st.session_state.get("genotype_contrast_group_col") not in contrast_group_options:
+                        st.session_state["genotype_contrast_group_col"] = contrast_group_options[0]
+                    cluster_outer_options = [none_option()] + metadata_options
+                    if st.session_state.get("phenotype_use_clustering"):
+                        cluster_outer_options.append("phen_cluster")
+                    if st.session_state.get("genotype_use_clustering"):
+                        cluster_outer_options.append("external_cluster")
+                    cluster_outer_options.extend([col for col in extra_group_cols if col not in cluster_outer_options])
+                    cluster_type_options = [none_option()] + metadata_options + [col for col in extra_group_cols if col not in metadata_options]
+                    if st.session_state.get("genotype_cluster_workflow_outer_col") not in cluster_outer_options:
+                        st.session_state["genotype_cluster_workflow_outer_col"] = cluster_outer_options[0]
+
+                    with st.expander("Feature contrasts", expanded=False):
+                        st.checkbox(
+                            "Run single-feature contrast summaries",
+                            key="genotype_run_feature_contrasts",
+                            help="Finds group pairs that differ by exactly one selected feature, then summarises the phenotype and genotype / structure distances between them.",
+                        )
+                        st.selectbox(
+                            "Contrast grouping column",
+                            options=contrast_group_options,
+                            key="genotype_contrast_group_col",
+                        )
+                        st.multiselect(
+                            "Contrast feature columns",
+                            options=feature_workflow_options,
+                            key="genotype_contrast_feature_cols",
+                        )
+                        st.caption(
+                            "Choose a grouping column where each group has one stable feature profile, such as a lineage, type, or other categorical genotype grouping."
+                        )
+
+                    with st.expander("Cluster-difference workflow", expanded=False):
+                        st.checkbox(
+                            "Run cluster-difference feature workflow",
+                            key="genotype_run_cluster_feature_workflow",
+                            help="Subsets one outer cluster/group, reclusters the phenotype coordinates within that subset, then ranks differentiating genotype features.",
+                        )
+                        st.selectbox(
+                            "Outer cluster / grouping column",
+                            options=cluster_outer_options,
+                            key="genotype_cluster_workflow_outer_col",
+                        )
+                        selected_outer_col = maybe_none(st.session_state.get("genotype_cluster_workflow_outer_col"))
+                        outer_values = []
+                        if selected_outer_col == "phen_cluster":
+                            outer_values = [str(i) for i in range(1, int(st.session_state.get("phenotype_n_clusters", 2)) + 1)]
+                        elif selected_outer_col == "external_cluster":
+                            outer_values = [str(i) for i in range(1, int(st.session_state.get("genotype_n_clusters", 2)) + 1)]
+                        elif selected_outer_col in phenotype_df.columns:
+                            outer_values = sorted(phenotype_df[selected_outer_col].dropna().astype(str).unique().tolist())
+                        elif selected_outer_col in external_df.columns:
+                            outer_values = sorted(external_df[selected_outer_col].dropna().astype(str).unique().tolist())
+                        if outer_values and st.session_state.get("genotype_cluster_workflow_focal_cluster") not in outer_values:
+                            st.session_state["genotype_cluster_workflow_focal_cluster"] = outer_values[0]
+                        st.selectbox(
+                            "Focal cluster / group value",
+                            options=outer_values if outer_values else [""],
+                            key="genotype_cluster_workflow_focal_cluster",
+                        )
+                        st.multiselect(
+                            "Workflow feature columns",
+                            options=feature_workflow_options,
+                            key="genotype_cluster_workflow_feature_cols",
+                        )
+                        st.selectbox(
+                            "Collapse to one row per type (optional)",
+                            options=cluster_type_options,
+                            key="genotype_cluster_workflow_type_col",
+                        )
+                        cluster_work_cols = st.columns(3)
+                        cluster_work_cols[0].number_input(
+                            "Inner phenotype clusters",
+                            min_value=2,
+                            max_value=10,
+                            step=1,
+                            key="genotype_cluster_workflow_n_clusters",
+                        )
+                        cluster_work_cols[1].number_input(
+                            "Min frequency shift",
+                            min_value=0.0,
+                            max_value=1.0,
+                            step=0.1,
+                            key="genotype_cluster_workflow_min_shift",
+                        )
+                        cluster_work_cols[2].number_input(
+                            "Max features",
+                            min_value=1,
+                            max_value=50,
+                            step=1,
+                            key="genotype_cluster_workflow_max_features",
+                        )
 
                 st.subheader("Reference summary")
                 reference_options = [st.session_state["phenotype_id_col"]] + st.session_state["metadata_cols"]
@@ -1458,6 +1669,7 @@ with main_col:
                 "- One-unit gridlines should be interpreted as one doubling dilution only after calibration.\n"
                 "- The genotype / structure map is optional and has separate plotting, rotation, grid, and clustering controls.\n"
                 "- Dimensionality sweeps, grouped summaries, robustness studies, and advanced phenotype map fitting can be enabled without changing the default workflow.\n"
+                "- If you add a genotype / structure feature table, the app can also run single-feature contrasts and cluster-difference feature workflows.\n"
                 "- This app still surfaces only a subset of the full package; the mixed-model layer remains package-only for now."
             )
             st.checkbox(
@@ -1549,6 +1761,21 @@ if result:
             f"dilation={genotype_calibration.get('dilation', 'NA')}, "
             f"rotation={genotype_calibration.get('rotation_degrees', 0)} degrees."
         )
+    feature_contrast_meta = genotype_summary.get("feature_contrasts") or {}
+    if feature_contrast_meta:
+        st.caption(
+            "Feature contrasts: "
+            f"{feature_contrast_meta.get('group_col', 'NA')} "
+            f"({feature_contrast_meta.get('n_pairs', 'NA')} one-feature pairs)."
+        )
+    cluster_feature_meta = genotype_summary.get("cluster_feature_workflow") or {}
+    if cluster_feature_meta:
+        st.caption(
+            "Cluster-difference workflow: "
+            f"{cluster_feature_meta.get('outer_cluster_col', 'NA')}="
+            f"{cluster_feature_meta.get('focal_cluster', 'NA')} "
+            f"({cluster_feature_meta.get('n_features', 'NA')} differentiating features)."
+        )
 
     extra_downloads = []
     if "summary.json" in result["files"]:
@@ -1570,6 +1797,7 @@ if result:
         "Dimensionality",
         "Grouped summaries",
         "Robustness",
+        "Genotype features",
         "Tables",
         "Reports",
         "Raw summary",
@@ -1756,6 +1984,17 @@ if result:
                     ("Scenario table", "phenotype_threshold_effect_scenarios.csv"),
                 ],
             ),
+            (
+                "Disc-diffusion robustness",
+                "phenotype_disc_diffusion_stress_histogram.png",
+                [
+                    ("Summary", "phenotype_disc_diffusion_summary.csv"),
+                    ("Stress table", "phenotype_disc_diffusion_stress.csv"),
+                    ("Procrustes summary", "phenotype_disc_diffusion_procrustes.csv"),
+                    ("Dimension summary", "phenotype_disc_diffusion_dimension_summary.csv"),
+                    ("Stress-per-point summary", "phenotype_disc_diffusion_spp.csv"),
+                ],
+            ),
         ]
         shown_any_robustness = False
         for title, image_name, table_specs in robustness_sections:
@@ -1782,6 +2021,59 @@ if result:
             st.info("No robustness studies were enabled for this run.")
 
     with result_tabs[5]:
+        shown_any_feature_workflow = False
+        if "genotype_feature_contrast_summary.csv" in result["tables"]:
+            shown_any_feature_workflow = True
+            st.subheader("Single-feature contrasts")
+            if "genotype_feature_contrast_pairs.csv" in result["tables"]:
+                st.markdown("**One-feature pair table**")
+                st.dataframe(result["tables"]["genotype_feature_contrast_pairs.csv"], width="stretch")
+                st.download_button(
+                    label="Download genotype_feature_contrast_pairs.csv",
+                    data=result["files"]["genotype_feature_contrast_pairs.csv"],
+                    file_name="genotype_feature_contrast_pairs.csv",
+                    mime="text/csv",
+                    key="download-genotype-feature-contrast-pairs",
+                )
+            st.markdown("**Contrast summary**")
+            st.dataframe(result["tables"]["genotype_feature_contrast_summary.csv"], width="stretch")
+            st.download_button(
+                label="Download genotype_feature_contrast_summary.csv",
+                data=result["files"]["genotype_feature_contrast_summary.csv"],
+                file_name="genotype_feature_contrast_summary.csv",
+                mime="text/csv",
+                key="download-genotype-feature-contrast-summary",
+            )
+
+        if "genotype_cluster_workflow_features.csv" in result["tables"]:
+            shown_any_feature_workflow = True
+            st.subheader("Cluster-difference workflow")
+            if "genotype_cluster_workflow_feature_plot.png" in result["files"]:
+                st.image(
+                    result["files"]["genotype_cluster_workflow_feature_plot.png"],
+                    caption="Ranked differentiating features for the selected workflow subset",
+                )
+            for caption, name in [
+                ("Workflow subset", "genotype_cluster_workflow_subset.csv"),
+                ("Workflow data with inner phenotype clusters", "genotype_cluster_workflow_data.csv"),
+                ("Differentiating features", "genotype_cluster_workflow_features.csv"),
+                ("Informative isolates", "genotype_cluster_workflow_informative_isolates.csv"),
+            ]:
+                if name in result["tables"]:
+                    st.markdown(f"**{caption}**")
+                    st.dataframe(result["tables"][name], width="stretch")
+                    st.download_button(
+                        label=f"Download {name}",
+                        data=result["files"][name],
+                        file_name=name,
+                        mime="text/csv",
+                        key=f"download-{name}",
+                    )
+
+        if not shown_any_feature_workflow:
+            st.info("No genotype feature workflows were enabled for this run.")
+
+    with result_tabs[6]:
         if result["tables"]:
             st.subheader("Output tables")
             for name, table in result["tables"].items():
@@ -1795,7 +2087,7 @@ if result:
                     key=f"table-{name}",
                 )
 
-    with result_tabs[6]:
+    with result_tabs[7]:
         if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
             st.subheader("Report export")
             report_tabs = st.tabs(["Preview", "Downloads"])
@@ -1841,6 +2133,6 @@ if result:
                     key=f"bundle-{filename}",
                 )
 
-    with result_tabs[7]:
+    with result_tabs[8]:
         with st.expander("Show raw summary JSON", expanded=False):
             st.json(result["summary"], expanded=True)
