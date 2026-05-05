@@ -9,20 +9,20 @@
 - separate phenotype and genotype colouring / faceting
 - separate phenotype and genotype 1-unit grid toggles
 - phenotype and genotype cluster overlays and scree plots
+- phenotype dimensionality sweeps
+- phenotype random-start search
+- phenotype weighted-search option
+- grouped centroid, pairwise-distance, and within-group dispersion summaries
 - fit metrics, residual summaries, and stress-per-point summaries
 - phenotype-vs-genotype reference summaries
 - manuscript-style plotting defaults and panel composition
 
 ## In the package but not yet exposed in the app
 
-- random-start MDS search
-- weighted MDS search
-- dimensionality sweeps
 - transformation-comparison helpers
 - robustness studies for missing MICs, noise, thresholds, and disc diffusion
 - single-feature contrast summaries
 - cluster-difference feature workflows
-- grouped centroid and pairwise-distance summaries
 - mixed models, LIMIX workflows, heritability, epistasis, and BLUP
 - public cross-species example vignette workflows
 - advanced manuscript figure composers beyond the main map/report presets

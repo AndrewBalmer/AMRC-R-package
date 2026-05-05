@@ -261,6 +261,15 @@ WIDGET_DEFAULTS = {
     "genotype_n_clusters": 4,
     "phenotype_cluster_max_k": 10,
     "genotype_cluster_max_k": 10,
+    "phenotype_random_starts": 1,
+    "phenotype_use_weighted_search": False,
+    "phenotype_weight_type": "knn",
+    "phenotype_run_dimensionality_sweep": False,
+    "phenotype_sweep_max_dim": 4,
+    "phenotype_run_grouped_summary": False,
+    "grouped_summary_col": "(none)",
+    "grouped_summary_distinct_col": "(none)",
+    "grouped_summary_threshold": 0.0,
     "use_genotype_map": False,
     "genotype_mode": "precomputed_distance",
     "genotype_feature_cols": [],
@@ -419,6 +428,18 @@ def apply_demo_selection(demo_key: str) -> None:
     st.session_state["genotype_n_clusters"] = spec.get("genotype_n_clusters", 3)
     st.session_state["phenotype_cluster_max_k"] = spec.get("phenotype_cluster_max_k", 6)
     st.session_state["genotype_cluster_max_k"] = spec.get("genotype_cluster_max_k", 6)
+    st.session_state["phenotype_random_starts"] = 1
+    st.session_state["phenotype_use_weighted_search"] = False
+    st.session_state["phenotype_weight_type"] = "knn"
+    st.session_state["phenotype_run_dimensionality_sweep"] = False
+    st.session_state["phenotype_sweep_max_dim"] = 4
+    st.session_state["phenotype_run_grouped_summary"] = False
+    st.session_state["grouped_summary_col"] = (
+        spec.get("comparison_group_col", none_option())
+        if spec.get("comparison_group_col") in metadata_cols else none_option()
+    )
+    st.session_state["grouped_summary_distinct_col"] = none_option()
+    st.session_state["grouped_summary_threshold"] = 0.0
     st.session_state["phenotype_cluster_distinct_col"] = spec.get("phenotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["genotype_cluster_distinct_col"] = spec.get("genotype_cluster_distinct_col", spec["phenotype_id_col"])
     st.session_state["phenotype_rotation_degrees"] = spec.get("phenotype_rotation_degrees", 0.0)
@@ -562,6 +583,21 @@ def build_config(
             ),
             "distinct_col": maybe_none(st.session_state.get("phenotype_cluster_distinct_col")),
         },
+        "phenotype_search": {
+            "n_random_starts": max(1, int(st.session_state.get("phenotype_random_starts", 1))),
+            "weighted": bool(st.session_state.get("phenotype_use_weighted_search", False)),
+            "weight_type": st.session_state.get("phenotype_weight_type", "knn"),
+        },
+        "phenotype_diagnostics": {
+            "run_dimensionality_sweep": bool(st.session_state.get("phenotype_run_dimensionality_sweep", False)),
+            "max_dimension": max(2, int(st.session_state.get("phenotype_sweep_max_dim", 4))),
+        },
+        "grouped_summary": {
+            "enabled": bool(st.session_state.get("phenotype_run_grouped_summary", False)),
+            "group_col": maybe_none(st.session_state.get("grouped_summary_col")),
+            "distinct_col": maybe_none(st.session_state.get("grouped_summary_distinct_col")),
+            "threshold": maybe_positive_number(st.session_state.get("grouped_summary_threshold")),
+        },
         "genotype_clustering": {
             "enabled": bool(st.session_state.get("genotype_use_clustering")),
             "n_clusters": int(st.session_state.get("genotype_n_clusters", 4)),
@@ -659,6 +695,8 @@ def run_backend(config: dict) -> dict:
         "side_by_side_maps.png",
         "phenotype_cluster_map.png",
         "phenotype_cluster_elbow.png",
+        "phenotype_dimension_sweep.png",
+        "phenotype_group_dispersion_histogram.png",
         "external_cluster_map.png",
         "external_cluster_elbow.png",
         "reference_distance_relationship.png",
@@ -681,6 +719,15 @@ def run_backend(config: dict) -> dict:
         "phenotype_residual_summary.csv",
         "phenotype_stress_summary.csv",
         "phenotype_fit_distances.csv",
+        "phenotype_search_summary.csv",
+        "phenotype_search_stress.csv",
+        "phenotype_dimension_sweep.csv",
+        "phenotype_dimension_sweep_summary.csv",
+        "phenotype_dimension_fit_table.csv",
+        "phenotype_group_centroids.csv",
+        "phenotype_group_pairwise_distances.csv",
+        "phenotype_group_distance_summary.csv",
+        "phenotype_group_dispersion.csv",
         "comparison_data.csv",
         "external_cluster_data.csv",
         "external_cluster_scree.csv",
@@ -974,14 +1021,19 @@ if phenotype_df is not None:
         "phenotype_facet_by",
         "genotype_facet_by",
         "comparison_group_col",
+        "grouped_summary_col",
         "reference_filter_col",
     ):
         if st.session_state.get(key) not in metadata_options:
             st.session_state[key] = none_option()
 
-    for key in ("phenotype_cluster_distinct_col", "genotype_cluster_distinct_col"):
+    for key in (
+        "phenotype_cluster_distinct_col",
+        "genotype_cluster_distinct_col",
+        "grouped_summary_distinct_col",
+    ):
         if st.session_state.get(key) not in cluster_distinct_options:
-            st.session_state[key] = st.session_state["phenotype_id_col"]
+            st.session_state[key] = none_option() if key == "grouped_summary_distinct_col" else st.session_state["phenotype_id_col"]
 
     with st.sidebar:
         st.selectbox("Phenotype ID column", options=columns, key="phenotype_id_col")
@@ -1001,6 +1053,7 @@ if phenotype_df is not None:
         )
 
         st.subheader("MIC cleaning and transform")
+        st.caption("Use `log2` for raw MIC values. Switch to `none` only if your MIC columns are already log2-transformed.")
         st.selectbox("Transform", options=["log2", "none"], key="transform")
         st.selectbox("Less-than handling", options=["numeric", "half"], key="less_than")
         st.selectbox("Greater-than handling", options=["numeric", "double"], key="greater_than")
@@ -1045,6 +1098,62 @@ if phenotype_df is not None:
                 "Phenotype cluster distinct units by",
                 options=cluster_distinct_options,
                 key="phenotype_cluster_distinct_col",
+            )
+
+        with st.expander("Advanced map fitting", expanded=False):
+            st.caption("These options change how the phenotype map is fitted before calibration.")
+            st.number_input(
+                "Random starts",
+                min_value=1,
+                max_value=200,
+                step=1,
+                key="phenotype_random_starts",
+                help="Use more than 1 to search for a lower-stress random-start solution.",
+            )
+            st.checkbox(
+                "Use weighted search",
+                key="phenotype_use_weighted_search",
+                help="Runs a weighted random-start search instead of the standard random-start search.",
+            )
+            st.selectbox(
+                "Weighted search type",
+                options=["knn", "unif"],
+                key="phenotype_weight_type",
+                help="`knn` emphasizes local neighbourhood structure; `unif` uses uniform tie-aware weights.",
+            )
+
+        with st.expander("Dimensionality sweep", expanded=False):
+            st.checkbox(
+                "Run phenotype dimensionality sweep",
+                key="phenotype_run_dimensionality_sweep",
+                help="Evaluates stress across 1D up to the selected maximum dimension using the standard package transformations.",
+            )
+            st.number_input(
+                "Maximum dimension to evaluate",
+                min_value=2,
+                max_value=10,
+                step=1,
+                key="phenotype_sweep_max_dim",
+            )
+
+        with st.expander("Grouped summaries", expanded=False):
+            st.checkbox(
+                "Run grouped phenotype summaries",
+                key="phenotype_run_grouped_summary",
+                help="Summarises within-group dispersion, group centroids, and pairwise group distances for a selected metadata field.",
+            )
+            st.selectbox("Grouped summary column", options=metadata_options, key="grouped_summary_col")
+            st.selectbox(
+                "Grouped summary distinct units by",
+                options=[none_option()] + cluster_distinct_options,
+                key="grouped_summary_distinct_col",
+            )
+            st.number_input(
+                "Grouped summary threshold (0 = off)",
+                min_value=0.0,
+                step=0.5,
+                key="grouped_summary_threshold",
+                help="Optional threshold for the proportion of phenotype distances below a chosen value.",
             )
 
         st.subheader("Optional genotype / structure map")
@@ -1212,10 +1321,12 @@ with main_col:
             st.subheader("Run analysis")
             st.markdown(
                 "- The phenotype map is the primary analysis path.\n"
-                "- Raw MIC cleaning and optional `log2` transformation happen through the package before map fitting.\n"
+                "- Raw MIC cleaning happens before map fitting, and `log2` is the standard default for raw MIC values.\n"
+                "- If your MIC columns are already log2-transformed, switch `Transform` to `none`.\n"
                 "- One-unit gridlines should be interpreted as one doubling dilution only after calibration.\n"
                 "- The genotype / structure map is optional and has separate plotting, rotation, grid, and clustering controls.\n"
-                "- This app surfaces the main mapping, clustering, fit, and report outputs, but not the full mixed-model layer."
+                "- Dimensionality sweeps, grouped summaries, and advanced phenotype map fitting can be enabled without changing the default workflow.\n"
+                "- This app still surfaces only a subset of the full package; the mixed-model layer remains package-only for now."
             )
             st.checkbox(
                 "Export PDF report",
@@ -1274,6 +1385,23 @@ if result:
             f"rotation={phenotype_calibration.get('rotation_degrees', 0)} degrees. "
             "Follow this calibration if you want one-unit grid spacing to mean one doubling dilution."
         )
+    phenotype_search_summary = phenotype_summary.get("search") or {}
+    if phenotype_search_summary:
+        st.caption(
+            "Phenotype fitting mode: "
+            f"{phenotype_search_summary.get('mode', 'single_start')} "
+            f"(random starts = {phenotype_search_summary.get('n_random_starts', 1)})."
+        )
+    phenotype_dimensionality_summary = phenotype_summary.get("dimensionality") or {}
+    if phenotype_dimensionality_summary:
+        st.caption(phenotype_dimensionality_summary.get("recommendation_note", ""))
+    grouped_summary_meta = phenotype_summary.get("grouped_summary") or {}
+    if grouped_summary_meta:
+        st.caption(
+            "Grouped summaries: "
+            f"{grouped_summary_meta.get('group_col', 'NA')} "
+            f"({grouped_summary_meta.get('n_groups', 'NA')} groups)."
+        )
     genotype_calibration = genotype_summary.get("calibration") or {}
     if genotype_calibration:
         st.caption(
@@ -1296,7 +1424,15 @@ if result:
     if "amrc_output_bundle.zip" in result["files"]:
         extra_downloads.append(("Download output bundle (.zip)", "amrc_output_bundle.zip", "application/zip"))
 
-    result_tabs = st.tabs(["Maps", "Diagnostics", "Tables", "Reports", "Raw summary"])
+    result_tabs = st.tabs([
+        "Maps",
+        "Diagnostics",
+        "Dimensionality",
+        "Grouped summaries",
+        "Tables",
+        "Reports",
+        "Raw summary",
+    ])
 
     with result_tabs[0]:
         image_cols = st.columns(2)
@@ -1391,7 +1527,63 @@ if result:
                         key=f"download-{name}",
                     )
 
+        if "phenotype_search_summary.csv" in result["tables"]:
+            st.subheader("Advanced phenotype fit search")
+            search_cols = st.columns(2)
+            search_cols[0].markdown("**Search summary**")
+            search_cols[0].dataframe(result["tables"]["phenotype_search_summary.csv"], width="stretch")
+            if "phenotype_search_stress.csv" in result["tables"]:
+                search_cols[1].markdown("**Restart stress table**")
+                search_cols[1].dataframe(result["tables"]["phenotype_search_stress.csv"], width="stretch", height=220)
+
     with result_tabs[2]:
+        if "phenotype_dimension_sweep.png" in result["files"]:
+            st.subheader("Phenotype dimensionality sweep")
+            st.image(
+                result["files"]["phenotype_dimension_sweep.png"],
+                caption="Stress across dimensions and transformation types",
+            )
+        if "phenotype_dimension_sweep_summary.csv" in result["tables"]:
+            st.markdown("**Sweep summary**")
+            st.dataframe(result["tables"]["phenotype_dimension_sweep_summary.csv"], width="stretch")
+        if "phenotype_dimension_fit_table.csv" in result["tables"]:
+            st.markdown("**Ratio-fit table**")
+            st.dataframe(result["tables"]["phenotype_dimension_fit_table.csv"], width="stretch")
+        if "phenotype_dimension_sweep.csv" in result["tables"]:
+            st.download_button(
+                label="Download phenotype_dimension_sweep.csv",
+                data=result["files"]["phenotype_dimension_sweep.csv"],
+                file_name="phenotype_dimension_sweep.csv",
+                mime="text/csv",
+                key="download-phenotype-dimension-sweep",
+            )
+
+    with result_tabs[3]:
+        if "phenotype_group_dispersion_histogram.png" in result["files"]:
+            st.subheader("Grouped phenotype summaries")
+            st.image(
+                result["files"]["phenotype_group_dispersion_histogram.png"],
+                caption="Within-group phenotype dispersion histogram",
+            )
+        grouped_tables = [
+            ("Within-group dispersion", "phenotype_group_dispersion.csv"),
+            ("Group centroids", "phenotype_group_centroids.csv"),
+            ("Pairwise group distances", "phenotype_group_pairwise_distances.csv"),
+            ("Group distance summary", "phenotype_group_distance_summary.csv"),
+        ]
+        for caption, name in grouped_tables:
+            if name in result["tables"]:
+                st.markdown(f"**{caption}**")
+                st.dataframe(result["tables"][name], width="stretch")
+                st.download_button(
+                    label=f"Download {name}",
+                    data=result["files"][name],
+                    file_name=name,
+                    mime="text/csv",
+                    key=f"download-{name}",
+                )
+
+    with result_tabs[4]:
         if result["tables"]:
             st.subheader("Output tables")
             for name, table in result["tables"].items():
@@ -1405,7 +1597,7 @@ if result:
                     key=f"table-{name}",
                 )
 
-    with result_tabs[3]:
+    with result_tabs[5]:
         if "amrc_report.md" in result["files"] or "amrc_report.html" in result["files"]:
             st.subheader("Report export")
             report_tabs = st.tabs(["Preview", "Downloads"])
@@ -1451,6 +1643,6 @@ if result:
                     key=f"bundle-{filename}",
                 )
 
-    with result_tabs[4]:
+    with result_tabs[6]:
         with st.expander("Show raw summary JSON", expanded=False):
             st.json(result["summary"], expanded=True)

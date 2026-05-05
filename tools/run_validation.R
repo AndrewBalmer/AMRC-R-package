@@ -627,6 +627,21 @@ validate_streamlit_backend <- function() {
       n_clusters = 2L,
       distinct_col = "lineage"
     ),
+    phenotype_search = list(
+      n_random_starts = 3L,
+      weighted = FALSE,
+      weight_type = "knn"
+    ),
+    phenotype_diagnostics = list(
+      run_dimensionality_sweep = TRUE,
+      max_dimension = 4L
+    ),
+    grouped_summary = list(
+      enabled = TRUE,
+      group_col = "lineage",
+      distinct_col = "isolate_id",
+      threshold = 1
+    ),
     reference = list(
       enabled = TRUE,
       reference_col = "lineage",
@@ -701,6 +716,25 @@ validate_streamlit_backend <- function() {
     isTRUE(all.equal(as.numeric(summary$phenotype$calibration$rotation_degrees), 15)),
     "Streamlit backend phenotype rotation changed"
   )
+  assert_identical_scalar(
+    summary$phenotype$search$mode,
+    "random_start",
+    "Streamlit backend phenotype search mode changed"
+  )
+  assert_identical_scalar(
+    summary$phenotype$search$n_random_starts,
+    3L,
+    "Streamlit backend phenotype random-start count changed"
+  )
+  assert_true(
+    !is.null(summary$phenotype$dimensionality$recommended_dimension),
+    "Streamlit backend dimensionality recommendation is missing"
+  )
+  assert_identical_scalar(
+    summary$phenotype$grouped_summary$group_col,
+    "lineage",
+    "Streamlit backend grouped summary column changed"
+  )
   assert_true(
     !is.null(summary$external$reference$n_rows),
     "Streamlit backend summary is missing external reference row count"
@@ -736,6 +770,15 @@ validate_streamlit_backend <- function() {
   phenotype_fit_metrics <- read_csv_keep_names(file.path(output_dir, "phenotype_fit_metrics.csv"))
   phenotype_residual_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_residual_summary.csv"))
   phenotype_stress_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_stress_summary.csv"))
+  phenotype_search_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_search_summary.csv"))
+  phenotype_search_stress <- read_csv_keep_names(file.path(output_dir, "phenotype_search_stress.csv"))
+  phenotype_dimension_sweep <- read_csv_keep_names(file.path(output_dir, "phenotype_dimension_sweep.csv"))
+  phenotype_dimension_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_dimension_sweep_summary.csv"))
+  phenotype_dimension_fit_table <- read_csv_keep_names(file.path(output_dir, "phenotype_dimension_fit_table.csv"))
+  phenotype_group_dispersion <- read_csv_keep_names(file.path(output_dir, "phenotype_group_dispersion.csv"))
+  phenotype_group_centroids <- read_csv_keep_names(file.path(output_dir, "phenotype_group_centroids.csv"))
+  phenotype_group_pairwise <- read_csv_keep_names(file.path(output_dir, "phenotype_group_pairwise_distances.csv"))
+  phenotype_group_distance_summary <- read_csv_keep_names(file.path(output_dir, "phenotype_group_distance_summary.csv"))
   comparison_data <- read_csv_keep_names(file.path(output_dir, "comparison_data.csv"))
   external_fit_metrics <- read_csv_keep_names(file.path(output_dir, "external_fit_metrics.csv"))
   external_residual_summary <- read_csv_keep_names(file.path(output_dir, "external_residual_summary.csv"))
@@ -761,6 +804,51 @@ validate_streamlit_backend <- function() {
     phenotype_stress_summary,
     c("mean_spp", "sd_spp", "max_spp"),
     "Streamlit phenotype stress summary"
+  )
+  assert_has_columns(
+    phenotype_search_summary,
+    c("mode", "n_random_starts", "best_index", "best_stress"),
+    "Streamlit phenotype search summary"
+  )
+  assert_has_columns(
+    phenotype_search_stress,
+    c("restart", "stress", "is_best"),
+    "Streamlit phenotype search stress table"
+  )
+  assert_has_columns(
+    phenotype_dimension_sweep,
+    c("method", "type", "dimension", "stress"),
+    "Streamlit phenotype dimensionality sweep"
+  )
+  assert_has_columns(
+    phenotype_dimension_summary,
+    c("method"),
+    "Streamlit phenotype dimensionality sweep summary"
+  )
+  assert_has_columns(
+    phenotype_dimension_fit_table,
+    c("dimension", "stress_per_point_pct", "mean_abs_residual"),
+    "Streamlit phenotype dimension fit table"
+  )
+  assert_has_columns(
+    phenotype_group_dispersion,
+    c("lineage", "n_members", "phenotype_distance_median"),
+    "Streamlit phenotype grouped dispersion"
+  )
+  assert_has_columns(
+    phenotype_group_centroids,
+    c("lineage", "D1_centroid", "D2_centroid"),
+    "Streamlit phenotype grouped centroids"
+  )
+  assert_has_columns(
+    phenotype_group_pairwise,
+    c("group_1", "group_2", "phenotype_distance"),
+    "Streamlit phenotype grouped pairwise distances"
+  )
+  assert_has_columns(
+    phenotype_group_distance_summary,
+    c("group_1", "group_2", "relation", "phenotype_distance_mean"),
+    "Streamlit phenotype grouped distance summary"
   )
   assert_has_columns(
     comparison_data,

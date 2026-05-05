@@ -221,6 +221,16 @@ amrc_collect_report_figures <- function(output_dir, summary) {
       file = "phenotype_cluster_elbow.png",
       title = "Phenotype scree diagnostic",
       caption = "Cluster scree / elbow diagnostic for the phenotype map."
+    ),
+    list(
+      file = "phenotype_dimension_sweep.png",
+      title = "Phenotype dimensionality sweep",
+      caption = "Stress across dimensions and transformation types for the phenotype map."
+    ),
+    list(
+      file = "phenotype_group_dispersion_histogram.png",
+      title = "Grouped phenotype dispersion",
+      caption = "Histogram of within-group phenotype dispersion for the selected metadata grouping."
     )
   )
 
@@ -420,6 +430,203 @@ write_fit_report_outputs <- function(fit_report, output_dir, prefix, stress_valu
   )
 }
 
+write_search_outputs <- function(search_result, output_dir, prefix, mode) {
+  fits <- search_result$fits %||% list(search_result$best_fit)
+  stress_table <- data.frame(
+    restart = seq_along(fits),
+    stress = vapply(fits, function(x) unname(x$stress %||% NA_real_), numeric(1)),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  stress_table$is_best <- stress_table$restart == (search_result$best_index %||% 1L)
+
+  stress_path <- file.path(output_dir, paste0(prefix, "_search_stress.csv"))
+  summary_path <- file.path(output_dir, paste0(prefix, "_search_summary.csv"))
+
+  summary_table <- data.frame(
+    mode = mode,
+    n_random_starts = nrow(stress_table),
+    best_index = search_result$best_index %||% 1L,
+    best_stress = min(stress_table$stress, na.rm = TRUE),
+    mean_stress = mean(stress_table$stress, na.rm = TRUE),
+    sd_stress = if (nrow(stress_table) > 1L) stats::sd(stress_table$stress, na.rm = TRUE) else NA_real_,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  utils::write.csv(stress_table, file = stress_path, row.names = FALSE)
+  utils::write.csv(summary_table, file = summary_path, row.names = FALSE)
+
+  list(
+    stress_table = stress_table,
+    summary_table = summary_table,
+    paths = list(
+      stress = stress_path,
+      summary = summary_path
+    )
+  )
+}
+
+amrc_recommend_dimension <- function(fit_table) {
+  results <- fit_table$results
+  if (is.null(results) || nrow(results) == 0L) {
+    return(list(dimension = NA_integer_, note = "No dimensionality results were produced."))
+  }
+
+  results <- results[order(results$dimension), , drop = FALSE]
+  if (nrow(results) == 1L) {
+    return(list(
+      dimension = results$dimension[[1]],
+      note = sprintf(
+        "Only %s dimension was evaluated, so no lower-dimensional elbow comparison is available.",
+        results$dimension[[1]]
+      )
+    ))
+  }
+
+  cumulative_drop <- results$stress_drop_vs_baseline_pct
+  incremental_drop <- c(NA_real_, diff(cumulative_drop))
+  slowdown_index <- which(incremental_drop < 5)[1]
+
+  recommended_dimension <- if (is.na(slowdown_index)) {
+    utils::tail(results$dimension, 1L)
+  } else if (slowdown_index <= 1L) {
+    results$dimension[[1]]
+  } else {
+    results$dimension[[slowdown_index - 1L]]
+  }
+
+  list(
+    dimension = recommended_dimension,
+    note = paste(
+      "Heuristic recommendation:",
+      "choose the smallest dimension before the next stress reduction drops below 5% of the 1D baseline.",
+      sprintf("Current recommendation = %sD.", recommended_dimension)
+    )
+  )
+}
+
+write_dimension_outputs <- function(distance_matrix, output_dir, prefix = "phenotype", max_dimension = 4L) {
+  max_dimension <- max(2L, as.integer(max_dimension))
+  dimensions <- seq_len(max_dimension)
+
+  sweep_long <- amrc_fn("amrc_run_dimensionality_sweep")(
+    distance_matrix = distance_matrix,
+    dimensions = dimensions
+  )
+  sweep_summary <- amrc_fn("amrc_summarise_dimension_sweep")(sweep_long)
+  fit_table <- amrc_fn("amrc_build_dimension_fit_table")(
+    distance_matrix = distance_matrix,
+    dimensions = dimensions,
+    type = "ratio"
+  )
+  recommendation <- amrc_recommend_dimension(fit_table)
+
+  plot <- ggplot2::ggplot(
+    sweep_long,
+    ggplot2::aes(x = .data$dimension, y = .data$stress, colour = .data$method)
+  ) +
+    ggplot2::geom_line(linewidth = 0.8) +
+    ggplot2::geom_point(size = 2.2) +
+    ggplot2::scale_x_continuous(breaks = dimensions) +
+    ggplot2::scale_colour_manual(
+      values = c(metric = "#E41A1C", ordinal = "#377EB8", interval = "#4DAF4A")
+    ) +
+    amrc_fn("amrc_theme_cartography")() +
+    ggplot2::labs(
+      x = "Dimensions",
+      y = "Stress",
+      colour = "Transformation",
+      title = "Phenotype dimensionality sweep"
+    )
+
+  long_path <- file.path(output_dir, paste0(prefix, "_dimension_sweep.csv"))
+  summary_path <- file.path(output_dir, paste0(prefix, "_dimension_sweep_summary.csv"))
+  fit_path <- file.path(output_dir, paste0(prefix, "_dimension_fit_table.csv"))
+  plot_path <- file.path(output_dir, paste0(prefix, "_dimension_sweep.png"))
+
+  utils::write.csv(sweep_long, file = long_path, row.names = FALSE)
+  utils::write.csv(sweep_summary$summary, file = summary_path, row.names = FALSE)
+  utils::write.csv(fit_table$results, file = fit_path, row.names = FALSE)
+  write_plot(plot, plot_path, width = 7, height = 5)
+
+  list(
+    sweep_long = sweep_long,
+    sweep_summary = sweep_summary$summary,
+    fit_table = fit_table$results,
+    recommendation = recommendation,
+    paths = list(
+      long = long_path,
+      summary = summary_path,
+      fit = fit_path,
+      plot = plot_path
+    )
+  )
+}
+
+write_grouped_summary_outputs <- function(
+  data,
+  output_dir,
+  prefix = "phenotype",
+  group_col,
+  distinct_col = NULL,
+  threshold = NULL
+) {
+  centroids <- amrc_fn("amrc_compute_group_centroids")(
+    data = data,
+    group_cols = group_col,
+    phenotype_cols = c("D1", "D2")
+  )
+  pairwise <- amrc_fn("amrc_compute_group_pairwise_distances")(
+    data = data,
+    group_col = group_col,
+    phenotype_cols = c("D1", "D2")
+  )
+  distance_summary <- amrc_fn("amrc_compute_group_distance_summary")(
+    data = data,
+    group_col = group_col,
+    phenotype_cols = c("D1", "D2")
+  )
+  dispersion <- amrc_fn("amrc_summarise_within_group_dispersion")(
+    data = data,
+    group_col = group_col,
+    phenotype_cols = c("D1", "D2"),
+    distinct_col = distinct_col,
+    threshold = threshold
+  )
+  histogram <- amrc_fn("amrc_plot_within_group_dispersion_histogram")(
+    summary_table = dispersion,
+    value_col = "phenotype_distance_median",
+    reference_line = threshold
+  )
+
+  centroid_path <- file.path(output_dir, paste0(prefix, "_group_centroids.csv"))
+  pairwise_path <- file.path(output_dir, paste0(prefix, "_group_pairwise_distances.csv"))
+  distance_summary_path <- file.path(output_dir, paste0(prefix, "_group_distance_summary.csv"))
+  dispersion_path <- file.path(output_dir, paste0(prefix, "_group_dispersion.csv"))
+  histogram_path <- file.path(output_dir, paste0(prefix, "_group_dispersion_histogram.png"))
+
+  utils::write.csv(centroids, file = centroid_path, row.names = FALSE)
+  utils::write.csv(pairwise, file = pairwise_path, row.names = FALSE)
+  utils::write.csv(distance_summary, file = distance_summary_path, row.names = FALSE)
+  utils::write.csv(dispersion, file = dispersion_path, row.names = FALSE)
+  write_plot(histogram, histogram_path, width = 7, height = 5)
+
+  list(
+    centroids = centroids,
+    pairwise = pairwise,
+    distance_summary = distance_summary,
+    dispersion = dispersion,
+    paths = list(
+      centroids = centroid_path,
+      pairwise = pairwise_path,
+      distance_summary = distance_summary_path,
+      dispersion = dispersion_path,
+      histogram = histogram_path
+    )
+  )
+}
+
 write_run_report <- function(summary, output_dir, config) {
   comparison_summary <- summary$genotype %||% summary$external
 
@@ -469,6 +676,32 @@ write_run_report <- function(summary, output_dir, config) {
         "Mean absolute residual: %s",
         summary$phenotype$fit$mean_abs_residual %fmt_or_na% 4
       )
+    )
+  }
+
+  if (!is.null(summary$phenotype$search)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf("Phenotype fitting mode: %s", summary$phenotype$search$mode %||% "single_start"),
+      sprintf("Phenotype random starts: %s", summary$phenotype$search$n_random_starts %||% 1L)
+    )
+  }
+
+  if (!is.null(summary$phenotype$dimensionality)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf(
+        "Dimensionality heuristic: %s",
+        summary$phenotype$dimensionality$recommendation_note %||% "Not available"
+      )
+    )
+  }
+
+  if (!is.null(summary$phenotype$grouped_summary)) {
+    phenotype_lines <- c(
+      phenotype_lines,
+      sprintf("Grouped summary column: %s", summary$phenotype$grouped_summary$group_col %||% "NA"),
+      sprintf("Grouped summary groups: %s", summary$phenotype$grouped_summary$n_groups %||% "NA")
     )
   }
 
@@ -542,6 +775,21 @@ write_run_report <- function(summary, output_dir, config) {
     "`phenotype_residual_summary.csv`",
     "`phenotype_stress_summary.csv`",
     "`phenotype_fit_distances.csv`",
+    if (!is.null(summary$phenotype$search) && !identical(summary$phenotype$search$mode, "single_start")) c(
+      "`phenotype_search_summary.csv`",
+      "`phenotype_search_stress.csv`"
+    ) else NULL,
+    if (!is.null(summary$phenotype$dimensionality)) c(
+      "`phenotype_dimension_sweep.csv`",
+      "`phenotype_dimension_sweep_summary.csv`",
+      "`phenotype_dimension_fit_table.csv`"
+    ) else NULL,
+    if (!is.null(summary$phenotype$grouped_summary)) c(
+      "`phenotype_group_dispersion.csv`",
+      "`phenotype_group_centroids.csv`",
+      "`phenotype_group_pairwise_distances.csv`",
+      "`phenotype_group_distance_summary.csv`"
+    ) else NULL,
     if (!is.null(comparison_summary)) c(
       "`external_fit_metrics.csv`",
       "`external_residual_summary.csv`",
@@ -582,6 +830,21 @@ write_run_report <- function(summary, output_dir, config) {
     "phenotype_residual_summary.csv",
     "phenotype_stress_summary.csv",
     "phenotype_fit_distances.csv",
+    if (!is.null(summary$phenotype$search) && !identical(summary$phenotype$search$mode, "single_start")) c(
+      "phenotype_search_summary.csv",
+      "phenotype_search_stress.csv"
+    ) else NULL,
+    if (!is.null(summary$phenotype$dimensionality)) c(
+      "phenotype_dimension_sweep.csv",
+      "phenotype_dimension_sweep_summary.csv",
+      "phenotype_dimension_fit_table.csv"
+    ) else NULL,
+    if (!is.null(summary$phenotype$grouped_summary)) c(
+      "phenotype_group_dispersion.csv",
+      "phenotype_group_centroids.csv",
+      "phenotype_group_pairwise_distances.csv",
+      "phenotype_group_distance_summary.csv"
+    ) else NULL,
     if (!is.null(comparison_summary)) c(
       "external_fit_metrics.csv",
       "external_residual_summary.csv",
@@ -756,6 +1019,18 @@ reference_y_break_step <- amrc_numeric_or_null(config$reference$y_break_step)
 reference_annotation_text <- amrc_scalar_or_null(config$reference$annotation_text)
 reference_annotation_x <- amrc_numeric_or_null(config$reference$annotation_x)
 reference_annotation_y <- amrc_numeric_or_null(config$reference$annotation_y)
+phenotype_search_cfg <- amrc_section(config, "phenotype_search")
+phenotype_diagnostics_cfg <- amrc_section(config, "phenotype_diagnostics")
+grouped_summary_cfg <- amrc_section(config, "grouped_summary")
+phenotype_random_starts <- max(1L, as.integer(phenotype_search_cfg$n_random_starts %||% 1L))
+phenotype_use_weighted_search <- isTRUE(phenotype_search_cfg$weighted)
+phenotype_weight_type <- amrc_scalar_or_null(phenotype_search_cfg$weight_type) %||% "knn"
+phenotype_run_dimensionality_sweep <- isTRUE(phenotype_diagnostics_cfg$run_dimensionality_sweep)
+phenotype_sweep_max_dimension <- max(2L, as.integer(phenotype_diagnostics_cfg$max_dimension %||% 4L))
+grouped_summary_enabled <- isTRUE(grouped_summary_cfg$enabled)
+grouped_summary_col <- amrc_scalar_or_null(grouped_summary_cfg$group_col)
+grouped_summary_distinct_col <- amrc_scalar_or_null(grouped_summary_cfg$distinct_col)
+grouped_summary_threshold <- amrc_numeric_or_null(grouped_summary_cfg$threshold)
 
 phenotype_data <- read_csv_keep_names(config$phenotype$path)
 
@@ -771,7 +1046,51 @@ mic_data <- amrc_fn("amrc_standardise_mic_data")(
 )
 
 phenotype_distance <- amrc_fn("amrc_compute_mic_distance")(mic_data)
-phenotype_map <- amrc_fn("amrc_compute_mds")(phenotype_distance)
+phenotype_search_outputs <- NULL
+if (isTRUE(phenotype_random_starts > 1L)) {
+  if (isTRUE(phenotype_use_weighted_search)) {
+    search_result <- amrc_fn("amrc_run_weighted_mds_search")(
+      distance_matrix = phenotype_distance,
+      nrep = phenotype_random_starts,
+      weight_type = phenotype_weight_type,
+      return_all = TRUE
+    )
+    phenotype_map <- search_result$best_fit
+    phenotype_search_outputs <- write_search_outputs(
+      search_result = search_result,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      mode = paste0("weighted_", phenotype_weight_type)
+    )
+  } else {
+    search_result <- amrc_fn("amrc_run_random_start_search")(
+      distance_matrix = phenotype_distance,
+      nrep = phenotype_random_starts,
+      return_all = TRUE,
+      run_icexplore = FALSE
+    )
+    phenotype_map <- search_result$best_fit
+    phenotype_search_outputs <- write_search_outputs(
+      search_result = search_result,
+      output_dir = output_dir,
+      prefix = "phenotype",
+      mode = "random_start"
+    )
+  }
+} else {
+  phenotype_map <- amrc_fn("amrc_compute_mds")(phenotype_distance)
+}
+
+phenotype_dimension_outputs <- NULL
+if (isTRUE(phenotype_run_dimensionality_sweep)) {
+  phenotype_dimension_outputs <- write_dimension_outputs(
+    distance_matrix = phenotype_distance,
+    output_dir = output_dir,
+    prefix = "phenotype",
+    max_dimension = phenotype_sweep_max_dimension
+  )
+}
+
 phenotype_fit_report <- amrc_fn("amrc_map_fit_report")(
   phenotype_map,
   rotation_degrees = phenotype_rotation_degrees
@@ -881,6 +1200,31 @@ summary <- list(
       mean_spp = phenotype_fit_report$stress_summary$mean_spp[[1]] %||% NA_real_,
       max_spp = phenotype_fit_report$stress_summary$max_spp[[1]] %||% NA_real_
     ),
+    search = if (!is.null(phenotype_search_outputs)) {
+      list(
+        mode = phenotype_search_outputs$summary_table$mode[[1]],
+        n_random_starts = phenotype_search_outputs$summary_table$n_random_starts[[1]],
+        best_index = phenotype_search_outputs$summary_table$best_index[[1]],
+        best_stress = phenotype_search_outputs$summary_table$best_stress[[1]],
+        mean_stress = phenotype_search_outputs$summary_table$mean_stress[[1]],
+        sd_stress = phenotype_search_outputs$summary_table$sd_stress[[1]]
+      )
+    } else {
+      list(
+        mode = "single_start",
+        n_random_starts = 1L
+      )
+    },
+    dimensionality = if (!is.null(phenotype_dimension_outputs)) {
+      list(
+        enabled = TRUE,
+        max_dimension = phenotype_sweep_max_dimension,
+        recommended_dimension = phenotype_dimension_outputs$recommendation$dimension,
+        recommendation_note = phenotype_dimension_outputs$recommendation$note
+      )
+    } else {
+      NULL
+    },
     clustering = if (isTRUE(phenotype_cluster_enabled)) {
       list(
         n_clusters = phenotype_cluster_n,
@@ -907,6 +1251,8 @@ result_bundle <- list(
   mic_data = mic_data,
   phenotype_distance = phenotype_distance,
   phenotype_map = phenotype_map,
+  phenotype_search_outputs = phenotype_search_outputs,
+  phenotype_dimension_outputs = phenotype_dimension_outputs,
   phenotype_fit_report = phenotype_fit_report,
   phenotype_fit_outputs = phenotype_fit_outputs,
   phenotype_calibration = phenotype_calibration,
@@ -1215,6 +1561,34 @@ if (isTRUE(genotype_cfg$enabled)) {
   result_bundle$external_cluster <- external_cluster
   result_bundle$external_cluster_data <- external_cluster_data
   result_bundle$reference_outputs <- reference_outputs
+}
+
+grouped_summary_outputs <- NULL
+if (isTRUE(grouped_summary_enabled) && !is.null(grouped_summary_col)) {
+  grouped_input <- if (!is.null(result_bundle$comparison_bundle)) {
+    result_bundle$comparison_bundle$data
+  } else {
+    phenotype_plot_data
+  }
+
+  grouped_summary_outputs <- write_grouped_summary_outputs(
+    data = grouped_input,
+    output_dir = output_dir,
+    prefix = "phenotype",
+    group_col = grouped_summary_col,
+    distinct_col = grouped_summary_distinct_col,
+    threshold = grouped_summary_threshold
+  )
+
+  summary$phenotype$grouped_summary <- list(
+    group_col = grouped_summary_col,
+    distinct_col = grouped_summary_distinct_col,
+    threshold = grouped_summary_threshold,
+    n_groups = nrow(grouped_summary_outputs$dispersion)
+  )
+
+  result_bundle$summary <- summary
+  result_bundle$grouped_summary_outputs <- grouped_summary_outputs
 }
 
 jsonlite::write_json(

@@ -81,13 +81,16 @@ amrc_run_dimensionality_sweep <- function(
     type <- transformations[[method]]
 
     for (dimension in dimensions) {
-      fit <- amrc_compute_mds(
+      fit_args <- list(
         distance_matrix = distance_matrix,
         ndim = dimension,
-        type = type,
-        ties = if (identical(type, "ordinal")) ordinal_ties else NULL,
-        ...
+        type = type
       )
+      if (identical(type, "ordinal")) {
+        fit_args$ties <- ordinal_ties
+      }
+      fit_args <- c(fit_args, list(...))
+      fit <- do.call(amrc_compute_mds, fit_args)
 
       results[[index]] <- data.frame(
         method = method,
@@ -132,13 +135,16 @@ amrc_fit_mds_transformations <- function(
 
   for (method in names(transformations)) {
     type <- transformations[[method]]
-    fits[[method]] <- amrc_compute_mds(
+    fit_args <- list(
       distance_matrix = distance_matrix,
       ndim = ndim,
-      type = type,
-      ties = if (identical(type, "ordinal")) ordinal_ties else NULL,
-      ...
+      type = type
     )
+    if (identical(type, "ordinal")) {
+      fit_args$ties <- ordinal_ties
+    }
+    fit_args <- c(fit_args, list(...))
+    fits[[method]] <- do.call(amrc_compute_mds, fit_args)
   }
 
   fits
