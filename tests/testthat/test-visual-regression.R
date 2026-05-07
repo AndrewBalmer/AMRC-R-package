@@ -23,6 +23,10 @@ test_that("key manuscript plots retain their visual baselines", {
   skip_if_not_installed("ragg")
   skip_if_not_installed("png")
   skip_if_not_installed("patchwork")
+  skip_if(
+    identical(tolower(Sys.getenv("CI", unset = "")), "true"),
+    "Pixel-perfect plot baselines are run locally during visual audit, not on cross-platform CI."
+  )
 
   mic_raw <- amrc_example_data("mic_raw")
   mic_data <- amrc_standardise_mic_data(

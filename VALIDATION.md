@@ -153,6 +153,7 @@ conditions, including:
 Some validation checks are source-checkout specific, especially:
 
 - local generated artefact presence in `inst/extdata/generated/spneumoniae` when those files exist
+- pixel-perfect visual regression baselines, which are audited locally rather than enforced on cross-platform CI
 - top-level docs, tools, and Streamlit backend files
 
 That is intentional. This repo has both package-facing validation and
