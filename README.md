@@ -76,13 +76,19 @@ compared to a phenotype map, use:
 vignette("external-data-structures", package = "amrcartography")
 ```
 
-If you want the advanced feature-analysis layer, including mixed models,
-epistasis, heritability, variance decomposition, permutation scans, and
-BLUP-style prediction, use:
+If you are deliberately recreating the original manuscript-style downstream
+association analyses, the advanced feature-analysis vignette documents the
+mixed-model, epistasis, heritability, variance-decomposition, permutation, and
+BLUP-style helpers:
 
 ```r
 vignette("advanced-feature-and-mixed-model-analysis", package = "amrcartography")
 ```
+
+Those methods are provenance/advanced analysis tools rather than the primary
+package or app workflow. See
+[Advanced Association Provenance](docs/ADVANCED_ASSOCIATION_PROVENANCE.md) for
+how to interpret that layer.
 
 The *S. pneumoniae* case-study vignette is still available separately:
 
@@ -271,7 +277,8 @@ background”, “scan gene presence/absence markers against multiple phenotype
 responses”, fit grouped random-intercept LMMs, or run manuscript-style LIMIX
 mixed-model scans in a reusable generic form.
 
-The package now offers four association-analysis tiers:
+The package keeps several association-analysis tiers, mostly for users
+recreating or extending the original manuscript and thesis analyses:
 
 - simple fixed-effect feature scans with
   `amrc_scan_single_feature_associations()`
@@ -282,9 +289,10 @@ The package now offers four association-analysis tiers:
   `amrc_run_limix_mvlmm()` for users who want a true multivariate mixed-model
   route
 
-The LIMIX helpers are optional advanced tooling. They require a working Python
-environment with `limix`, `numpy`, and `pandas`, but they accept the same kind
-of generic marker matrices that the simpler R-side association helpers use.
+The LIMIX helpers are optional advanced provenance tooling. They require a
+working Python environment with `limix`, `numpy`, and `pandas`, but they accept
+the same kind of generic marker matrices that the simpler R-side association
+helpers use.
 
 That same advanced layer now also exposes the other reusable manuscript-era
 mixed-model ideas in generic form:
@@ -296,7 +304,8 @@ mixed-model ideas in generic form:
   `amrc_run_limix_epistatic_scan()`
 - permutation scans with `amrc_run_limix_permutation_scan()`
 - BLUP-style kinship prediction helpers with `amrc_make_train_test_split()`,
-  `amrc_make_cv_folds()`, `amrc_fit_kinship_blup()`, and
+  `amrc_make_cv_folds()`, `amrc_make_grouped_cv_folds()`,
+  `amrc_fit_kinship_blup()`, and
   `amrc_cross_validate_kinship_blup()`
 
 ## S. pneumoniae Case Study

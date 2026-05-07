@@ -19,7 +19,9 @@ library(amrcartography)
 
 The main package vignette focuses on the shortest generic workflow from a MIC
 table to a map and optional external comparison. This vignette covers the more
-advanced feature-analysis layer:
+advanced feature-analysis layer. Some sections, especially the LIMIX, epistasis,
+heritability, and BLUP material, are retained as original manuscript/thesis
+analysis provenance rather than as the default package workflow:
 
 - gene presence/absence scans
 - single-substitution style binary feature scans
@@ -31,7 +33,9 @@ advanced feature-analysis layer:
 
 Most of the LIMIX-backed examples are shown with `execute = FALSE` so the
 vignette stays lightweight and does not require a local Python/LIMIX
-installation just to read the package documentation.
+installation just to read the package documentation. Treat those sections as
+expert follow-up methods that need domain review, sample-matching checks,
+population-structure checks, and careful multiple-testing interpretation.
 
 ## A tiny generic fixture
 
@@ -417,13 +421,30 @@ cv$fold_summary
 cv$overall
 ```
 
+For harder prediction checks, keep related isolates or genotype/type groups
+together in the same fold:
+
+```{r}
+grouped_cv <- amrc_cross_validate_kinship_blup(
+  response = analysis_data$drug_a,
+  kinship_matrix = kinship,
+  n_folds = 3,
+  seed = 1,
+  lambda = 0.5,
+  groups = analysis_data$lineage
+)
+
+grouped_cv$fold_summary
+```
+
 ## Choosing among the options
 
 - Use `amrc_scan_single_feature_associations()` for a quick generic scan.
 - Use `amrc_scan_single_feature_mixed_models()` when you need a grouped random
   intercept and want to stay in R.
-- Use the LIMIX wrappers when you specifically want the manuscript-style
-  multivariate mixed-model route, permutation scans, heritability estimation,
-  or multi-component variance decomposition.
+- Use the LIMIX wrappers only when you specifically want the original
+  manuscript-style multivariate mixed-model route, permutation scans,
+  heritability estimation, or multi-component variance decomposition.
 - Use the BLUP helpers when your goal is prediction rather than association
-  testing.
+  testing. Prefer grouped folds when you need to evaluate prediction for unseen
+  genotype, lineage, or type groups.

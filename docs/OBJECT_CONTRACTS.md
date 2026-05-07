@@ -221,6 +221,7 @@ Returned by:
 - `amrc_run_limix_epistatic_scan()`
 - `amrc_run_limix_permutation_scan()`
 - `amrc_fit_kinship_blup()`
+- `amrc_make_grouped_cv_folds()`
 - `amrc_cross_validate_kinship_blup()`
 
 Association object expectations:
@@ -231,7 +232,8 @@ Association object expectations:
 - mixed-model fits use `lme4::lmer()` with a random intercept
 - optional LIMIX scans use a staged CSV-input contract plus an external Python
   environment with `limix`
-- BLUP helpers use a kinship matrix plus explicit train/test or CV structure
+- BLUP helpers use a kinship matrix plus explicit train/test, random CV, or
+  grouped CV structure
 
 Summary object elements:
 
@@ -255,8 +257,10 @@ Usage notes:
   helpers rather than replace organism-specific raw variant calling
 - the R-native helpers cover the simple fixed-effect and random-intercept use
   cases directly inside the package
-- the LIMIX helpers are the optional route when users want the manuscript-style
-  multivariate mixed-model workflow on generic inputs
+- the LIMIX helpers are the optional route when users want the original
+  manuscript-style multivariate mixed-model workflow on generic inputs
 - the epistatic, permutation, heritability, variance-decomposition, and
   kinship-BLUP helpers extend that advanced layer into the other reusable parts
   of the original Python workflow
+- these advanced helpers are provenance/expert-analysis tools and should not be
+  treated as the default package or app route

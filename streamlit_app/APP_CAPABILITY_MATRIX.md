@@ -24,6 +24,8 @@
 
 - transformation-comparison helpers
 - mixed models, LIMIX workflows, heritability, epistasis, and BLUP
+  - These are retained as original-paper provenance and expert package tools,
+    not as first-line app workflows.
 - public cross-species example vignette workflows
 - advanced manuscript figure composers beyond the main map/report presets
 
@@ -38,7 +40,8 @@
 
 ## Still useful to add later
 
-- advanced association tabs
+- a deliberately designed expert association interface, if mixed-model/LIMIX
+  workflows are needed in the app later
 - richer manuscript figure presets tied to named panels
 - screenshot regression for app-rendered exports
 - stronger browser-driven workflow tests

@@ -13,6 +13,11 @@
   adjusted-vs-unadjusted comparisons, and overlap views.
 - Extended the Streamlit prototype with cluster overlays, reference-distance
   summaries, and downloadable result bundles.
+- Clarified that LIMIX, epistasis, permutation, heritability, and BLUP helpers
+  are advanced manuscript-provenance methods rather than the primary package or
+  app workflow.
+- Added grouped cross-validation folds for kinship-BLUP prediction checks, so
+  related genotype/type groups can be held out together.
 
 ## 0.2.0 (2026-04-01)
 

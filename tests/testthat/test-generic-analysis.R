@@ -328,9 +328,12 @@ test_that("BLUP-style kinship prediction helpers work generically", {
 
   split <- amrc_make_train_test_split(nrow(fixture), proportion = 0.75, seed = 1)
   folds <- amrc_make_cv_folds(nrow(fixture), n_folds = 4, seed = 1)
+  grouped_folds <- amrc_make_grouped_cv_folds(fixture$lineage, n_folds = 2, seed = 1)
 
   expect_equal(sum(split$train), 6)
   expect_equal(length(folds), nrow(fixture))
+  expect_equal(length(grouped_folds), nrow(fixture))
+  expect_true(all(vapply(split(grouped_folds, fixture$lineage), function(x) length(unique(x)) == 1L, logical(1))))
 
   blup_fit <- amrc_fit_kinship_blup(
     response = fixture$response_1,
@@ -354,6 +357,18 @@ test_that("BLUP-style kinship prediction helpers work generically", {
 
   expect_true(all(c("fold", "rmse", "correlation") %in% names(cv$fold_summary)))
   expect_true(all(c("mean_rmse", "mean_correlation") %in% names(cv$overall)))
+
+  grouped_cv <- amrc_cross_validate_kinship_blup(
+    response = fixture$response_1,
+    kinship_matrix = kinship,
+    n_folds = 2,
+    seed = 1,
+    lambda = 0.5,
+    groups = fixture$lineage
+  )
+
+  expect_equal(nrow(grouped_cv$fold_summary), 2)
+  expect_true(all(vapply(split(grouped_cv$predictions$fold, fixture$lineage[grouped_cv$predictions$index]), function(x) length(unique(x)) == 1L, logical(1))))
 })
 
 test_that("epistatic and permutation summary helpers combine executed-style outputs", {

@@ -1422,6 +1422,58 @@ amrc_make_cv_folds <- function(n, n_folds = 5, seed = NULL) {
   sample(rep(seq_len(n_folds), length.out = n), n, replace = FALSE)
 }
 
+#' Create Grouped Cross-Validation Fold Assignments
+#'
+#' Creates reproducible fold assignments while keeping all rows from the same
+#' group in the same fold. This is useful for BLUP-style evaluations where the
+#' harder question is prediction for unseen lineages, types, or genotype groups
+#' rather than random isolates.
+#'
+#' @param groups Vector of group labels, one per observation.
+#' @param n_folds Number of folds.
+#' @param seed Optional random seed.
+#' @param balance Logical; greedily balance folds by row count after shuffling
+#'   groups. If `FALSE`, groups are assigned round-robin after shuffling.
+#'
+#' @return An integer vector of fold assignments, one per input row.
+#' @export
+amrc_make_grouped_cv_folds <- function(groups, n_folds = 5, seed = NULL, balance = TRUE) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  if (length(groups) < 2L) {
+    stop("groups must contain at least two observations.", call. = FALSE)
+  }
+  if (any(is.na(groups))) {
+    stop("groups cannot contain missing values.", call. = FALSE)
+  }
+
+  group_labels <- as.character(groups)
+  group_sizes <- table(group_labels)
+  n_groups <- length(group_sizes)
+  if (n_folds < 2L || n_folds > n_groups) {
+    stop("n_folds must be at least 2 and no larger than the number of groups.", call. = FALSE)
+  }
+
+  shuffled_groups <- sample(names(group_sizes), n_groups, replace = FALSE)
+  fold_by_group <- stats::setNames(rep(NA_integer_, n_groups), shuffled_groups)
+
+  if (isTRUE(balance)) {
+    ordered_groups <- shuffled_groups[order(as.numeric(group_sizes[shuffled_groups]), decreasing = TRUE)]
+    fold_loads <- rep(0L, n_folds)
+    for (group in ordered_groups) {
+      fold <- which.min(fold_loads)
+      fold_by_group[[group]] <- fold
+      fold_loads[[fold]] <- fold_loads[[fold]] + as.integer(group_sizes[[group]])
+    }
+  } else {
+    fold_by_group[shuffled_groups] <- rep(seq_len(n_folds), length.out = n_groups)
+  }
+
+  as.integer(fold_by_group[group_labels])
+}
+
 #' Fit a Kinship-BLUP Predictor
 #'
 #' Fits a simple kinship-based BLUP/ridge predictor and returns predictions for
@@ -1508,6 +1560,11 @@ amrc_fit_kinship_blup <- function(
 #' @param n_folds Number of cross-validation folds.
 #' @param seed Optional random seed.
 #' @param lambda Ridge/noise penalty added to the training kernel diagonal.
+#' @param folds Optional explicit fold assignments. When supplied, `n_folds`,
+#'   `seed`, and `groups` are not used to create folds.
+#' @param groups Optional grouping vector. When supplied, all observations from
+#'   the same group are kept in the same fold using
+#'   [amrc_make_grouped_cv_folds()].
 #'
 #' @return A list with fold-level metrics and combined predictions.
 #' @export
@@ -1516,14 +1573,35 @@ amrc_cross_validate_kinship_blup <- function(
   kinship_matrix,
   n_folds = 5,
   seed = NULL,
-  lambda = 1
+  lambda = 1,
+  folds = NULL,
+  groups = NULL
 ) {
   y <- as.numeric(response)
-  folds <- amrc_make_cv_folds(length(y), n_folds = n_folds, seed = seed)
-  fold_rows <- vector("list", n_folds)
-  prediction_rows <- vector("list", n_folds)
+  if (!is.null(folds)) {
+    if (length(folds) != length(y)) {
+      stop("folds must have the same length as response.", call. = FALSE)
+    }
+    folds <- as.integer(folds)
+  } else if (!is.null(groups)) {
+    if (length(groups) != length(y)) {
+      stop("groups must have the same length as response.", call. = FALSE)
+    }
+    folds <- amrc_make_grouped_cv_folds(groups, n_folds = n_folds, seed = seed)
+  } else {
+    folds <- amrc_make_cv_folds(length(y), n_folds = n_folds, seed = seed)
+  }
 
-  for (fold in seq_len(n_folds)) {
+  fold_values <- sort(unique(folds))
+  if (any(is.na(fold_values)) || length(fold_values) < 2L) {
+    stop("folds must define at least two non-missing folds.", call. = FALSE)
+  }
+
+  fold_rows <- vector("list", length(fold_values))
+  prediction_rows <- vector("list", length(fold_values))
+
+  for (i in seq_along(fold_values)) {
+    fold <- fold_values[[i]]
     test <- folds == fold
     train <- !test
     fit <- amrc_fit_kinship_blup(
@@ -1540,7 +1618,7 @@ amrc_cross_validate_kinship_blup <- function(
     rmse <- sqrt(mean((observed - predicted)^2, na.rm = TRUE))
     correlation <- if (length(observed) < 2L) NA_real_ else stats::cor(observed, predicted)
 
-    fold_rows[[fold]] <- data.frame(
+    fold_rows[[i]] <- data.frame(
       fold = fold,
       n_test = sum(test),
       rmse = rmse,
@@ -1548,7 +1626,7 @@ amrc_cross_validate_kinship_blup <- function(
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
-    prediction_rows[[fold]] <- data.frame(
+    prediction_rows[[i]] <- data.frame(
       index = which(test),
       fold = fold,
       observed = observed,

@@ -9,7 +9,9 @@ amrc_cross_validate_kinship_blup(
   kinship_matrix,
   n_folds = 5,
   seed = NULL,
-  lambda = 1
+  lambda = 1,
+  folds = NULL,
+  groups = NULL
 )
 }
 \arguments{
@@ -22,6 +24,13 @@ amrc_cross_validate_kinship_blup(
 \item{seed}{Optional random seed.}
 
 \item{lambda}{Ridge/noise penalty added to the training kernel diagonal.}
+
+\item{folds}{Optional explicit fold assignments. When supplied, \code{n_folds},
+\code{seed}, and \code{groups} are not used to create folds.}
+
+\item{groups}{Optional grouping vector. When supplied, all observations from
+the same group are kept in the same fold using
+\code{\link[=amrc_make_grouped_cv_folds]{amrc_make_grouped_cv_folds()}}.}
 }
 \value{
 A list with fold-level metrics and combined predictions.
