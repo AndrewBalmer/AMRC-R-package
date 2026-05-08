@@ -4,7 +4,7 @@
 
 - No changes yet.
 
-## 0.2.1 (2026-05-07)
+## 0.2.1 (2026-05-08)
 
 - Added a compact tracked `mapping_08` pneumococcal case-study bundle for the
   legacy `08-Mapping-external-variables` notebook, including calibrated

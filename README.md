@@ -32,8 +32,8 @@ The package is now at the point where it has:
 ## Status
 
 This is still a GitHub release rather than a CRAN release, and the repository
-should be used as-is. The current maintenance release candidate is `0.2.1`,
-which adds app, validation, documentation, and provenance cleanup on top of the
+should be used as-is. The current maintenance release is `0.2.1`, which adds
+app, validation, documentation, and provenance cleanup on top of the
 `v0.2.0` manuscript software baseline. The generic API is now intentionally
 usable, but the package is still being prepared for manuscript-centered release
 and long-term API stabilisation. This repository is also separate from the related manuscript

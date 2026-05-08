@@ -8,8 +8,8 @@ susceptibility phenotypes and external genotype structure**
 ## Software baseline
 
 - cite `amrcartography` `v0.2.0` as the current public software baseline
-- treat `v0.2.1` as a maintenance/app/docs release candidate unless the
-  manuscript is deliberately moved to that later tag
+- treat `v0.2.1` as a later maintenance/app/docs release unless the manuscript
+  is deliberately moved to that later tag
 - build manuscript figures from package-backed code, not notebook-only logic
 
 Primary figure builder:
@@ -307,5 +307,5 @@ Current output directory:
 - add the full reference list and in-text citations
 - decide the target journal and tune title/abstract length to its format
 - refine the results narrative once the final figure set is frozen
-- decide whether the manuscript should continue to cite `v0.2.0` or move to
-  `v0.2.1` after the maintenance release is tagged
+- decide whether the manuscript should continue to cite `v0.2.0` or move to the
+  tagged `v0.2.1` maintenance release

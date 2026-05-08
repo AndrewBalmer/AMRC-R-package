@@ -1,7 +1,7 @@
 # Release Notes: 0.2.1
 
-`amrcartography` 0.2.1 is a maintenance and app-prototype release candidate
-on top of the `v0.2.0` manuscript software baseline.
+`amrcartography` 0.2.1 is a maintenance and app-prototype release on top of
+the `v0.2.0` manuscript software baseline.
 
 ## What changed
 
@@ -23,7 +23,7 @@ on top of the `v0.2.0` manuscript software baseline.
 
 ## Validation
 
-Local validation before the release-candidate bump included:
+Local validation before tagging included:
 
 - `testthat::test_local(".", filter = "generic-analysis|validation-contracts")`
 - `Rscript tools/run_validation.R --stage smoke`
@@ -32,8 +32,7 @@ Local validation before the release-candidate bump included:
 - browser QA against a live local Streamlit app
 - full `rcmdcheck` with compact vignettes and `--no-manual`
 
-GitHub Actions should be treated as the final release gate before tagging
-`v0.2.1`.
+GitHub Actions passed on the tagged release head before `v0.2.1` was created.
 
 ## Manuscript baseline
 
