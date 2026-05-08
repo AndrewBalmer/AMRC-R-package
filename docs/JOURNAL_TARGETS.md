@@ -42,7 +42,8 @@ Risks:
 
 Preparation notes:
 
-- Tighten the introduction around the gap left by AMR and AMRgen.
+- Tighten the introduction around multivariate MIC phenotype structure and the
+  limitations of bespoke notebook-based cartography workflows.
 - Make Figure 1 a strong workflow/architecture figure.
 - Make Figure 2 or 4 the biological payoff figure.
 
@@ -210,7 +211,8 @@ Primary target:
 Ambitious target:
 
 - PLOS Computational Biology Software Article if we strengthen the biological
-  payoff figures and explicitly position the tool relative to AMRgen and AMR.
+  payoff figures and frame the tool as a reusable multivariate AMR phenotype
+  cartography method.
 
 Domain-specific target:
 
