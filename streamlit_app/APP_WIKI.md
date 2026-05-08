@@ -94,7 +94,7 @@ Use the exported bundle as the reproducible record of an app run.
 
 ## Citations
 
-Cite the software baseline as `amrcartography` `v0.2.0` unless you intentionally move to a later tagged release.
+Cite the manuscript software baseline as `amrcartography` `v0.2.0` unless you intentionally move the paper to a later tagged release. The app/docs maintenance line is `v0.2.1`.
 
 Previous AMR cartography work referenced in the app:
 

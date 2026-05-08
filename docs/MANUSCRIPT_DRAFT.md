@@ -8,8 +8,8 @@ susceptibility phenotypes and external genotype structure**
 ## Software baseline
 
 - cite `amrcartography` `v0.2.0` as the current public software baseline
-- treat later `main` improvements as post-`v0.2.0` development unless a new tag
-  is deliberately cut
+- treat `v0.2.1` as a maintenance/app/docs release candidate unless the
+  manuscript is deliberately moved to that later tag
 - build manuscript figures from package-backed code, not notebook-only logic
 
 Primary figure builder:
@@ -259,12 +259,13 @@ It also provides a reusable visual and reporting surface so that package
 outputs, manuscript figures, and the experimental app remain aligned.
 
 There are also important limitations. Upstream genotype parsing remains less
-generic than the downstream comparison layer, and some advanced mixed-model
-workflows are still heavier and more environment-dependent than the core map
-workflow. The cross-species public MIC subsets are intentionally tiny and
-should not be overinterpreted biologically. The Streamlit interface is useful
-as a convenience layer, but it is still a prototype rather than a polished
-end-user application.
+generic than the downstream comparison layer. The advanced mixed-model, LIMIX,
+epistatic, heritability, and BLUP workflows are retained as provenance and
+expert extensions from the original paper and thesis analyses, not as the
+default package or app route. The cross-species public MIC subsets are
+intentionally tiny and should not be overinterpreted biologically. The
+Streamlit interface is useful as a convenience layer, but it is still a
+prototype rather than a polished end-user application.
 
 Overall, we view `amrcartography` as a reusable software foundation for
 multivariate AMR phenotype analysis. Its main value lies in making a complex
@@ -306,5 +307,5 @@ Current output directory:
 - add the full reference list and in-text citations
 - decide the target journal and tune title/abstract length to its format
 - refine the results narrative once the final figure set is frozen
-- decide whether to cut `0.2.1` before manuscript submission or continue to
-  cite `v0.2.0`
+- decide whether the manuscript should continue to cite `v0.2.0` or move to
+  `v0.2.1` after the maintenance release is tagged

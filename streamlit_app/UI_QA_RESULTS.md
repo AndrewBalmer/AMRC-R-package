@@ -4,6 +4,8 @@
 
 - 4 April 2026
 - 8 April 2026
+- 7 May 2026
+- 8 May 2026
 
 ## Method
 
@@ -35,6 +37,45 @@ Screenshots:
 - `.tmp_browser_artifacts_2026-04-08/01_home.png`
 - `.tmp_browser_artifacts_2026-04-08/02_mic_only_result.png`
 - `.tmp_browser_artifacts_2026-04-08/03_numeric_external_result.png`
+
+### Bundled demo: release-candidate browser smoke (7 May 2026)
+
+Verified with `streamlit_app/run_browser_qa.py` against a live local app at
+`http://127.0.0.1:8502`:
+
+- `MIC only` completed successfully
+- phenotype map rendered
+- goodness-of-fit summaries rendered
+- report and bundle download controls rendered
+- `Numeric features` completed successfully
+- genotype / structure map rendered
+- side-by-side phenotype/genotype panel rendered
+- reference-distance relationship rendered
+- cluster scree diagnostics rendered
+- zipped output bundle control rendered
+
+### Bundled demos and case-study previews (8 May 2026)
+
+Verified with `streamlit_app/run_browser_qa.py --include-case-studies` against
+a live local app at `http://127.0.0.1:8502`:
+
+- `MIC only` completed successfully
+- `Numeric features` completed successfully
+- `S. pneumoniae` case-study preview completed successfully
+- `S. suis` case-study preview completed successfully
+- phenotype maps rendered for both case-study previews
+- goodness-of-fit summaries rendered for both case-study previews
+- report and zipped bundle controls rendered for the standard demo workflows
+
+Notes:
+
+- Large case studies are run in the app as deterministic aligned preview
+  subsets for responsiveness.
+- The full bundled case-study data remain available for package-level R
+  workflows.
+- The S. pneumoniae preview subset is filtered to IDs shared by the phenotype
+  and genotype-map inputs before sampling, so the app does not silently include
+  phenotype rows that cannot be matched to the genotype / structure map.
 
 ### Bundled demo: MIC only
 

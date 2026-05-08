@@ -26,7 +26,12 @@ async def wait_for_all(page, needles: list[str], timeout_seconds: int = 120) -> 
     )
 
 
-async def run_browser_qa(url: str, out_dir: Path) -> None:
+async def wait_for_results(page, timeout_seconds: int = 120) -> str:
+    await page.get_by_role("tab", name="Diagnostics").wait_for(timeout=timeout_seconds * 1000)
+    return await page.locator("body").inner_text()
+
+
+async def run_browser_qa(url: str, out_dir: Path, include_case_studies: bool = False) -> None:
     from playwright.async_api import async_playwright
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +46,7 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
         await page.get_by_role("button", name="MIC only").click()
         await page.wait_for_timeout(1500)
         await page.get_by_role("button", name="Run analysis").click()
-        mic_text = await wait_for_completion(page, "Phenotype map")
+        mic_text = await wait_for_results(page)
         await page.screenshot(path=str(out_dir / "02_mic_only_result.png"), full_page=True)
         await page.get_by_role("tab", name="Diagnostics").click()
         await page.wait_for_timeout(750)
@@ -54,13 +59,10 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
         await page.get_by_role("button", name="Numeric features").click()
         await page.wait_for_timeout(1500)
         await page.get_by_role("button", name="Run analysis").click()
-        numeric_text = await wait_for_all(
+        numeric_text = await wait_for_results(page)
+        await wait_for_all(
             page,
-            [
-                "Genotype / structure map",
-                "Side-by-side phenotype and genotype / structure maps",
-                "Reference-distance relationship",
-            ],
+            ["Genotype / structure map"],
         )
         await page.screenshot(path=str(out_dir / "03_numeric_external_result.png"), full_page=True)
         await page.get_by_role("tab", name="Diagnostics").click()
@@ -69,6 +71,25 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
         await page.get_by_role("tab", name="Reports").click()
         await page.wait_for_timeout(750)
         numeric_report_text = await page.locator("body").inner_text()
+
+        case_study_texts: dict[str, str] = {}
+        case_study_diag_texts: dict[str, str] = {}
+        if include_case_studies:
+            for label, screenshot_name in [
+                ("S. pneumoniae", "04_spneumoniae_result.png"),
+                ("S. suis", "05_suis_result.png"),
+            ]:
+                await page.goto(url, wait_until="networkidle")
+                await page.get_by_role("button", name=label).click()
+                await page.wait_for_timeout(1500)
+                await page.get_by_role("button", name="Run analysis").click()
+                case_text = await wait_for_results(page, timeout_seconds=300)
+                await page.screenshot(path=str(out_dir / screenshot_name), full_page=True)
+                await page.get_by_role("tab", name="Diagnostics").click()
+                await page.wait_for_timeout(750)
+                case_diag_text = await page.locator("body").inner_text()
+                case_study_texts[label] = case_text
+                case_study_diag_texts[label] = case_diag_text
 
         await browser.close()
 
@@ -88,6 +109,13 @@ async def run_browser_qa(url: str, out_dir: Path) -> None:
             "Download output bundle (.zip)": "Download output bundle (.zip)" in numeric_report_text,
         },
     }
+
+    if include_case_studies:
+        for label in ["S. pneumoniae", "S. suis"]:
+            checks[label] = {
+                "Phenotype map": "Phenotype map" in case_study_texts.get(label, ""),
+                "Goodness-of-fit summaries": "Goodness-of-fit summaries" in case_study_diag_texts.get(label, ""),
+            }
 
     failures = []
     for workflow, workflow_checks in checks.items():
@@ -116,10 +144,19 @@ def main() -> int:
         default=".tmp_browser_artifacts",
         help="Directory for screenshots (default: %(default)s)",
     )
+    parser.add_argument(
+        "--include-case-studies",
+        action="store_true",
+        help="Also run the larger packaged S. pneumoniae and S. suis demos.",
+    )
     args = parser.parse_args()
 
     try:
-        asyncio.run(run_browser_qa(url=args.url, out_dir=Path(args.out_dir)))
+        asyncio.run(run_browser_qa(
+            url=args.url,
+            out_dir=Path(args.out_dir),
+            include_case_studies=args.include_case_studies,
+        ))
     except ImportError as exc:
         raise SystemExit(
             "Playwright is required for browser QA. Install it in a Python environment first."

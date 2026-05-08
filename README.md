@@ -32,10 +32,11 @@ The package is now at the point where it has:
 ## Status
 
 This is still a GitHub release rather than a CRAN release, and the repository
-should be used as-is. The current public milestone is `0.2.0`: the generic API
-is now intentionally usable, but the package is still being prepared for
-manuscript-centered release and long-term API stabilisation. This repository is
-also separate from the related manuscript
+should be used as-is. The current maintenance release candidate is `0.2.1`,
+which adds app, validation, documentation, and provenance cleanup on top of the
+`v0.2.0` manuscript software baseline. The generic API is now intentionally
+usable, but the package is still being prepared for manuscript-centered release
+and long-term API stabilisation. This repository is also separate from the related manuscript
 repository: it contains the package, migrated analysis code, and development
 documentation, not the manuscript submission source itself. The long-term
 package goal is a generic MIC cartography toolkit; the current
@@ -419,7 +420,7 @@ The package now separates what ships in the repository from what is downloaded o
 
 ## How To Cite
 
-The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current publication workflow, the package should be cited as the `v0.2.0` software release; once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
+The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current manuscript workflow, `v0.2.0` remains the software baseline unless you deliberately move the paper to the later `v0.2.1` maintenance release. Once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
 
 ## Repository Layout
 

@@ -1627,7 +1627,8 @@ if (isTRUE(phenotype_cluster_enabled)) {
 }
 
 summary <- list(
-  package_release_target = "v0.2.0",
+  package_release_target = "v0.2.1",
+  manuscript_baseline = "v0.2.0",
   phenotype = list(
     n_isolates = nrow(phenotype_plot_data),
     n_drugs = ncol(mic_data$mic),

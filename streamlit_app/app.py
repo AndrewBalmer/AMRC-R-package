@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
 import subprocess
 import sys
@@ -162,6 +163,9 @@ def demo_specs() -> dict[str, dict]:
             "label": "S. pneumoniae case study",
             "scope": "Bundled large case study",
             "note": "3628-isolate packaged pneumococcal MIC case study with optional genotype-map coordinates for phenotype-vs-genotype comparison.",
+            "app_sample_n": 350,
+            "app_sample_group_col": "PT",
+            "app_sample_note": "The app runs a deterministic 350-isolate preview subset for responsiveness; the full 3628-isolate table remains packaged for R workflows.",
             "phenotype_path": spn_phenotype,
             "phenotype_id_col": "LABID",
             "mic_cols": [
@@ -215,6 +219,9 @@ def demo_specs() -> dict[str, dict]:
             "label": "S. suis case study",
             "scope": suis_scope,
             "note": suis_note,
+            "app_sample_n": 350,
+            "app_sample_group_col": "BAPS2_1092",
+            "app_sample_note": "The app runs a deterministic 350-isolate preview subset for responsiveness; the full 633-isolate panel remains packaged for R workflows.",
             "phenotype_path": suis_required["phenotype_path"],
             "phenotype_id_col": "LABID",
             "mic_cols": ["Amoxicillin", "Cefquinome", "Ceftiofur", "Penicillin"],
@@ -383,11 +390,81 @@ def clear_demo_selection() -> None:
         st.session_state.pop(key, None)
 
 
+def demo_sample_ids(phenotype_df: pd.DataFrame, spec: dict) -> list[str]:
+    id_col = spec["phenotype_id_col"]
+    return phenotype_df[id_col].astype(str).tolist()
+
+
+def subset_demo_phenotype_dataframe(phenotype_df: pd.DataFrame, spec: dict) -> pd.DataFrame:
+    sample_n = spec.get("app_sample_n")
+    if sample_n is None or len(phenotype_df) <= int(sample_n):
+        return phenotype_df.reset_index(drop=True)
+
+    sample_n = int(sample_n)
+    group_col = spec.get("app_sample_group_col")
+    if group_col in phenotype_df.columns:
+        n_groups = max(1, phenotype_df[group_col].nunique(dropna=True))
+        per_group = max(1, int(math.ceil(sample_n / n_groups)))
+        sampled = (
+            phenotype_df
+            .sort_values([group_col, spec["phenotype_id_col"]])
+            .groupby(group_col, sort=True, dropna=False, group_keys=False)
+            .head(per_group)
+        )
+        return sampled.head(sample_n).reset_index(drop=True)
+
+    return phenotype_df.head(sample_n).reset_index(drop=True)
+
+
+def subset_demo_external_dataframe(external_df: pd.DataFrame, spec: dict, sample_ids: list[str] | None) -> pd.DataFrame:
+    if not sample_ids or spec.get("app_sample_n") is None:
+        return external_df
+
+    id_col = spec.get("external_id_col", spec["phenotype_id_col"])
+    sample_id_set = set(str(sample_id) for sample_id in sample_ids)
+    if spec.get("external_mode") == "precomputed_distance":
+        if id_col not in external_df.columns:
+            return external_df
+        keep_rows = external_df[id_col].astype(str).isin(sample_id_set)
+        keep_cols = [id_col] + [col for col in external_df.columns if col != id_col and str(col) in sample_id_set]
+        return external_df.loc[keep_rows, keep_cols].reset_index(drop=True)
+
+    if id_col not in external_df.columns:
+        return external_df
+    return external_df.loc[external_df[id_col].astype(str).isin(sample_id_set)].reset_index(drop=True)
+
+
+def demo_external_id_set(spec: dict) -> set[str] | None:
+    external_path = spec.get("external_path")
+    if external_path is None:
+        return None
+
+    external_df = read_local_csv(external_path)
+    id_col = spec.get("external_id_col", spec["phenotype_id_col"])
+    if id_col not in external_df.columns:
+        return None
+
+    ids = set(external_df[id_col].astype(str))
+    if spec.get("external_mode") == "precomputed_distance":
+        distance_cols = set(str(col) for col in external_df.columns if col != id_col)
+        ids = ids.intersection(distance_cols)
+    return ids
+
+
+def filter_demo_phenotype_to_external_ids(phenotype_df: pd.DataFrame, spec: dict) -> pd.DataFrame:
+    ids = demo_external_id_set(spec)
+    id_col = spec["phenotype_id_col"]
+    if not ids or id_col not in phenotype_df.columns:
+        return phenotype_df
+    return phenotype_df.loc[phenotype_df[id_col].astype(str).isin(ids)].reset_index(drop=True)
+
+
 def load_demo_phenotype_dataframe(spec: dict) -> pd.DataFrame:
     phenotype_df = read_local_csv(spec["phenotype_path"])
     metadata_path = spec.get("phenotype_metadata_path")
     if metadata_path is None:
-        return phenotype_df
+        phenotype_df = filter_demo_phenotype_to_external_ids(phenotype_df, spec)
+        return subset_demo_phenotype_dataframe(phenotype_df, spec)
 
     metadata_df = read_local_csv(metadata_path)
     id_col = spec["phenotype_id_col"]
@@ -397,14 +474,17 @@ def load_demo_phenotype_dataframe(spec: dict) -> pd.DataFrame:
     ]
     if overlap_cols:
         metadata_df = metadata_df.drop(columns=overlap_cols)
-    return phenotype_df.merge(metadata_df, on=id_col, how="left")
+    phenotype_df = phenotype_df.merge(metadata_df, on=id_col, how="left")
+    phenotype_df = filter_demo_phenotype_to_external_ids(phenotype_df, spec)
+    return subset_demo_phenotype_dataframe(phenotype_df, spec)
 
 
-def load_demo_external_dataframe(spec: dict) -> pd.DataFrame | None:
+def load_demo_external_dataframe(spec: dict, sample_ids: list[str] | None = None) -> pd.DataFrame | None:
     external_path = spec.get("external_path")
     if external_path is None:
         return None
-    return read_local_csv(external_path)
+    external_df = read_local_csv(external_path)
+    return subset_demo_external_dataframe(external_df, spec, sample_ids)
 
 
 def demo_catalog_frame() -> pd.DataFrame:
@@ -520,7 +600,7 @@ def apply_demo_selection(demo_key: str) -> None:
         st.session_state["use_genotype_map"] = False
         st.session_state["use_reference_summary"] = False
     else:
-        external_df = load_demo_external_dataframe(spec)
+        external_df = load_demo_external_dataframe(spec, demo_sample_ids(phenotype_df, spec))
         external_columns = external_df.columns.tolist()
         st.session_state["use_genotype_map"] = True
         st.session_state["genotype_mode"] = spec["external_mode"]
@@ -1052,7 +1132,8 @@ with overview_right:
         """
         <div class="amrc-citation-block">
         <h3>Citations and provenance</h3>
-        <p><strong>Software baseline:</strong> <code>amrcartography</code> v0.2.0.</p>
+        <p><strong>App/package maintenance line:</strong> <code>amrcartography</code> v0.2.1.</p>
+        <p><strong>Manuscript software baseline:</strong> <code>amrcartography</code> v0.2.0 unless the paper is deliberately moved to the later maintenance tag.</p>
         <p><strong>Previous AMR cartography manuscript:</strong><br>
         Balmer AJ, Murray GGR, Lo S, Restif O, Weinert LA. <em>Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance</em>. Manuscript draft, 2025.</p>
         <p><strong>Thesis:</strong><br>
@@ -1110,6 +1191,8 @@ with st.sidebar:
     if active_demo_key() is not None:
         st.caption(f"Active dataset: {active_demo_label()}")
         st.caption(DEMO_SPECS[active_demo_key()].get("note", ""))
+        if DEMO_SPECS[active_demo_key()].get("app_sample_note"):
+            st.caption(DEMO_SPECS[active_demo_key()]["app_sample_note"])
         if st.button("Clear selected dataset", width="stretch"):
             clear_demo_selection()
 
@@ -1390,7 +1473,7 @@ if phenotype_df is not None:
             external_upload = st.file_uploader("Genotype / structure CSV", type=["csv"])
         external_df = read_uploaded_csv(external_upload)
         if external_df is None and active_spec is not None:
-            external_df = load_demo_external_dataframe(active_spec)
+            external_df = load_demo_external_dataframe(active_spec, demo_sample_ids(phenotype_df, active_spec))
 
         if external_df is not None:
             external_columns = external_df.columns.tolist()
@@ -1693,8 +1776,8 @@ with main_col:
                             external_upload=external_upload,
                             external_df=external_df,
                             work_dir=work_dir,
-                            phenotype_local_path=active_spec.get("phenotype_path") if active_spec is not None else None,
-                            external_local_path=active_spec.get("external_path") if active_spec is not None else None,
+                            phenotype_local_path=None,
+                            external_local_path=None,
                         )
                         st.session_state["amrc_app_result"] = run_backend(config)
                     except Exception as exc:  # noqa: BLE001
