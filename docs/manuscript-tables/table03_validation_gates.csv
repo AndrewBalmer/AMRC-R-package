@@ -1,0 +1,8 @@
+"validation_layer","command_or_location","checks_emphasised","release_status"
+"R package tests","testthat::test_local()","Function behaviour, error paths, helper contracts","Used during development"
+"Staged repository smoke validation","Rscript tools/run_validation.R --stage smoke","Bundled data manifests, source artefacts, app backend smoke path","Passed locally before v0.2.1"
+"README/vignette examples","Rscript tools/check_readme_examples.R; Rscript tools/render_vignettes.R","User-facing code remains executable","Passed locally before v0.2.1"
+"Manuscript figure build","Rscript tools/build_manuscript_figures.R","Static figure assets regenerate from package-backed code","Passed locally before v0.2.1"
+"Streamlit backend contract","python3 streamlit_app/check_ui_contract.py","App shell and backend configuration contract","Passed locally before v0.2.1"
+"Browser-level app QA","python3 streamlit_app/run_browser_qa.py --include-case-studies","Phenotype-only, phenotype-plus-genotype, S. pneumoniae, S. suis, reports, zip bundle","Passed locally on 8 May 2026"
+"GitHub Actions release gate","R-CMD-check workflow on Ubuntu release/devel plus docs-sanity","Installed-package and source-checkout validation on Linux","Passed for v0.2.1 tag head"
