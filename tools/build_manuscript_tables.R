@@ -122,8 +122,8 @@ example_datasets <- rbind(
     input_type = "Packaged retained case-study bundle",
     n_isolates = count_rows(spn_paths$mic_metadata),
     n_mic_columns = 6L,
-    source = "Original AMR cartography case-study data bundle",
-    source_or_note = "Used as worked example and regression target; manuscript baseline remains v0.2.0",
+    source = "Retained AMR cartography validation bundle linked to Li et al. 2017",
+    source_or_note = "Used as provenance and regression validation for the original cartography workflow; DOI 10.1186/s12864-017-4017-7",
     stringsAsFactors = FALSE
   ),
   data.frame(
@@ -132,8 +132,8 @@ example_datasets <- rbind(
     input_type = "Packaged large app/demo bundle",
     n_isolates = count_rows(suis_paths$phenotype_raw),
     n_mic_columns = 4L,
-    source = "Local S. suis cartography-derived demonstration bundle",
-    source_or_note = "App uses a deterministic aligned preview subset for responsiveness",
+    source = "S. suis cartography-derived demonstration bundle linked to Hadjirin et al. 2021",
+    source_or_note = "Large non-pneumococcal integration example with raw MICs, metadata and external PBP structure; DOI 10.1186/s12915-021-01094-1",
     stringsAsFactors = FALSE
   )
 )
@@ -172,7 +172,7 @@ validation_gates <- data.frame(
     "Passed locally before v0.2.1",
     "Passed locally before v0.2.1",
     "Passed locally before v0.2.1",
-    "Passed locally on 8 May 2026",
+    "Passed locally before v0.2.1",
     "Passed for v0.2.1 tag head"
   ),
   stringsAsFactors = FALSE

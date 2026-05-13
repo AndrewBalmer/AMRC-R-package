@@ -1,161 +1,77 @@
-# Supplementary Information Draft
+# Supplementary Information
 
-Manuscript: `amrcartography: a generic toolkit for cartographic analysis of
-antimicrobial susceptibility phenotypes`
+Manuscript: `amrcartography: reusable cartographic analysis of multidrug antimicrobial susceptibility phenotypes`
 
-Software baseline: `v0.2.0`
+Software release described: `v0.2.1`
 
-Maintenance/app release: `v0.2.1`
+## Supplementary Note 1: Package workflow
 
-## Supplementary Note 1: Package Workflow
+`amrcartography` starts from a phenotype table in which rows represent isolates and columns contain isolate identifiers, MIC values and optional metadata. The minimal package workflow validates the isolate identifier column, checks the requested MIC columns, converts common laboratory MIC strings into numeric values, applies the selected transformation and constructs a cleaned MIC matrix aligned to metadata.
 
-The `amrcartography` workflow starts from a phenotype MIC table. A minimal
-input table requires:
+For raw MIC values, the standard transformation is log2 because MIC assays are normally measured on a doubling-dilution scale. If the user supplies columns that have already been log2-transformed, the transformation should be set to `none`. This distinction is used consistently in the package and in the Streamlit prototype.
 
-- one isolate identifier column
-- one or more MIC columns
-- optional metadata columns for plotting, grouping, clustering, or faceting
+The cleaned MIC matrix is converted into pairwise phenotype distances. These distances are fitted as a low-dimensional map using multidimensional scaling. The fitted object is accompanied by stress, residual and distance-correlation summaries so that the user can inspect whether the map preserves the original phenotype structure.
 
-The core phenotype path is:
+## Supplementary Note 2: Calibration and map-unit interpretation
 
-```r
-mic_data <- amrc_standardise_mic_data(
-  data = mic_table,
-  id_col = "isolate_id",
-  mic_cols = c("drug_a", "drug_b", "drug_c"),
-  metadata_cols = c("lineage", "source"),
-  transform = "log2"
-)
+Rotation and calibration are distinct steps. Rotation changes the map orientation and is useful for visual comparison, panel composition and continuity with previous figures. It does not change distances among isolates. Calibration estimates how distances in the fitted map relate to distances in the original phenotype space.
 
-phenotype_distance <- amrc_compute_mic_distance(mic_data)
-phenotype_map <- amrc_compute_mds(phenotype_distance)
-fit_report <- amrc_map_fit_report(phenotype_map)
-```
+This distinction determines how map grids should be interpreted. A one-unit gridline on a map should be treated as a phenotype-scale unit only when the calibration model supports that interpretation. The package does not recommend manual dilation as a substitute for calibration. Manual stretching may make a figure visually convenient, but it does not provide a quantitative link back to MIC distances.
 
-For raw MIC data, `transform = "log2"` is the standard default. If the input
-MIC columns are already log2-transformed, users should set `transform = "none"`.
+The manuscript figures therefore use package-backed map fitting and plotting defaults, while quantitative scale interpretation follows the calibration relationship. This keeps visual presentation separate from phenotype-distance inference.
 
-## Supplementary Note 2: Calibration And Map Units
+## Supplementary Note 3: Supported external data structures
 
-Map rotation and calibration are separate operations. Rotation changes visual
-orientation but does not change pairwise map distances. Calibration estimates
-how map distances relate to phenotype distances.
+The package supports phenotype-versus-external comparison through an identifier-aligned map table. External structure can be supplied as a precomputed distance matrix, a numeric feature table, a character-state feature table, an aligned allele table or an aligned sequence table. These structures are standardised before comparison so that the phenotype map and external structure are joined by isolate identifier.
 
-The package therefore treats one-unit gridlines as interpretable in MIC-style
-units only after model-based calibration. Manual dilation is intentionally not
-the recommended route for forcing a map to match one MIC unit. This preserves
-the manuscript-consistent interpretation of map scale.
+This design is intentionally broad but not assumption-free. Users remain responsible for producing biologically meaningful external inputs. For example, a penicillin-binding protein distance matrix, a lineage-distance matrix and an aligned sequence table can all be compared with a phenotype map, but each carries different assumptions about what similarity means. The package checks alignment and format; biological interpretation remains study-specific.
 
-## Supplementary Note 3: External Structure Inputs
+Identifier matching is treated as a validation requirement because it is a high-risk silent failure mode. If phenotype and external rows are misaligned, a map comparison can still render while being scientifically wrong. The repository validation layer and Streamlit case-study loader therefore check that bundled phenotype and genotype/structure inputs share the expected identifiers before analysis.
 
-The package can compare phenotype maps with external structure supplied as:
+## Supplementary Note 4: Validation framework
 
-- precomputed distance matrices
-- numeric feature tables
-- character-state feature tables
-- aligned sequence or allele tables
-- package-prepared genotype structures
+Validation is staged throughout the repository. Function-level tests check exported helper behaviour and error handling. Repository smoke validation checks bundled data, manifests, expected generated files and the app backend contract. Manuscript scripts rebuild static figures and tables from package-backed code. Browser-level QA exercises representative app workflows, including MIC-only analysis, phenotype-plus-structure analysis, retained *S. pneumoniae* previews, *S. suis* previews, report rendering and zipped result bundles.
 
-The downstream comparison path depends on isolate identifier alignment. The
-validation layer and app case-study loader explicitly check or enforce this
-alignment to avoid phenotype rows being compared with missing genotype rows.
-
-## Supplementary Note 4: Advanced Association Provenance
-
-The repository contains advanced association and mixed-model helpers inherited
-from the original manuscript/thesis workflow. These include:
-
-- single-feature association scans
-- R-native linear and mixed-model wrappers
-- LIMIX input staging
-- LIMIX multivariate mixed-model wrappers
-- heritability and variance-decomposition wrappers
-- epistatic marker construction
-- permutation scan summaries
-- kinship BLUP helpers
-
-These are retained as expert/provenance workflows. They should not be presented
-as the primary app workflow unless a future release adds stronger validation,
-clearer user guidance, and dedicated case-study examples.
-
-## Supplementary Note 5: Streamlit App
-
-The Streamlit app is a lightweight prototype around the package backend. It is
-phenotype-first. The default workflow is:
-
-1. upload or select MIC phenotype data
-2. choose MIC cleaning and transformation settings
-3. fit a phenotype map
-4. inspect fit, diagnostics, clustering, and reports
-5. optionally add a genotype or structure map
-
-The app exposes separate controls for phenotype and genotype maps. Rotation,
-colouring, faceting, density contours, clustering, and gridline display are not
-shared between maps.
-
-The app does not expose mixed-model, LIMIX, epistatic, heritability, or full
-BLUP workflows in the default interface.
-
-## Supplementary Note 6: Validation
-
-Validation is staged rather than treated as a final-only release step. The
-main validation commands are:
+The main local commands are:
 
 ```sh
 Rscript tools/run_validation.R --stage smoke
-python3 streamlit_app/check_ui_contract.py
-python3 streamlit_app/run_browser_qa.py --include-case-studies
 Rscript tools/build_manuscript_figures.R
 Rscript tools/build_manuscript_tables.R
+python3 streamlit_app/check_ui_contract.py
+python3 streamlit_app/run_browser_qa.py --include-case-studies
 ```
 
-CI validation runs the R-CMD-check workflow on Ubuntu release and devel, plus
-the repository docs-sanity validation stage.
+GitHub Actions provides the Linux release gate through the repository R-CMD-check workflow. That workflow runs package checks on Ubuntu release and devel, alongside docs-sanity validation. Passing validation does not prove that a scientific interpretation is correct, but it reduces the likelihood of silent data, schema, output or reporting failures.
 
-## Supplementary Note 7: Example Data
+## Supplementary Note 5: Streamlit prototype
 
-The package includes several classes of example data:
+The Streamlit prototype provides an interactive wrapper around the package backend. It is phenotype-first. The initial path is to select or upload MIC data, choose MIC-cleaning and transformation settings, fit a phenotype map, inspect fit summaries and generate reports. Genotype or external structure maps are optional and are controlled separately from the phenotype map.
 
-- generic synthetic fixtures for documentation and tests
-- tiny public MIC subsets from the CDC & FDA Antimicrobial Resistance Isolate
-  Bank
-- a retained *Streptococcus pneumoniae* mapping bundle
-- an *S. suis* app/demo bundle
+The app exposes separate controls for phenotype and genotype map rotation, colouring, faceting, density overlays, clustering and gridlines. This separation is necessary because a phenotype map and an external structure map may need different orientations and display settings. The app also includes bundled demonstration datasets, report previews, downloadable output bundles and contextual guidance for interpreting each analysis section.
 
-The public MIC subsets are intentionally tiny and should not be used for new
-biological inference. Their purpose is to exercise MIC parsing, cleaning,
-transformation, and mapping across multiple organism labels and drug panels.
+The prototype is not presented as the main scientific product. It is a demonstration and exploratory interface for the package. Advanced association, LIMIX, epistatic, heritability and full BLUP workflows are intentionally not part of the default app surface.
 
-## Supplementary Tables
+## Supplementary Note 6: Advanced provenance methods
 
-Supplementary Table S1:
+The repository retains advanced association and mixed-model logic that was useful in earlier project stages. These methods include marker-matrix preparation, single-feature scans, adjusted and unadjusted model summaries, LIMIX staging, multivariate mixed-model wrappers, heritability and variance-decomposition helpers, epistatic scan helpers, permutation summaries and BLUP-related utilities.
 
-Full workflow component table generated from
-[tools/build_manuscript_tables.R](/Users/ab69/AMRC-R-package/tools/build_manuscript_tables.R).
+These methods are documented as provenance and expert extensions because they have stronger study-specific assumptions than the core cartography workflow. A formal association model may require explicit phenotype definitions, genetic relatedness correction, marker filtering, multiple-testing control, convergence diagnostics and organism-specific biological review. For that reason, the manuscript does not make the advanced modelling layer central to the software claim.
 
-Supplementary Table S2:
+## Supplementary datasets
 
-Example dataset table generated at
-[docs/manuscript-tables/table02_example_datasets.csv](/Users/ab69/AMRC-R-package/docs/manuscript-tables/table02_example_datasets.csv).
+The generic fixture is a deterministic package example used for documentation, tests and smoke validation. The public MIC examples are small subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank and are used to test raw MIC parsing across several organism labels and drug panels. They are not biological benchmark datasets.
 
-Supplementary Table S3:
+The *S. suis* demonstration bundle contains 633 isolates with raw MICs for four beta-lactam drugs, metadata and an external penicillin-binding protein distance matrix. It is derived from the sibling *S. suis* cartography workflow and linked to the large-scale genomic AMR study by Hadjirin and colleagues. It is used here as a larger integration example and app QA dataset.
 
-Validation gate table generated at
-[docs/manuscript-tables/table03_validation_gates.csv](/Users/ab69/AMRC-R-package/docs/manuscript-tables/table03_validation_gates.csv).
+The retained *S. pneumoniae* bundle preserves the original AMR cartography case-study workflow using phenotype and genotype map assets linked to the Li and colleagues pneumococcal beta-lactam dataset. In this manuscript, it functions as provenance and regression validation rather than the primary new biological result.
 
-Supplementary Table S4:
+## Supplementary tables and reproducibility assets
 
-Public MIC source citation notes in
-[docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md](/Users/ab69/AMRC-R-package/docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md).
+Supplementary Table S1 corresponds to the workflow component table generated at `docs/manuscript-tables/table01_workflow_components.csv`.
 
-## Supplementary Reproducibility Checklist
+Supplementary Table S2 corresponds to the example dataset table generated at `docs/manuscript-tables/table02_example_datasets.csv`.
 
-- Repository release exists for `v0.2.1`.
-- Manuscript baseline remains `v0.2.0` unless explicitly changed.
-- Figure files regenerate from package-backed code.
-- Table files regenerate from package-backed code.
-- Public example citations are documented.
-- App QA includes phenotype-only, phenotype-plus-genotype, *S. pneumoniae*,
-  and *S. suis* workflows.
-- Advanced mixed-model workflows are documented as provenance/expert methods,
-  not as default app workflows.
+Supplementary Table S3 corresponds to the validation gate table generated at `docs/manuscript-tables/table03_validation_gates.csv`.
+
+Supplementary provenance for public MIC examples is documented in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`, and package-level data provenance is documented in `docs/DATA_PROVENANCE.md`.
