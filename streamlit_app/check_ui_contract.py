@@ -41,6 +41,18 @@ def main() -> int:
     assert "MIC only" in button_labels, "Expected bundled MIC-only demo button."
     assert "Numeric features" in button_labels, "Expected bundled numeric feature demo button."
     assert "Character features" in button_labels, "Expected bundled character feature demo button."
+    for public_label in [
+        "Salmonella enterica",
+        "Campylobacter jejuni",
+        "Escherichia coli O157",
+        "Acinetobacter baumannii",
+        "Pseudomonas aeruginosa",
+        "Staphylococcus aureus",
+    ]:
+        assert public_label in button_labels, f"Expected public MIC demo button: {public_label}."
+
+    sidebar_subheaders = [node.value for node in app.sidebar.subheader]
+    assert "Public MIC examples" in sidebar_subheaders, "Public MIC sidebar section is missing."
 
     uploader_labels = [node.label for node in app.file_uploader]
     assert "Phenotype MIC CSV" in uploader_labels, "Phenotype file uploader is missing."

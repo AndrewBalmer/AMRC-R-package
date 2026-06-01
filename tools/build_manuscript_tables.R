@@ -85,6 +85,62 @@ workflow_components <- data.frame(
 )
 
 public_specs <- amrc_public_mic_example_specs()
+split_manifest_values <- function(x) {
+  trimws(strsplit(x, ",", fixed = TRUE)[[1]])
+}
+
+has_censored_mic_values <- function(data, mic_cols) {
+  values <- unlist(data[mic_cols], use.names = FALSE)
+  any(grepl("^[[:space:]]*[<>]=?", as.character(values)))
+}
+
+build_public_mic_metrics <- function(public_specs) {
+  rows <- vector("list", nrow(public_specs))
+
+  for (i in seq_len(nrow(public_specs))) {
+    spec <- public_specs[i, , drop = FALSE]
+    dataset_name <- spec$dataset_name[[1]]
+    mic_cols <- split_manifest_values(spec$suggested_mic_cols[[1]])
+    metadata_cols <- split_manifest_values(spec$suggested_metadata_cols[[1]])
+    data <- amrc_example_data(dataset_name)
+
+    mic_data <- amrc_standardise_mic_data(
+      data = data,
+      id_col = spec$suggested_id_col[[1]],
+      mic_cols = mic_cols,
+      metadata_cols = metadata_cols,
+      transform = "log2",
+      less_than = "numeric",
+      greater_than = "numeric"
+    )
+    phenotype_distance <- amrc_compute_mic_distance(mic_data)
+    phenotype_map <- amrc_compute_mds(phenotype_distance, itmax = 100, eps = 1e-06)
+    fit_report <- amrc_map_fit_report(phenotype_map)
+    calibration <- amrc_calibrate_mds(phenotype_map)
+
+    rows[[i]] <- data.frame(
+      species = spec$species_group[[1]],
+      dataset = dataset_name,
+      n_isolates = nrow(mic_data$mic),
+      n_mic_columns = ncol(mic_data$mic),
+      mic_columns = paste(mic_cols, collapse = "; "),
+      censored_mic_values_present = if (has_censored_mic_values(data, mic_cols)) "yes" else "no",
+      map_stress = unname(phenotype_map$stress %||% NA_real_),
+      fit_r_squared = unname(fit_report$r_squared %||% NA_real_),
+      fit_correlation = unname(fit_report$correlation$estimate %||% NA_real_),
+      calibration_dilation = unname(calibration$dilation %||% NA_real_),
+      source_collection = spec$source_collection[[1]],
+      source_reference = spec$source_reference[[1]],
+      source_panel_url = spec$panel_url[[1]],
+      source_reference_doi = spec$source_reference_doi[[1]],
+      interpretation_role = "Compact portability demonstration; not a species-level biological inference dataset",
+      stringsAsFactors = FALSE
+    )
+  }
+
+  do.call(rbind, rows)
+}
+
 public_examples <- data.frame(
   dataset = public_specs$dataset_name,
   organism_or_scope = public_specs$species_group,
@@ -99,6 +155,7 @@ public_examples <- data.frame(
   source_or_note = public_specs$panel_url,
   stringsAsFactors = FALSE
 )
+public_mic_metrics <- build_public_mic_metrics(public_specs)
 
 generic_path <- amrc_example_data_paths("mic_raw")$mic_raw
 spn_paths <- amrc_spneumoniae_example_paths("mapping_08")
@@ -181,3 +238,4 @@ validation_gates <- data.frame(
 write_table(workflow_components, "table01_workflow_components")
 write_table(example_datasets, "table02_example_datasets")
 write_table(validation_gates, "table03_validation_gates")
+write_table(public_mic_metrics, "table04_public_mic_portability_metrics")

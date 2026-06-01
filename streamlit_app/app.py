@@ -16,6 +16,8 @@ import streamlit as st
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND = REPO_ROOT / "streamlit_app" / "amrc_streamlit_backend.R"
 GENERIC_EXAMPLE_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "generic"
+PUBLIC_MIC_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "public-mic"
+PUBLIC_MIC_MANIFEST = PUBLIC_MIC_ROOT / "public_mic_manifest.csv"
 SPNEUMONIAE_08_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "spneumoniae-08"
 PACKAGED_SUIS_ROOT = REPO_ROOT / "inst" / "extdata" / "examples" / "suis-demo"
 APP_WIKI_PATH = REPO_ROOT / "streamlit_app" / "APP_WIKI.md"
@@ -67,6 +69,83 @@ APP_CAPABILITY_MATRIX = read_text_if_present(APP_CAPABILITY_MATRIX_PATH)
 
 def wiki_section(title: str, fallback: str = "") -> str:
     return APP_WIKI_SECTIONS.get(title, fallback)
+
+
+def split_manifest_values(value) -> list[str]:
+    if pd.isna(value):
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def read_public_mic_manifest() -> pd.DataFrame:
+    if not PUBLIC_MIC_MANIFEST.exists():
+        return pd.DataFrame()
+    return pd.read_csv(PUBLIC_MIC_MANIFEST)
+
+
+def public_mic_demo_specs() -> dict[str, dict]:
+    manifest = read_public_mic_manifest()
+    specs: dict[str, dict] = {}
+    if manifest.empty:
+        return specs
+
+    for _, row in manifest.iterrows():
+        dataset_name = str(row["dataset_name"])
+        species_group = str(row["species_group"])
+        phenotype_path = PUBLIC_MIC_ROOT / str(row["file_name"])
+        if not phenotype_path.exists():
+            continue
+
+        key = f"public_mic_{dataset_name}"
+        mic_cols = split_manifest_values(row["suggested_mic_cols"])
+        metadata_cols = split_manifest_values(row["suggested_metadata_cols"])
+        panel_url = str(row.get("panel_url", ""))
+        doi = str(row.get("source_reference_doi", ""))
+        source_reference = str(row.get("source_reference", ""))
+        note = (
+            f"Tiny public {species_group} MIC subset from the CDC & FDA AR Isolate Bank. "
+            "Use this for portability and MIC-cleaning demonstration, not species-level biological inference."
+        )
+
+        specs[key] = {
+            "label": species_group,
+            "scope": "Public MIC portability example",
+            "note": note,
+            "phenotype_path": phenotype_path,
+            "phenotype_id_col": str(row["suggested_id_col"]),
+            "mic_cols": mic_cols,
+            "metadata_cols": metadata_cols,
+            "transform": "log2",
+            "less_than": "numeric",
+            "greater_than": "numeric",
+            "phenotype_fill_col": "organism" if "organism" in metadata_cols else "species_group",
+            "genotype_fill_col": "(none)",
+            "comparison_group_col": "organism" if "organism" in metadata_cols else "species_group",
+            "phenotype_cluster_distinct_col": str(row["suggested_id_col"]),
+            "genotype_cluster_distinct_col": str(row["suggested_id_col"]),
+            "phenotype_n_clusters": 2,
+            "genotype_n_clusters": 2,
+            "phenotype_cluster_max_k": 4,
+            "genotype_cluster_max_k": 4,
+            "phenotype_rotation_degrees": 0.0,
+            "genotype_rotation_degrees": 0.0,
+            "external_path": None,
+            "external_mode": None,
+            "reference_enabled": False,
+            "provenance": {
+                "dataset_role": "Public MIC portability example",
+                "species": species_group,
+                "dataset_name": dataset_name,
+                "source_collection": str(row.get("source_collection", "")),
+                "source_reference": source_reference,
+                "source_reference_doi": doi,
+                "source_panel_url": panel_url,
+                "source_note": str(row.get("notes", "")),
+                "interpretation_note": "Compact public subset for portability testing; do not use for species-level biological inference.",
+            },
+        }
+
+    return specs
 
 
 def demo_specs() -> dict[str, dict]:
@@ -155,6 +234,8 @@ def demo_specs() -> dict[str, dict]:
             "reference_col": "lineage",
         },
     }
+
+    specs.update(public_mic_demo_specs())
 
     spn_phenotype = existing_path(SPNEUMONIAE_08_ROOT / "meta_data_Spneumoniae.csv")
     spn_external = existing_path(SPNEUMONIAE_08_ROOT / "genotype_map_calibrated.csv")
@@ -625,6 +706,13 @@ def active_demo_label() -> str | None:
     return st.session_state.get("demo_label")
 
 
+def active_demo_provenance() -> dict:
+    spec = DEMO_SPECS.get(active_demo_key()) if active_demo_key() is not None else None
+    if spec is None:
+        return {}
+    return spec.get("provenance", {})
+
+
 def apply_rotation_preset(key: str, value: float) -> None:
     st.session_state[key] = float(value)
 
@@ -666,6 +754,7 @@ def build_config(
     config = {
         "repo_root": str(REPO_ROOT),
         "output_dir": str(work_dir / "output"),
+        "input_provenance": active_demo_provenance(),
         "phenotype": {
             "path": str(phenotype_path),
             "id_col": phenotype_id_col,
@@ -1182,6 +1271,19 @@ with st.sidebar:
     if demo_button_cols[2].button("Character features", width="stretch"):
         apply_demo_selection("generic_character_external")
 
+    public_demo_keys = [
+        key for key, spec in DEMO_SPECS.items()
+        if spec.get("scope") == "Public MIC portability example"
+    ]
+    if public_demo_keys:
+        st.subheader("Public MIC examples")
+        st.caption("Tiny CDC/FDA AR Isolate Bank subsets for portability checks, not biological inference.")
+        for i in range(0, len(public_demo_keys), 2):
+            public_cols = st.columns(2)
+            for col, demo_key in zip(public_cols, public_demo_keys[i:i + 2]):
+                if col.button(DEMO_SPECS[demo_key]["label"], key=f"public-demo-{demo_key}", width="stretch"):
+                    apply_demo_selection(demo_key)
+
     st.subheader("Large case studies")
     case_button_cols = st.columns(2)
     if "spneumoniae_case_study" in DEMO_SPECS and case_button_cols[0].button("S. pneumoniae", width="stretch"):
@@ -1193,6 +1295,20 @@ with st.sidebar:
         st.caption(DEMO_SPECS[active_demo_key()].get("note", ""))
         if DEMO_SPECS[active_demo_key()].get("app_sample_note"):
             st.caption(DEMO_SPECS[active_demo_key()]["app_sample_note"])
+        provenance = active_demo_provenance()
+        if provenance:
+            source_link = provenance.get("source_panel_url")
+            source_doi = provenance.get("source_reference_doi")
+            source_reference = provenance.get("source_reference")
+            st.caption(
+                "Source: "
+                + provenance.get("source_collection", "unknown")
+                + (f" | DOI: {source_doi}" if source_doi else "")
+            )
+            if source_reference:
+                st.caption(source_reference)
+            if source_link:
+                st.markdown(f"[Source panel]({source_link})")
         if st.button("Clear selected dataset", width="stretch"):
             clear_demo_selection()
 
@@ -1738,6 +1854,22 @@ with main_col:
             st.subheader("Phenotype input preview")
             if active_demo_key() is not None and phenotype_upload is None:
                 st.caption(f"Previewing dataset: {active_demo_label()}")
+                provenance = active_demo_provenance()
+                if provenance:
+                    st.info(
+                        "Public MIC portability example. "
+                        "These compact subsets demonstrate MIC parsing and map fitting across public schemas; "
+                        "they are not intended for species-level biological inference."
+                    )
+                    panel_url = provenance.get("source_panel_url")
+                    doi = provenance.get("source_reference_doi")
+                    st.markdown(
+                        "Source: "
+                        f"{provenance.get('source_collection', 'unknown')}"
+                        + (f"; {provenance.get('source_reference')}" if provenance.get("source_reference") else "")
+                        + (f"; DOI [{doi}](https://doi.org/{doi})" if doi else "")
+                        + (f"; [AR Isolate Bank panel]({panel_url})" if panel_url else "")
+                    )
             st.dataframe(phenotype_df.head(10), width="stretch")
             if external_df is not None:
                 st.subheader("Genotype / structure preview")

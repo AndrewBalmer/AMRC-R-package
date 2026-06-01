@@ -47,13 +47,16 @@ File: [figure03_cross_species.png](/Users/ab69/AMRC-R-package/docs/manuscript-fi
 
 Title: Cross-species public MIC portability examples.
 
-Caption: Small public MIC subsets from the CDC & FDA Antimicrobial Resistance
-Isolate Bank are processed through the same MIC cleaning, transformation,
-distance and mapping workflow. The panels demonstrate that the package can
-operate on different organism labels and drug panels without pneumococcus-
-specific assumptions. These compact examples are intended for portability
-testing, documentation and teaching, not for estimating species-level
-resistance landscapes.
+Caption: Six small public MIC subsets from the CDC & FDA Antimicrobial
+Resistance Isolate Bank are processed through the same MIC cleaning,
+transformation, distance and mapping workflow. Panels show *Salmonella
+enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter
+baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. The panels
+demonstrate that the package can operate on different organism labels, MIC
+schemas, drug panels and censored MIC formats without pneumococcus-specific
+assumptions. These compact examples are intended for portability testing,
+documentation and teaching, not for estimating species-level resistance
+landscapes.
 
 ## Figure 4
 
@@ -103,6 +106,19 @@ missing files, empty outputs, app regressions and installed-package failures.
 The table documents checks that go beyond ordinary function-level unit tests
 and are intended to be rerun as the repository evolves.
 
+## Table 4
+
+File: [table04_public_mic_portability_metrics.csv](/Users/ab69/AMRC-R-package/docs/manuscript-tables/table04_public_mic_portability_metrics.csv)
+
+Title: Public MIC portability metrics and provenance.
+
+Caption: Package-generated summary of the six bundled public MIC portability
+examples. The table records organism label, dataset name, isolate count, MIC
+column count, selected MIC columns, whether censored MIC strings are present,
+map fit summaries, calibration dilation, source citation text, source panel URL
+and DOI provenance. These metrics document schema portability and workflow
+execution, not species-level biological conclusions.
+
 ## Supplementary figure candidates
 
 Supplementary Figure S1: Streamlit phenotype-first workflow screenshots.
@@ -118,10 +134,13 @@ association, mixed-model, epistatic, heritability and BLUP-related methods.
 
 ## Supplementary table candidates
 
-Supplementary Table S1: Full exported function inventory grouped by workflow.
+Supplementary Table S1: Workflow components and representative functions.
 
-Supplementary Table S2: Public MIC source panels, URLs and citation notes.
+Supplementary Table S2: Example datasets and intended manuscript roles.
 
 Supplementary Table S3: Validation checklist and CI status at release.
 
-Supplementary Table S4: App capability matrix at `v0.2.1`.
+Supplementary Table S4: Public MIC source panels, URLs, citation notes and
+portability metrics.
+
+Supplementary Table S5: App capability matrix at `v0.2.1`.

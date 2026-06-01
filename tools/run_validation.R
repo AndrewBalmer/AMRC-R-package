@@ -215,6 +215,10 @@ read_csv_keep_names <- function(path) {
   )
 }
 
+split_manifest_values <- function(x) {
+  trimws(strsplit(x, ",", fixed = TRUE)[[1]])
+}
+
 run_rscript <- function(script_path, script_args = character(), label = basename(script_path)) {
   output <- system2(
     command = file.path(R.home("bin"), "Rscript"),
@@ -544,16 +548,181 @@ validate_public_mic_examples <- function() {
     )
     assert_unique_ids(data, "ar_bank_id", paste("Bundled public MIC data", name))
 
-    suggested_cols <- strsplit(
-      manifest$suggested_mic_cols[manifest$dataset_name == name],
-      ",",
-      fixed = TRUE
-    )[[1]]
+    spec <- manifest[manifest$dataset_name == name, , drop = FALSE]
+    suggested_cols <- split_manifest_values(spec$suggested_mic_cols[[1]])
+    suggested_id_col <- spec$suggested_id_col[[1]]
+    suggested_metadata_cols <- split_manifest_values(spec$suggested_metadata_cols[[1]])
     assert_true(
       all(suggested_cols %in% colnames(data)),
       paste("Public MIC manifest suggested_mic_cols no longer match dataset columns for", name)
     )
+    assert_true(
+      suggested_id_col %in% colnames(data),
+      paste("Public MIC manifest suggested_id_col no longer matches dataset columns for", name)
+    )
+    assert_true(
+      all(suggested_metadata_cols %in% colnames(data)),
+      paste("Public MIC manifest suggested_metadata_cols no longer match dataset columns for", name)
+    )
   }
+}
+
+validate_public_mic_backend_smoke <- function() {
+  backend_script <- file.path(repo_root, "streamlit_app", "amrc_streamlit_backend.R")
+  assert_non_empty_file(backend_script, "Streamlit backend script")
+
+  paths <- amrc_fn("amrc_example_data_paths")()
+  manifest <- amrc_fn("amrc_public_mic_example_specs")()
+
+  for (i in seq_len(nrow(manifest))) {
+    spec <- manifest[i, , drop = FALSE]
+    dataset_name <- spec$dataset_name[[1]]
+    output_dir <- tempfile(pattern = paste0("amrc-public-mic-", dataset_name, "-"))
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+    config_path <- file.path(output_dir, "config.json")
+
+    config <- list(
+      repo_root = repo_root,
+      output_dir = output_dir,
+      input_provenance = list(
+        dataset_role = "Public MIC portability example",
+        species = spec$species_group[[1]],
+        dataset_name = dataset_name,
+        source_collection = spec$source_collection[[1]],
+        source_reference = spec$source_reference[[1]],
+        source_reference_doi = spec$source_reference_doi[[1]],
+        source_panel_url = spec$panel_url[[1]],
+        interpretation_note = "Compact public subset for portability testing; do not use for species-level biological inference."
+      ),
+      phenotype = list(
+        path = paths[[dataset_name]],
+        id_col = spec$suggested_id_col[[1]],
+        mic_cols = split_manifest_values(spec$suggested_mic_cols[[1]]),
+        metadata_cols = split_manifest_values(spec$suggested_metadata_cols[[1]]),
+        transform = "log2",
+        drop_incomplete = TRUE,
+        less_than = "numeric",
+        greater_than = "numeric"
+      ),
+      phenotype_plot = list(
+        fill_col = "organism",
+        facet_by = "",
+        grid_spacing_one = TRUE,
+        density = FALSE,
+        rotation_degrees = 0
+      ),
+      report = list(
+        zip_bundle = TRUE,
+        pdf_export = FALSE
+      )
+    )
+
+    jsonlite::write_json(config, path = config_path, auto_unbox = TRUE, pretty = TRUE)
+
+    output <- system2(
+      command = file.path(R.home("bin"), "Rscript"),
+      args = c(backend_script, config_path),
+      env = c(
+        sprintf(
+          "AMRC_PACKAGE_LOAD_MODE=%s",
+          if (isTRUE(prefer_installed_package)) "installed" else "source"
+        ),
+        sprintf("CI=%s", Sys.getenv("CI", unset = "false"))
+      ),
+      stdout = TRUE,
+      stderr = TRUE
+    )
+    status <- attr(output, "status") %||% 0L
+    if (!identical(status, 0L)) {
+      stop(
+        paste(
+          c(sprintf("Public MIC backend smoke run failed for %s:", dataset_name), output),
+          collapse = "\n"
+        ),
+        call. = FALSE
+      )
+    }
+
+    required_files <- file.path(
+      output_dir,
+      c(
+        "summary.json",
+        "phenotype_map.png",
+        "phenotype_map_data.csv",
+        "phenotype_fit_metrics.csv",
+        "amrc_report.md",
+        "amrc_report.html",
+        "amrc_output_bundle.zip"
+      )
+    )
+    for (path in required_files) {
+      assert_non_empty_file(path, paste("Public MIC backend output for", dataset_name))
+    }
+
+    summary <- jsonlite::read_json(file.path(output_dir, "summary.json"), simplifyVector = TRUE)
+    assert_identical_scalar(
+      summary$phenotype$n_isolates,
+      as.integer(spec$n_isolates[[1]]),
+      paste("Public MIC backend isolate count changed for", dataset_name)
+    )
+    assert_identical_scalar(
+      summary$phenotype$n_drugs,
+      length(split_manifest_values(spec$suggested_mic_cols[[1]])),
+      paste("Public MIC backend MIC column count changed for", dataset_name)
+    )
+    assert_identical_scalar(
+      summary$input_provenance$source_reference_doi,
+      spec$source_reference_doi[[1]],
+      paste("Public MIC backend provenance DOI changed for", dataset_name)
+    )
+
+    report_text <- paste(readLines(file.path(output_dir, "amrc_report.md"), warn = FALSE), collapse = "\n")
+    assert_true(
+      grepl("Input provenance", report_text, fixed = TRUE) &&
+        grepl(spec$source_reference[[1]], report_text, fixed = TRUE) &&
+        grepl(spec$source_reference_doi[[1]], report_text, fixed = TRUE),
+      paste("Public MIC report provenance is missing for", dataset_name)
+    )
+  }
+}
+
+validate_manuscript_generated_outputs <- function() {
+  figure_path <- file.path(repo_root, "docs", "manuscript-figures", "figure03_cross_species.png")
+  table_path <- file.path(repo_root, "docs", "manuscript-tables", "table04_public_mic_portability_metrics.csv")
+  manifest <- amrc_fn("amrc_public_mic_example_specs")()
+
+  assert_non_empty_file(figure_path, "Manuscript Figure 3 public MIC portability figure")
+  assert_non_empty_file(table_path, "Public MIC portability metrics table")
+
+  public_metrics <- read_csv_keep_names(table_path)
+  assert_identical_scalar(
+    nrow(public_metrics),
+    nrow(manifest),
+    "Public MIC portability metrics row count changed"
+  )
+  assert_has_columns(
+    public_metrics,
+    c(
+      "species",
+      "dataset",
+      "n_isolates",
+      "n_mic_columns",
+      "mic_columns",
+      "censored_mic_values_present",
+      "map_stress",
+      "fit_r_squared",
+      "calibration_dilation",
+      "source_reference",
+      "source_panel_url",
+      "source_reference_doi",
+      "interpretation_role"
+    ),
+    "Public MIC portability metrics table"
+  )
+  assert_true(
+    all(public_metrics$dataset %in% manifest$dataset_name),
+    "Public MIC portability metrics table contains datasets not in the manifest"
+  )
 }
 
 validate_source_generated_artifacts <- function() {
@@ -1022,6 +1191,8 @@ run_smoke_stage <- function() {
 
   run_check("Bundled generic examples remain valid", validate_generic_examples())
   run_check("Bundled public MIC examples remain valid", validate_public_mic_examples())
+  run_check("Bundled public MIC examples run through Streamlit phenotype backend", validate_public_mic_backend_smoke())
+  run_check("Manuscript public MIC figure and metrics artifacts remain present", validate_manuscript_generated_outputs())
   run_check("Packaged mapping_08 bundle remains internally consistent", validate_mapping_08_bundle())
   run_check("Packaged S. suis bundle remains internally consistent", validate_suis_demo_bundle())
   generated_root <- file.path(repo_root, "inst", "extdata", "generated", "spneumoniae")

@@ -161,15 +161,10 @@ build_comparison_figure <- function() {
 
 build_cross_species_figure <- function() {
   public_specs <- amrc_public_mic_example_specs()
-  datasets <- c(
-    "salmonella_enterica_mic",
-    "campylobacter_jejuni_mic",
-    "acinetobacter_baumannii_mic"
-  )
 
   build_species_plot <- function(dataset_name) {
     spec <- public_specs[public_specs$dataset_name == dataset_name, , drop = FALSE]
-    mic_cols <- strsplit(spec$suggested_mic_cols, ",", fixed = TRUE)[[1]]
+    mic_cols <- trimws(strsplit(spec$suggested_mic_cols, ",", fixed = TRUE)[[1]])
     data <- amrc_example_data(dataset_name)
 
     mic_data <- amrc_standardise_mic_data(
@@ -194,21 +189,44 @@ build_cross_species_figure <- function() {
     )
     plot_data <- merge(plot_data, mic_data$metadata, by = "ar_bank_id", all.x = TRUE, sort = FALSE)
 
+    combined_range <- range(c(plot_data$D1, plot_data$D2), na.rm = TRUE)
+    span <- diff(combined_range)
+    if (!is.finite(span) || span == 0) {
+      span <- 1
+    }
+    padding <- span * 0.08
+    square_limits <- c(combined_range[[1]] - padding, combined_range[[2]] + padding)
+
     amrc_plot_map(
       data = plot_data,
       x = "D1",
       y = "D2",
       point_fill = "#377EB8",
+      point_shape = 21,
+      point_size = 2.7,
       grid_spacing = 1,
+      limits_x = square_limits,
+      limits_y = square_limits,
       use_cartography_theme = TRUE
-    ) + ggplot2::labs(title = spec$species_group[[1]])
+    ) + ggplot2::labs(
+      title = spec$species_group[[1]],
+      subtitle = sprintf(
+        "n=%s; %s MIC variables",
+        nrow(mic_data$mic),
+        ncol(mic_data$mic)
+      )
+    ) +
+      ggplot2::theme(
+        plot.title = ggplot2::element_text(size = 13, colour = "black"),
+        plot.subtitle = ggplot2::element_text(size = 10, colour = "black"),
+        plot.margin = ggplot2::margin(4, 4, 4, 4)
+    )
   }
 
-  amrc_compose_manuscript_triptych_panel(
-    plot_a = build_species_plot(datasets[[1]]),
-    plot_b = build_species_plot(datasets[[2]]),
-    plot_c = build_species_plot(datasets[[3]])
-  )
+  plots <- lapply(public_specs$dataset_name, build_species_plot)
+  patchwork::wrap_plots(plots, ncol = 3, guides = "collect") +
+    patchwork::plot_annotation(tag_levels = "a") &
+    ggplot2::theme(legend.position = "bottom")
 }
 
 build_spneumoniae_validation_figure <- function() {
@@ -243,7 +261,7 @@ build_spneumoniae_validation_figure <- function() {
 plots <- list(
   figure01_generic_workflow = list(plot = build_generic_workflow_figure(), width = 10, height = 5),
   figure02_comparison = list(plot = build_comparison_figure(), width = 10, height = 8),
-  figure03_cross_species = list(plot = build_cross_species_figure(), width = 12, height = 4.8),
+  figure03_cross_species = list(plot = build_cross_species_figure(), width = 12, height = 8),
   figure04_spneumoniae_validation = list(plot = build_spneumoniae_validation_figure(), width = 10, height = 5)
 )
 

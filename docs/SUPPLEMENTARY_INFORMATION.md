@@ -60,7 +60,7 @@ These methods are documented as provenance and expert extensions because they ha
 
 ## Supplementary datasets
 
-The generic fixture is a deterministic package example used for documentation, tests and smoke validation. The public MIC examples are small subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank and are used to test raw MIC parsing across several organism labels and drug panels. They are not biological benchmark datasets.
+The generic fixture is a deterministic package example used for documentation, tests and smoke validation. The public MIC examples are small subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank and are used to test raw MIC parsing across six organism labels and drug panels: *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. They are not biological benchmark datasets. Their generated metrics and provenance are recorded in `docs/manuscript-tables/table04_public_mic_portability_metrics.csv`.
 
 The *S. suis* demonstration bundle contains 633 isolates with raw MICs for four beta-lactam drugs, metadata and an external penicillin-binding protein distance matrix. It is derived from the sibling *S. suis* cartography workflow and linked to the large-scale genomic AMR study by Hadjirin and colleagues. It is used here as a larger integration example and app QA dataset.
 
@@ -73,5 +73,7 @@ Supplementary Table S1 corresponds to the workflow component table generated at 
 Supplementary Table S2 corresponds to the example dataset table generated at `docs/manuscript-tables/table02_example_datasets.csv`.
 
 Supplementary Table S3 corresponds to the validation gate table generated at `docs/manuscript-tables/table03_validation_gates.csv`.
+
+Supplementary Table S4 corresponds to the public MIC portability metrics table generated at `docs/manuscript-tables/table04_public_mic_portability_metrics.csv`.
 
 Supplementary provenance for public MIC examples is documented in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`, and package-level data provenance is documented in `docs/DATA_PROVENANCE.md`.

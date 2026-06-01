@@ -72,12 +72,22 @@ async def run_browser_qa(url: str, out_dir: Path, include_case_studies: bool = F
         await page.wait_for_timeout(750)
         numeric_report_text = await page.locator("body").inner_text()
 
+        await page.goto(url, wait_until="networkidle")
+        await page.get_by_role("button", name="Salmonella enterica").click()
+        await page.wait_for_timeout(1500)
+        await page.get_by_role("button", name="Run analysis").click()
+        public_text = await wait_for_results(page)
+        await page.screenshot(path=str(out_dir / "04_public_salmonella_result.png"), full_page=True)
+        await page.get_by_role("tab", name="Reports").click()
+        await page.wait_for_timeout(750)
+        public_report_text = await page.locator("body").inner_text()
+
         case_study_texts: dict[str, str] = {}
         case_study_diag_texts: dict[str, str] = {}
         if include_case_studies:
             for label, screenshot_name in [
-                ("S. pneumoniae", "04_spneumoniae_result.png"),
-                ("S. suis", "05_suis_result.png"),
+                ("S. pneumoniae", "05_spneumoniae_result.png"),
+                ("S. suis", "06_suis_result.png"),
             ]:
                 await page.goto(url, wait_until="networkidle")
                 await page.get_by_role("button", name=label).click()
@@ -107,6 +117,12 @@ async def run_browser_qa(url: str, out_dir: Path, include_case_studies: bool = F
             "Reference-distance relationship": "Reference-distance relationship" in numeric_text,
             "Goodness-of-fit summaries": "Goodness-of-fit summaries" in numeric_diag_text,
             "Download output bundle (.zip)": "Download output bundle (.zip)" in numeric_report_text,
+        },
+        "public_salmonella": {
+            "Phenotype map": "Phenotype map" in public_text,
+            "Input provenance": "Input provenance" in public_report_text,
+            "AR Isolate Bank DOI": "10.1128/JCM.01415-17" in public_report_text,
+            "Download output bundle (.zip)": "Download output bundle (.zip)" in public_report_text,
         },
     }
 

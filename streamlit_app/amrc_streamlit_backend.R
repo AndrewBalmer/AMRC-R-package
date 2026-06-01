@@ -113,6 +113,10 @@ config <- jsonlite::fromJSON(args[[1]], simplifyVector = TRUE)
 repo_root <- normalizePath(config$repo_root, mustWork = TRUE)
 output_dir <- normalizePath(config$output_dir, winslash = "/", mustWork = FALSE)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+input_provenance <- config$input_provenance %||% NULL
+if (is.list(input_provenance) && length(input_provenance) == 0L) {
+  input_provenance <- NULL
+}
 
 amrc_load_package <- function(repo_root, load_mode = c("source", "installed")) {
   load_mode <- match.arg(load_mode)
@@ -947,6 +951,7 @@ write_cluster_feature_workflow_outputs <- function(
 
 write_run_report <- function(summary, output_dir, config) {
   comparison_summary <- summary$genotype %||% summary$external
+  provenance <- summary$input_provenance %||% NULL
 
   phenotype_lines <- c(
     sprintf("Isolates: %s", summary$phenotype$n_isolates %||% "NA"),
@@ -1180,6 +1185,18 @@ write_run_report <- function(summary, output_dir, config) {
     "`amrc_result_bundle.rds`"
   )
   figures <- amrc_collect_report_figures(output_dir = output_dir, summary = summary)
+  provenance_lines <- character()
+  if (!is.null(provenance)) {
+    provenance_lines <- c(
+      sprintf("Dataset role: %s", provenance$dataset_role %||% "NA"),
+      sprintf("Species / scope: %s", provenance$species %||% "NA"),
+      sprintf("Source collection: %s", provenance$source_collection %||% "NA"),
+      sprintf("Source reference: %s", provenance$source_reference %||% "NA"),
+      sprintf("Source DOI: %s", provenance$source_reference_doi %||% "NA"),
+      sprintf("Source panel URL: %s", provenance$source_panel_url %||% "NA"),
+      sprintf("Interpretation note: %s", provenance$interpretation_note %||% "NA")
+    )
+  }
 
   report_lines <- c(
     "# amrcartography analysis report",
@@ -1195,6 +1212,11 @@ write_run_report <- function(summary, output_dir, config) {
     "## Genotype / structure workflow",
     amrc_markdown_list(genotype_lines),
     "",
+    if (!is.null(provenance)) c(
+      "## Input provenance",
+      amrc_markdown_list(provenance_lines),
+      ""
+    ) else NULL,
     "## Output files",
     amrc_markdown_list(output_items),
     "",
@@ -1311,6 +1333,10 @@ write_run_report <- function(summary, output_dir, config) {
     amrc_html_list(phenotype_lines),
     "<h2>Genotype / structure workflow</h2>",
     amrc_html_list(genotype_lines),
+    if (!is.null(provenance)) paste0(
+      "<h2>Input provenance</h2>",
+      amrc_html_list(provenance_lines)
+    ) else "",
     amrc_html_figure_section(figures),
     "<h2>Output files</h2>",
     amrc_html_list(output_files),
@@ -1629,6 +1655,7 @@ if (isTRUE(phenotype_cluster_enabled)) {
 summary <- list(
   package_release_target = "v0.2.1",
   manuscript_baseline = "v0.2.0",
+  input_provenance = input_provenance,
   phenotype = list(
     n_isolates = nrow(phenotype_plot_data),
     n_drugs = ncol(mic_data$mic),

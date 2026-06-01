@@ -10,6 +10,7 @@ analysis scripts, package helpers, and app outputs.
 Current scope:
 
 - load a bundled generic example dataset with one click for QA/demo runs
+- load six bundled public MIC portability examples as phenotype-only demos
 - load bundled larger case-study demos for `S. pneumoniae` and `S. suis`
 - upload a phenotype MIC CSV
 - choose ID, MIC, and metadata columns
@@ -98,6 +99,20 @@ The sidebar includes quick demo buttons for:
 - generic MIC only
 - generic MIC plus numeric genotype / structure features
 - generic MIC plus character genotype / structure features
+
+The sidebar also includes a dedicated `Public MIC examples` section for six
+tiny CDC/FDA AR Isolate Bank subsets:
+
+- `Salmonella enterica`
+- `Campylobacter jejuni`
+- `Escherichia coli O157`
+- `Acinetobacter baumannii`
+- `Pseudomonas aeruginosa`
+- `Staphylococcus aureus`
+
+These load as phenotype-only demos using manifest-defined ID, MIC and metadata
+columns. Reports include source panel and DOI provenance. They are portability
+fixtures, not species-level biological inference datasets.
 
 These are intended for QA, screenshots, and style checks without having to
 prepare upload files first.

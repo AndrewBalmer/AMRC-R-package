@@ -16,6 +16,7 @@
 - phenotype robustness summaries for missing values, added noise, threshold effects, and disc-diffusion substitution
 - single-feature contrast summaries
 - cluster-difference feature workflows
+- public cross-species MIC examples as phenotype-only demos
 - fit metrics, residual summaries, and stress-per-point summaries
 - phenotype-vs-genotype reference summaries
 - manuscript-style plotting defaults and panel composition
@@ -26,7 +27,6 @@
 - mixed models, LIMIX workflows, heritability, epistasis, and BLUP
   - These are retained as original-paper provenance and expert package tools,
     not as first-line app workflows.
-- public cross-species example vignette workflows
 - advanced manuscript figure composers beyond the main map/report presets
 
 ## In the app but mainly as interface conveniences
