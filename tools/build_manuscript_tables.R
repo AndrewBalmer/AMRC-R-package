@@ -201,6 +201,7 @@ validation_gates <- data.frame(
     "Staged repository smoke validation",
     "README/vignette examples",
     "Manuscript figure build",
+    "Manuscript table build",
     "Streamlit backend contract",
     "Browser-level app QA",
     "GitHub Actions release gate"
@@ -210,27 +211,30 @@ validation_gates <- data.frame(
     "Rscript tools/run_validation.R --stage smoke",
     "Rscript tools/check_readme_examples.R; Rscript tools/render_vignettes.R",
     "Rscript tools/build_manuscript_figures.R",
+    "Rscript tools/build_manuscript_tables.R",
     "python3 streamlit_app/check_ui_contract.py",
     "python3 streamlit_app/run_browser_qa.py --include-case-studies",
     "R-CMD-check workflow on Ubuntu release/devel plus docs-sanity"
   ),
   checks_emphasised = c(
     "Function behaviour, error paths, helper contracts",
-    "Bundled data manifests, source artefacts, app backend smoke path",
+    "Bundled data manifests, public MIC examples, source artefacts, app backend smoke path",
     "User-facing code remains executable",
     "Static figure assets regenerate from package-backed code",
+    "Workflow, dataset, validation and public MIC provenance tables regenerate from package-backed code",
     "App shell and backend configuration contract",
-    "Phenotype-only, phenotype-plus-genotype, S. pneumoniae, S. suis, reports, zip bundle",
+    "Phenotype-only, phenotype-plus-genotype, public MIC representative, S. pneumoniae, S. suis, reports, zip bundle",
     "Installed-package and source-checkout validation on Linux"
   ),
   release_status = c(
-    "Used during development",
-    "Passed locally before v0.2.1",
-    "Passed locally before v0.2.1",
-    "Passed locally before v0.2.1",
-    "Passed locally before v0.2.1",
-    "Passed locally before v0.2.1",
-    "Passed for v0.2.1 tag head"
+    "Used during development and current manuscript pass",
+    "Passed locally for current green manuscript head",
+    "Available for release-readiness reruns",
+    "Regenerated for current manuscript assets",
+    "Regenerated for current manuscript assets",
+    "Passed locally for current app contract",
+    "Passed locally for current phenotype-first app surface",
+    "Passed for current green main head"
   ),
   stringsAsFactors = FALSE
 )

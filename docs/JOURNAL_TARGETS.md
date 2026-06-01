@@ -2,7 +2,11 @@
 
 This shortlist is based on the current manuscript shape: an R package and
 prototype app for multivariate AMR phenotype cartography, with package-backed
-figures, validation, public examples, and a retained biological case study.
+figures, validation, public examples, a larger `S. suis` integration example
+and a retained `S. pneumoniae` provenance case study.
+
+Current decision: prepare the manuscript first for a BMC Bioinformatics
+Software Article. The other journals remain fallback or later-target options.
 
 ## Recommended Strategy
 
@@ -10,10 +14,10 @@ Best initial route:
 
 1. Post a polished preprint to bioRxiv once the full manuscript PDF, figures,
    tables, supplementary information, and reference list are stable.
-2. Submit to a journal that accepts software/methods manuscripts and values
-   biological utility, not only software existence.
-3. Keep `v0.2.0` as the manuscript software baseline unless the manuscript
-   figures and text are deliberately moved to `v0.2.1`.
+2. Submit first to BMC Bioinformatics unless the manuscript is deliberately
+   reframed for a more ambitious or more domain-specific journal.
+3. Use `v0.2.1` as the current manuscript software release because the draft
+   discusses the app, validation and public MIC showcase maintenance work.
 
 ## Shortlist
 
@@ -205,8 +209,7 @@ Source checked:
 
 Primary target:
 
-- BMC Bioinformatics if we want the most practical route for a full software
-  manuscript.
+- BMC Bioinformatics for the current full software/methods manuscript.
 
 Ambitious target:
 
@@ -230,7 +233,7 @@ Software-citation target:
 - Final funding and acknowledgements.
 - Verified reference list.
 - Zenodo DOI or similar archive for the chosen software release.
-- Final decision on whether figures use `v0.2.0` or `v0.2.1`.
+- Final check that figures, tables and text use `v0.2.1` consistently.
 - A stronger Figure 1 schematic if submitting to PLOS Computational Biology or
   Microbial Genomics.
 - A more biological Figure 4 result panel if submitting to Microbial Genomics.

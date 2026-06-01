@@ -6,6 +6,7 @@
 - 8 April 2026
 - 7 May 2026
 - 8 May 2026
+- 1 June 2026
 
 ## Method
 
@@ -76,6 +77,28 @@ Notes:
 - The S. pneumoniae preview subset is filtered to IDs shared by the phenotype
   and genotype-map inputs before sampling, so the app does not silently include
   phenotype rows that cannot be matched to the genotype / structure map.
+
+### Public MIC showcase browser smoke (1 June 2026)
+
+Verified after the public MIC showcase expansion on current green `main`:
+
+- all six public MIC example buttons are present in the dedicated app demo
+  surface
+- public MIC examples load as phenotype-only workflows using manifest-defined
+  identifier, MIC and metadata columns
+- the representative public MIC browser QA path completes successfully
+- report and bundle outputs include source/provenance text for the public MIC
+  examples
+- Figure 3 and the generated public MIC metrics table exist as manuscript
+  artifacts
+
+Notes:
+
+- The public MIC examples are intentionally compact CDC & FDA AR Isolate Bank
+  subsets. Browser QA treats them as portability/schema demonstrations, not as
+  biological benchmark analyses.
+- Full browser QA still does not exhaustively cover every possible user-upload
+  schema or malformed external input.
 
 ### Bundled demo: MIC only
 

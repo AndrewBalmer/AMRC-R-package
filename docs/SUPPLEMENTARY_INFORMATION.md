@@ -4,13 +4,29 @@ Manuscript: `amrcartography: reusable cartographic analysis of multidrug antimic
 
 Software release described: `v0.2.1`
 
+This supplementary information provides implementation detail, provenance and
+reproducibility context for the manuscript. It is written as a companion to the
+main text rather than as an installation manual; executable commands and API
+details remain in the package documentation and repository validation files.
+
 ## Supplementary Note 1: Package workflow
 
-`amrcartography` starts from a phenotype table in which rows represent isolates and columns contain isolate identifiers, MIC values and optional metadata. The minimal package workflow validates the isolate identifier column, checks the requested MIC columns, converts common laboratory MIC strings into numeric values, applies the selected transformation and constructs a cleaned MIC matrix aligned to metadata.
+`amrcartography` starts from a phenotype table in which rows represent isolates
+and columns contain isolate identifiers, MIC values and optional metadata. The
+minimal package workflow validates the isolate identifier column, checks the
+requested MIC columns, converts common laboratory MIC strings into numeric
+values, applies the selected transformation and constructs a cleaned MIC matrix
+aligned to metadata.
 
 For raw MIC values, the standard transformation is log2 because MIC assays are normally measured on a doubling-dilution scale. If the user supplies columns that have already been log2-transformed, the transformation should be set to `none`. This distinction is used consistently in the package and in the Streamlit prototype.
 
-The cleaned MIC matrix is converted into pairwise phenotype distances. These distances are fitted as a low-dimensional map using multidimensional scaling. The fitted object is accompanied by stress, residual and distance-correlation summaries so that the user can inspect whether the map preserves the original phenotype structure.
+The cleaned MIC matrix is converted into pairwise phenotype distances. These
+distances are fitted as a low-dimensional map using multidimensional scaling.
+The fitted object is accompanied by stress, residual and distance-correlation
+summaries so that the user can inspect whether the map preserves the original
+phenotype structure. The same workflow is used by the generic fixtures, the
+public MIC examples, the larger `S. suis` bundle and the retained
+`S. pneumoniae` validation bundle.
 
 ## Supplementary Note 2: Calibration and map-unit interpretation
 
@@ -42,13 +58,26 @@ python3 streamlit_app/check_ui_contract.py
 python3 streamlit_app/run_browser_qa.py --include-case-studies
 ```
 
-GitHub Actions provides the Linux release gate through the repository R-CMD-check workflow. That workflow runs package checks on Ubuntu release and devel, alongside docs-sanity validation. Passing validation does not prove that a scientific interpretation is correct, but it reduces the likelihood of silent data, schema, output or reporting failures.
+GitHub Actions provides the Linux release gate through the repository
+R-CMD-check workflow. That workflow runs package checks on Ubuntu release and
+devel, alongside docs-sanity validation. Passing validation does not prove that
+a scientific interpretation is correct, but it reduces the likelihood of
+silent data, schema, output or reporting failures. For this reason, validation
+is treated as a reusable gate throughout development rather than as a final
+pre-release formality.
 
 ## Supplementary Note 5: Streamlit prototype
 
 The Streamlit prototype provides an interactive wrapper around the package backend. It is phenotype-first. The initial path is to select or upload MIC data, choose MIC-cleaning and transformation settings, fit a phenotype map, inspect fit summaries and generate reports. Genotype or external structure maps are optional and are controlled separately from the phenotype map.
 
-The app exposes separate controls for phenotype and genotype map rotation, colouring, faceting, density overlays, clustering and gridlines. This separation is necessary because a phenotype map and an external structure map may need different orientations and display settings. The app also includes bundled demonstration datasets, report previews, downloadable output bundles and contextual guidance for interpreting each analysis section.
+The app exposes separate controls for phenotype and genotype map rotation,
+colouring, faceting, density overlays, clustering and gridlines. This separation
+is necessary because a phenotype map and an external structure map may need
+different orientations and display settings. The app also includes bundled
+demonstration datasets, report previews, downloadable output bundles and
+contextual guidance for interpreting each analysis section. The six public MIC
+examples are loaded as phenotype-only demonstrations, with provenance text and
+DOI information carried into reports and bundles.
 
 The prototype is not presented as the main scientific product. It is a demonstration and exploratory interface for the package. Advanced association, LIMIX, epistatic, heritability and full BLUP workflows are intentionally not part of the default app surface.
 
@@ -60,7 +89,14 @@ These methods are documented as provenance and expert extensions because they ha
 
 ## Supplementary datasets
 
-The generic fixture is a deterministic package example used for documentation, tests and smoke validation. The public MIC examples are small subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank and are used to test raw MIC parsing across six organism labels and drug panels: *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. They are not biological benchmark datasets. Their generated metrics and provenance are recorded in `docs/manuscript-tables/table04_public_mic_portability_metrics.csv`.
+The generic fixture is a deterministic package example used for documentation,
+tests and smoke validation. The public MIC examples are small subsets from the
+CDC & FDA Antimicrobial Resistance Isolate Bank and are used to test raw MIC
+parsing across six organism labels and drug panels: *Salmonella enterica*,
+*Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*,
+*Pseudomonas aeruginosa* and *Staphylococcus aureus*. They are not biological
+benchmark datasets. Their generated metrics and provenance are recorded in
+`docs/manuscript-tables/table04_public_mic_portability_metrics.csv`.
 
 The *S. suis* demonstration bundle contains 633 isolates with raw MICs for four beta-lactam drugs, metadata and an external penicillin-binding protein distance matrix. It is derived from the sibling *S. suis* cartography workflow and linked to the large-scale genomic AMR study by Hadjirin and colleagues. It is used here as a larger integration example and app QA dataset.
 

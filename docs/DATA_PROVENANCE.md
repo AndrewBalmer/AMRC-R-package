@@ -42,6 +42,8 @@ The goal is to make it unambiguous which data assets:
 - tiny public cross-species MIC subsets under `inst/extdata/examples/public-mic/`
   now spanning enteric, non-fermenter, and staphylococcal examples
   with source citation notes in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`
+- the larger `S. suis` demonstration bundle under `inst/extdata/examples/suis-demo/`,
+  linked to Hadjirin et al. 2021 and used as a package/app integration example
 
 ### Generated on demand
 
@@ -51,7 +53,7 @@ The goal is to make it unambiguous which data assets:
 - processed genotype sequence matrices
 - genotype distance matrices
 
-### Currently unresolved
+### Open policy decisions
 
 - full public redistribution of the larger non-mini notebook-scale source data
 - whether future public example bundles should remain tiny curated subsets or

@@ -199,7 +199,7 @@ Create generic distance builders that do not depend on a specific organism.
 - compute phenotype distance matrices from MIC tables
 - accept user-supplied external distance matrices
 - keep isolate ordering explicit
-- verify that distances and metadata refer to the same isolate IDs
+- check that distances and metadata refer to the same isolate IDs
 
 ### Notes
 

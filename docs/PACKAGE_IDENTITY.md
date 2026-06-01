@@ -1,7 +1,7 @@
 # Package Identity
 
 This file freezes the current package identity choices for the repository so the
-project stops carrying placeholder metadata.
+public package, manuscript and citation metadata stay aligned.
 
 ## Decisions
 
@@ -20,7 +20,7 @@ project stops carrying placeholder metadata.
 - MIT is a reasonable research-software default while development is still
   moving quickly.
 
-## Follow-up checks before public release
+## Human sign-off checks
 
 - Confirm that `ab69@sanger.ac.uk` is the best long-term contact address for
   external users.

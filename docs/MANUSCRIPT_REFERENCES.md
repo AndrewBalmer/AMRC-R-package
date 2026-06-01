@@ -4,6 +4,10 @@ This file records the working bibliography used by `docs/MANUSCRIPT_DRAFT.md`.
 Journal submission may require reformatting, but the entries below include the
 source, role and DOI or URL where available.
 
+Reference/provenance spot-check date: 1 June 2026. Key dataset and method DOIs
+were checked against DOI landing pages or indexed article pages; some publisher
+landing pages block scripted requests while remaining valid in a browser.
+
 ## Core manuscript and data references
 
 1. Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. Antimicrobial

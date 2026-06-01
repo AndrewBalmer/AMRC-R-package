@@ -9,6 +9,11 @@ lightweight cross-species workflow examples. They are not intended to replace
 the underlying AR Isolate Bank resource or to serve as standalone biological
 benchmark datasets.
 
+In the manuscript, these datasets support Figure 3 and the generated
+cross-species metrics/provenance table. They demonstrate input portability
+across organism labels, MIC schemas, drug panels and censored MIC strings; they
+do not support species-level biological inference.
+
 ## General resource citation
 
 Please cite the AR Isolate Bank resource alongside the package when these

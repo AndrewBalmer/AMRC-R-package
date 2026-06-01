@@ -10,7 +10,7 @@ Minimum inhibitory concentration (MIC) measurements are central to antimicrobial
 
 ### Results
 
-We developed `amrcartography`, an open-source R package that generalises AMR phenotype cartography into reusable software. The package validates and cleans raw MIC tables, handles common censored values, applies MIC-appropriate transformations, constructs pairwise phenotype distances, fits low-dimensional maps, calibrates map distances against MIC-derived distances and compares phenotype maps with external biological structure. It also provides manuscript-style visualisation functions, summary tables, staged validation scripts and a lightweight phenotype-first Streamlit prototype. We demonstrate the software using four evidence layers: a generic MIC workflow, phenotype-versus-external structure comparison, small public MIC examples spanning multiple bacterial species and a retained *Streptococcus pneumoniae* case study that acts as provenance and regression validation for the original analysis. A larger *Streptococcus suis* bundle is used as an integration example for phenotype-first analysis with matched metadata and external penicillin-binding protein structure.
+We developed `amrcartography`, an open-source R package that generalises AMR phenotype cartography into reusable software. The package validates and cleans raw MIC tables, handles common censored values, applies MIC-appropriate transformations, constructs pairwise phenotype distances, fits low-dimensional maps, calibrates map distances against MIC-derived distances and compares phenotype maps with external biological structure. It also provides manuscript-style visualisation functions, summary tables, staged validation scripts and a lightweight phenotype-first Streamlit prototype. We demonstrate the software using a multi-example structure: a generic MIC workflow, phenotype-versus-external structure comparison, six public MIC portability examples spanning multiple bacterial species, a larger *Streptococcus suis* integration example and a retained *Streptococcus pneumoniae* provenance case study. The public MIC examples are used to demonstrate schema portability rather than species-level biology, and the pneumococcal workflow is used as validation continuity with the original analysis rather than as the central new result.
 
 ### Conclusions
 
@@ -28,13 +28,13 @@ Cartographic analysis addresses this gap by treating an MIC panel as a multivari
 
 The AMR cartography framework was originally developed for beta-lactam resistance in streptococci and was applied to *Streptococcus pneumoniae* as a proof of concept. That analysis combined MIC cleaning, phenotype distance construction, genotype-distance comparison, multidimensional scaling, calibration and manuscript-specific figure construction. It established the scientific value of phenotype cartography, but much of the implementation remained embedded in notebooks, local files and analysis-specific conventions. This created the common research-software problem in which a useful method exists, but its assumptions are difficult to audit and its workflow is difficult to reuse.
 
-`amrcartography` was developed to separate the reusable method from the original case study. The package retains the pneumococcal workflow as a worked example and regression target, but the public interface is generic: users provide MIC data, metadata and optional external structure; the package returns cleaned inputs, distances, maps, diagnostics, comparison tables and figures. This manuscript therefore does not re-present the pneumococcal analysis as the main new biological result. Instead, it describes the software layer that makes AMR phenotype cartography reusable, validates that layer across several example contexts and documents how the original biological analysis is preserved as provenance.
+`amrcartography` was developed to separate the reusable method from the original case study. The package retains the pneumococcal workflow as a worked example and regression target, but the public interface is generic: users provide MIC data, metadata and optional external structure; the package returns cleaned inputs, distances, maps, diagnostics, comparison tables and figures. This manuscript therefore does not re-present the pneumococcal analysis as the main new biological result. Instead, it describes the software layer that makes AMR phenotype cartography reusable, validates that layer across several example contexts and documents how the original biological analysis is preserved as provenance. The manuscript is structured as a software/methods article: the biological examples support reproducibility, portability and continuity, while the main claim is the availability of a reusable cartographic workflow for multidrug MIC phenotypes.
 
 ## Implementation
 
 ### Package design
 
-`amrcartography` is implemented as an R package. The central workflow begins with a tabular MIC dataset containing one isolate identifier column and one or more MIC columns. Optional metadata columns can be retained for plotting, grouping, faceting, clustering and report generation. The package validates identifier uniqueness, checks that required columns are present, cleans MIC values and returns an aligned data structure containing a numeric MIC matrix and metadata table.
+`amrcartography` is implemented as an R package. The central workflow begins with a tabular MIC dataset containing one isolate identifier column and one or more MIC columns. Optional metadata columns can be retained for plotting, grouping, faceting, clustering and report generation. The package validates identifier uniqueness, checks that required columns are present, cleans MIC values and returns an aligned data structure containing a numeric MIC matrix and metadata table. The major workflow components and representative functions are summarised in Table 1.
 
 The MIC-cleaning layer is deliberately conservative. Laboratory MIC values are commonly supplied as numeric values, text strings or censored values such as `<`, `<=`, `>` and `>=`. The package converts these values into analysis-ready numeric form using explicit user settings. For raw MIC data, the standard default is `log2`, reflecting the doubling-dilution structure of MIC assays. If users supply MICs that have already been log2-transformed, the transformation can be disabled. The app exposes this distinction directly: raw MIC data should normally use log2 transformation, whereas already transformed inputs should use no additional transformation.
 
@@ -70,7 +70,7 @@ The repository retains advanced association and mixed-model code inherited from 
 
 ## Example data
 
-The manuscript uses four categories of example data. First, deterministic generic fixtures demonstrate the complete MIC-to-map workflow in a small transparent setting. Second, small public MIC subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank test portability across organism names, drug panels and raw MIC string formats. These subsets include examples labelled as *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. They are intentionally small and are used for documentation and validation rather than biological inference.
+The manuscript uses four categories of example data (Table 2). First, deterministic generic fixtures demonstrate the complete MIC-to-map workflow in a small transparent setting. Second, small public MIC subsets from the CDC & FDA Antimicrobial Resistance Isolate Bank test portability across organism names, drug panels and raw MIC string formats. These subsets include examples labelled as *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. They are intentionally small and are used for documentation and validation rather than biological inference.
 
 Third, a larger *Streptococcus suis* demonstration bundle contains 633 isolates with raw MICs for amoxicillin, cefquinome, ceftiofur and penicillin, matched metadata and an external penicillin-binding protein distance structure. This bundle is derived from the sibling *S. suis* cartography workflow and is linked to the large-scale *S. suis* AMR dataset described by Hadjirin and colleagues. In this manuscript it is used as an integration example rather than a new biological analysis.
 
@@ -96,7 +96,7 @@ The example also tests a common silent-failure mode: isolate alignment. If pheno
 
 ### Small public MIC examples show cross-species portability without claiming biological inference
 
-The public MIC examples exercise the package across six organism labels and drug panels (Figure 3; Table 4): *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. Each example preserves raw MIC strings from the CDC & FDA Antimicrobial Resistance Isolate Bank, including censoring notation where present. The same cleaning, log2 transformation, distance and mapping workflow is then applied without pneumococcus-specific assumptions.
+The public MIC examples exercise the package across six organism labels and drug panels (Figure 3; Table 4): *Salmonella enterica*, *Campylobacter jejuni*, *Escherichia coli* O157, *Acinetobacter baumannii*, *Pseudomonas aeruginosa* and *Staphylococcus aureus*. Each example contains four isolates and six or seven MIC columns, preserves raw MIC strings from the CDC & FDA Antimicrobial Resistance Isolate Bank and includes censoring notation where present. The same cleaning, log2 transformation, distance and mapping workflow is then applied without pneumococcus-specific assumptions.
 
 The purpose of these examples is portability, not species-level inference. The subsets are deliberately small and should not be interpreted as representative resistance landscapes for the organisms shown. Their value is practical: they demonstrate that the core workflow can accept realistic public MIC formats across multiple bacterial contexts, and they provide compact fixtures for documentation, tests, app QA and provenance-aware report generation.
 
@@ -134,7 +134,7 @@ The package also makes a methodological decision about visual output. In cartogr
 
 Several limitations remain. The public MIC examples are compact fixtures, not representative species datasets. The *S. suis* bundle is a demonstration asset derived from a sibling analysis workflow rather than a full independent data release. The Streamlit interface is useful for exploration and demonstration but is not yet a polished end-user product. The advanced mixed-model, LIMIX, epistasis, heritability and BLUP-related functions are retained as provenance and expert extensions, not as routine app workflows. Users who require formal genotype-phenotype association modelling should evaluate those methods separately and apply appropriate study-specific validation.
 
-Future work should focus on manuscript-grade reproducibility, public example expansion with explicit provenance, stronger report export, and figure-by-figure visual parity between package-generated outputs and the original analysis. Larger app expansion should remain secondary to the phenotype-first package workflow unless additional features can be validated with the same rigor as the core cartography path.
+Future work should focus on larger public example datasets with explicit provenance, stronger report export, and continued figure-by-figure visual parity between package-generated outputs and the original analysis. Larger app expansion should remain secondary to the phenotype-first package workflow unless additional features can be validated with the same rigor as the core cartography path.
 
 ## Conclusions
 
@@ -146,7 +146,7 @@ Project name: `amrcartography`
 
 Project home page: <https://github.com/AndrewBalmer/AMRC-R-package>
 
-Archived release used for this manuscript: `v0.2.1`, <https://github.com/AndrewBalmer/AMRC-R-package/releases/tag/v0.2.1>
+Software release used for this manuscript: `v0.2.1`, <https://github.com/AndrewBalmer/AMRC-R-package/releases/tag/v0.2.1>
 
 Operating systems: platform independent where R and package dependencies are available
 
@@ -178,7 +178,7 @@ The author declares no competing interests.
 
 ## Funding
 
-No specific funding statement is declared in the repository metadata for this software manuscript.
+No specific funding was received for this software manuscript.
 
 ## Author contributions
 

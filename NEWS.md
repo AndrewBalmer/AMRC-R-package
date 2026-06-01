@@ -2,7 +2,13 @@
 
 ## development
 
-- No changes yet.
+- Expanded the manuscript showcase layer so all six bundled public MIC examples
+  are treated consistently as compact portability demonstrations.
+- Updated the Streamlit demo catalog, report provenance, manuscript Figure 3,
+  and public MIC metrics table to describe the public examples as
+  phenotype-only workflows rather than biological benchmark datasets.
+- Refocused manuscript planning on a BMC Bioinformatics-style software/methods
+  paper using `v0.2.1` as the current cited software release.
 
 ## 0.2.1 (2026-05-08)
 
