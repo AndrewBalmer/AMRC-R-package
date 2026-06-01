@@ -33,13 +33,14 @@ The package is now at the point where it has:
 
 This is still a GitHub release rather than a CRAN release, and the repository
 should be used as-is. The current maintenance release is `0.2.1`, which adds
-app, validation, documentation, and provenance cleanup on top of the
-`v0.2.0` manuscript software baseline. The generic API is now intentionally
-usable, but the package is still being prepared for manuscript-centered release
-and long-term API stabilisation. This repository is also separate from the related manuscript
-repository: it contains the package, migrated analysis code, and development
-documentation, not the manuscript submission source itself. The long-term
-package goal is a generic MIC cartography toolkit; the current
+app, validation, documentation, public MIC showcase, and provenance cleanup.
+The current BMC-style manuscript draft cites `v0.2.1` as the formal software
+release. The generic API is now intentionally usable, but the package is still
+being prepared for manuscript-centered release and long-term API
+stabilisation. This repository contains the package, migrated analysis code,
+development documentation, and the generated BMC submission bundle under
+`docs/submission/bmc/`. The long-term package goal is a generic MIC
+cartography toolkit; the current
 *S. pneumoniae* workflow should be read as a worked example and validation
 case, not the permanent center of the public API. An experimental Streamlit
 prototype now lives in [streamlit_app](streamlit_app), but the package API
@@ -420,7 +421,7 @@ The package now separates what ships in the repository from what is downloaded o
 
 ## How To Cite
 
-The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current manuscript workflow, `v0.2.0` remains the software baseline unless you deliberately move the paper to the later `v0.2.1` maintenance release. Once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
+The repository now includes both a GitHub citation file at [CITATION.cff](CITATION.cff) and a standard package citation via `citation("amrcartography")`. For the current BMC-style manuscript workflow, `v0.2.1` is the cited formal software release because the draft discusses the app, validation and public MIC showcase maintenance work. Once the package manuscript is finalized, the citation text should be updated to cite both the software and the paper.
 
 ## Repository Layout
 

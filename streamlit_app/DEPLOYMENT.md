@@ -40,9 +40,11 @@ To deploy on Render:
    or manually check the same flows listed in
    `streamlit_app/UI_QA_CHECKLIST.md`.
 
-Render requires the service to bind on `0.0.0.0`, which the Dockerfile already
-does. See [Render Web Services](https://render.com/docs/web-services) and
-[Render Docker deployment](https://render.com/docs/docker).
+Render requires the service to bind on `0.0.0.0`. The Dockerfile uses
+`${PORT:-8501}`, so Render can inject its runtime port while local Docker runs
+still fall back to 8501. See [Render Web
+Services](https://render.com/docs/web-services) and [Render Docker
+deployment](https://render.com/docs/docker).
 
 ## Streamlit Community Cloud
 

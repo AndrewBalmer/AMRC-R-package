@@ -1,7 +1,7 @@
 # Release Notes: 0.2.1
 
 `amrcartography` 0.2.1 is a maintenance and app-prototype release on top of
-the `v0.2.0` manuscript software baseline.
+the earlier `v0.2.0` generic package baseline.
 
 ## What changed
 
@@ -36,6 +36,6 @@ GitHub Actions passed on the tagged release head before `v0.2.1` was created.
 
 ## Manuscript baseline
 
-The manuscript can continue to cite `v0.2.0` as the software baseline. Move the
-manuscript citation to `v0.2.1` only if you want the app/docs maintenance work
-included in the cited software state.
+The current BMC-style manuscript draft cites `v0.2.1` as the formal software
+release because it discusses the app, validation, public MIC examples, and
+documentation/provenance maintenance work introduced after `v0.2.0`.

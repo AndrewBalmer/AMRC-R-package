@@ -46,6 +46,8 @@ runner and a phenotype-first Streamlit prototype.
   source.
 - Keep `docs/MANUSCRIPT_TABLES_AND_CAPTIONS.md` aligned with generated figure
   and table files.
+- Build the BMC-facing submission bundle with
+  `Rscript tools/build_bmc_submission_package.R`.
 
 ## Validation Gate
 

@@ -9,6 +9,10 @@
   phenotype-only workflows rather than biological benchmark datasets.
 - Refocused manuscript planning on a BMC Bioinformatics-style software/methods
   paper using `v0.2.1` as the current cited software release.
+- Added a repeatable BMC submission-package builder under
+  `tools/build_bmc_submission_package.R`.
+- Updated the Docker launch command to respect Render's `PORT` environment
+  variable while preserving local fallback to port 8501.
 
 ## 0.2.1 (2026-05-08)
 

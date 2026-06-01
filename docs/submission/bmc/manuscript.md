@@ -158,37 +158,49 @@ License: MIT
 
 Restrictions to use by non-academics: none beyond the MIT license.
 
-## Data availability
 
-The repository includes deterministic generic fixtures, small public MIC subsets derived from the CDC & FDA Antimicrobial Resistance Isolate Bank, a retained *S. pneumoniae* mapping bundle and an *S. suis* demonstration bundle. Public MIC example provenance and panel URLs are documented in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`. The public MIC subsets are provided for software documentation, validation and teaching rather than biological inference. The *S. pneumoniae* bundle is linked to the published source data of Li and colleagues, and the *S. suis* bundle is linked to the large-scale genomic AMR study of Hadjirin and colleagues.
+## Declarations
 
-## Code availability
-
-Source code, validation scripts, app code, manuscript figure scripts and manuscript table scripts are available in the project repository at <https://github.com/AndrewBalmer/AMRC-R-package>. Manuscript figures can be regenerated with `Rscript tools/build_manuscript_figures.R`, manuscript tables with `Rscript tools/build_manuscript_tables.R`, and the staged smoke validation with `Rscript tools/run_validation.R --stage smoke`.
-
-## Ethics approval and consent to participate
+### Ethics approval and consent to participate
 
 Not applicable. This manuscript describes software and uses public, synthetic, demonstration or previously assembled data resources.
 
-## Consent for publication
+
+### Consent for publication
 
 Not applicable.
 
-## Competing interests
+
+### Availability of data and materials
+
+
+The repository includes deterministic generic fixtures, small public MIC subsets derived from the CDC & FDA Antimicrobial Resistance Isolate Bank, a retained *S. pneumoniae* mapping bundle and an *S. suis* demonstration bundle. Public MIC example provenance and panel URLs are documented in `docs/PUBLIC_MIC_EXAMPLE_CITATIONS.md`. The public MIC subsets are provided for software documentation, validation and teaching rather than biological inference. The *S. pneumoniae* bundle is linked to the published source data of Li and colleagues, and the *S. suis* bundle is linked to the large-scale genomic AMR study of Hadjirin and colleagues.
+
+
+
+Source code, validation scripts, app code, manuscript figure scripts and manuscript table scripts are available in the project repository at <https://github.com/AndrewBalmer/AMRC-R-package>. Manuscript figures can be regenerated with `Rscript tools/build_manuscript_figures.R`, manuscript tables with `Rscript tools/build_manuscript_tables.R`, and the staged smoke validation with `Rscript tools/run_validation.R --stage smoke`.
+
+
+### Competing interests
 
 The author declares no competing interests.
 
-## Funding
+
+### Funding
 
 No specific funding was received for this software manuscript.
 
-## Author contributions
+
+### Authors' contributions
+
 
 Andrew J. Balmer conceived the software package, migrated the original AMR cartography workflow into reusable functions, curated the bundled examples, implemented validation and app QA workflows, generated the manuscript figures and tables, and wrote the manuscript draft.
 
-## Acknowledgements
+
+### Acknowledgements
 
 The author acknowledges the researchers and public-health agencies whose data resources made the validation and teaching examples possible, including the CDC and FDA Antimicrobial Resistance Isolate Bank, the Active Bacterial Core surveillance-associated pneumococcal data resource and the authors of the large-scale *Streptococcus suis* AMR study. The package also depends on the R, `ggplot2`, `smacof`, `patchwork` and broader open-source scientific software ecosystems.
+
 
 ## References
 

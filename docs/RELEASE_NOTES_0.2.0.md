@@ -75,6 +75,8 @@ core.
 
 ## Citation
 
-For now, cite the `v0.2.0` software release. Once the package manuscript is
-public, the citation guidance should be updated to cite both the software and
-the paper.
+This release was the original generic package baseline. The current BMC-style
+manuscript draft now cites `v0.2.1` because it also describes the app,
+validation, public MIC examples, and documentation/provenance maintenance work.
+Once the package manuscript is public, the citation guidance should cite both
+the software release and the paper.
