@@ -192,7 +192,7 @@ The author acknowledges the researchers and public-health agencies whose data re
 
 ## References
 
-1. Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. Antimicrobial Resistance Cartography: A generalisable framework for studying multivariate drug resistance. bioRxiv. 2025. doi:10.1101/2025.09.12.675231.
+1. Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. Mapping the phenotypic landscape of beta-lactam resistance in *Streptococcus pneumoniae*. bioRxiv. 2025. doi:10.1101/2025.09.12.675231. Posted version (v1) titled "Antimicrobial Resistance Cartography: a generalisable framework for studying multivariate drug resistance"; revised analysis available at <https://github.com/AndrewBalmer/AMR-cartography>.
 2. Li Y, Metcalf BJ, Chochua S, Li Z, Gertz RE Jr, Walker H, Hawkins PA, Tran T, McGee L, Beall BW, Active Bacterial Core surveillance team. Validation of beta-lactam minimum inhibitory concentration predictions for pneumococcal isolates with newly encountered penicillin binding protein (PBP) sequences. BMC Genomics. 2017;18:621. doi:10.1186/s12864-017-4017-7.
 3. Hadjirin NF, Miller EL, Murray GGR, Yen PLK, Phuc HD, Wileman TM, Hernandez-Garcia J, Williamson SM, Parkhill J, Maskell DJ, Zhou R, Fittipaldi N, Gottschalk M, Tucker AWD, Hoa NT, Welch JJ, Weinert LA. Large-scale genomic analysis of antimicrobial resistance in the zoonotic pathogen *Streptococcus suis*. BMC Biology. 2021;19:191. doi:10.1186/s12915-021-01094-1.
 4. Lutgring JD, Machado MJ, Benahmed FH, Conville P, Shawar RM, Patel J, Brown AC. FDA-CDC Antimicrobial Resistance Isolate Bank: a publicly available resource to support research, development, and regulatory requirements. Journal of Clinical Microbiology. 2018;56:e01415-17. doi:10.1128/JCM.01415-17.

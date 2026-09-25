@@ -10,9 +10,18 @@ landing pages block scripted requests while remaining valid in a browser.
 
 ## Core manuscript and data references
 
-1. Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. Antimicrobial
-   Resistance Cartography: A generalisable framework for studying multivariate
-   drug resistance. bioRxiv. 2025. doi:10.1101/2025.09.12.675231.
+1. Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. Mapping the
+   phenotypic landscape of beta-lactam resistance in *Streptococcus
+   pneumoniae*. bioRxiv. 2025. doi:10.1101/2025.09.12.675231. Posted version
+   (v1) titled "Antimicrobial Resistance Cartography: a generalisable framework
+   for studying multivariate drug resistance"; revised analysis available at
+   <https://github.com/AndrewBalmer/AMR-cartography>.
+
+   Note: bioRxiv v1 (16 September 2025) is the only posted version. It carries
+   the former title and the earlier 157-marker genotype-to-phenotype analysis,
+   whose association results, thresholds and counts are superseded by the
+   corrected 170-marker analysis in the repository above. Do not quote
+   genotype-to-phenotype numbers from the v1 PDF.
 
 2. Li Y, Metcalf BJ, Chochua S, Li Z, Gertz RE Jr, Walker H, Hawkins PA, Tran
    T, McGee L, Beall BW, Active Bacterial Core surveillance team. Validation

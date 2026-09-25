@@ -45,7 +45,7 @@
 - [x] Run browser QA locally.
 - [x] Run whitespace/diff hygiene check.
 - [ ] Run browser QA against public Render URL after deployment.
-- [ ] Confirm GitHub Actions is green on the submission-package commit.
+- [x] Confirm GitHub Actions is green on the submission-package commit.
 
 ## Human Sign-off
 

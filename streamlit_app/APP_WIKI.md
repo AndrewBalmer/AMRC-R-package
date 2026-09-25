@@ -94,9 +94,9 @@ Use the exported bundle as the reproducible record of an app run.
 
 ## Citations
 
-Cite the manuscript software baseline as `amrcartography` `v0.2.0` unless you intentionally move the paper to a later tagged release. The app/docs maintenance line is `v0.2.1`.
+Cite the manuscript software baseline as `amrcartography` `v0.2.1`, the release cited in the software manuscript. The app/docs maintenance line is also `v0.2.1`.
 
 Previous AMR cartography work referenced in the app:
 
-- Balmer AJ, Murray GGR, Lo S, Restif O, Weinert LA. *Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance*. Manuscript draft, 2025.
+- Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. *Mapping the Phenotypic Landscape of Beta-lactam Resistance in Streptococcus pneumoniae*. bioRxiv, 2025. doi:10.1101/2025.09.12.675231 (v1 posted under the former title *Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance*). Current corrected analysis: <https://github.com/AndrewBalmer/AMR-cartography>.
 - Balmer AJ. *Multivariate methods for the study of beta-lactam resistance in streptococci*. PhD thesis, University of Cambridge, 2023.

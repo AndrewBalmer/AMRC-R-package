@@ -1222,9 +1222,9 @@ with overview_right:
         <div class="amrc-citation-block">
         <h3>Citations and provenance</h3>
         <p><strong>App/package maintenance line:</strong> <code>amrcartography</code> v0.2.1.</p>
-        <p><strong>Manuscript software baseline:</strong> <code>amrcartography</code> v0.2.0 unless the paper is deliberately moved to the later maintenance tag.</p>
-        <p><strong>Previous AMR cartography manuscript:</strong><br>
-        Balmer AJ, Murray GGR, Lo S, Restif O, Weinert LA. <em>Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance</em>. Manuscript draft, 2025.</p>
+        <p><strong>Manuscript software baseline:</strong> <code>amrcartography</code> v0.2.1, the release cited in the software manuscript.</p>
+        <p><strong>Original AMR cartography paper:</strong><br>
+        Balmer AJ, Murray GGR, Lo SW, Restif O, Weinert LA. <em>Mapping the Phenotypic Landscape of Beta-lactam Resistance in Streptococcus pneumoniae</em>. bioRxiv, 2025. doi:10.1101/2025.09.12.675231 (v1 posted under the former title <em>Antimicrobial Resistance Cartography: A Generalisable Framework for Studying Multivariate Drug Resistance</em>). Current corrected analysis: <a href="https://github.com/AndrewBalmer/AMR-cartography">github.com/AndrewBalmer/AMR-cartography</a>.</p>
         <p><strong>Thesis:</strong><br>
         Balmer AJ. <em>Multivariate methods for the study of beta-lactam resistance in streptococci</em>. PhD thesis, University of Cambridge, 2023.</p>
         <p>The phenotype workflow is the default path. Genotype / structure mapping is optional and uses separate plotting and rotation controls.</p>
